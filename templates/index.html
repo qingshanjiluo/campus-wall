@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}CampusHub — 校园墙主站{% endblock %}
+
+{% block content %}
+<!-- 导航栏 -->
+<nav class="navbar">
+    <div class="container">
+        <a href="/" class="nav-brand">
+            <span class="logo-icon">CH</span>
+            <span class="logo-text">CampusHub</span>
+        </a>
+        <div class="nav-search">
+            <input type="text" id="searchInput" placeholder="搜索子站..." class="search-input">
+            <button id="searchBtn" class="search-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+        </div>
+        <div class="nav-actions">
+            <button class="btn btn-outline btn-sm" onclick="showToast('登录功能开发中')">登录</button>
+            <button class="btn btn-primary btn-sm" onclick="showToast('注册功能开发中')">注册</button>
+        </div>
+    </div>
+</nav>
+
+<!-- 英雄区 -->
+<section class="hero">
+    <div class="hero-geo hero-geo--1"></div>
+    <div class="hero-geo hero-geo--2"></div>
+    <div class="container hero-content">
+        <h1 class="animate__animated animate__fadeInUp">连接校园，分享青春</h1>
+        <p class="animate__animated animate__fadeInUp animate__delay-1s">
+            创建属于你的校园墙，让每一个声音都被听见
+        </p>
+        <div class="hero-btns animate__animated animate__fadeInUp animate__delay-2s">
+            <button class="btn btn-primary btn-lg" onclick="showToast('创建子站功能开发中')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                创建子站
+            </button>
+            <button class="btn btn-outline btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">
+                浏览子站
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- 子站市场 -->
+<section id="stations" class="stations-section">
+    <div class="container">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">热门子站</h2>
+                <p class="section-subtitle">发现校园里的精彩社群</p>
+            </div>
+            <a href="#" class="section-more">查看全部 →</a>
+        </div>
+        <div id="stationGrid" class="station-grid">
+            <!-- 由 JS 动态渲染 -->
+        </div>
+    </div>
+</section>
+
+<!-- 最新动态 -->
+<section class="posts-section">
+    <div class="container">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">最新动态</h2>
+                <p class="section-subtitle">来自各校园墙的实时更新</p>
+            </div>
+            <a href="#" class="section-more">查看全部 →</a>
+        </div>
+        <div id="postList" class="post-list">
+            <!-- 由 JS 动态渲染 -->
+        </div>
+    </div>
+</section>
+
+<!-- 页脚 -->
+<footer class="footer">
+    <div class="container">
+        <p>© 2026 CampusHub. 让校园更美好.</p>
+        <p class="footer-links">
+            <a href="#">关于我们</a> · 
+            <a href="#">用户协议</a> · 
+            <a href="#">隐私政策</a>
+        </p>
+    </div>
+</footer>
+
+<!-- 提示 Toast -->
+<div id="toast" class="toast"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStations();
+        loadPosts();
+        initSearch();
+    });
+</script>
+{% endblock %}

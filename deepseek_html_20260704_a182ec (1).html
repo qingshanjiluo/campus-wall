@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>校园墙 CampusHub · 主平台</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter', 'Noto Sans SC', 'system-ui', 'sans-serif'],
+        pixel: ['"Courier New"', 'monospace'],
+        cyber: ['"Courier New"', 'monospace'],
+      },
+      colors: {
+        primary: 'var(--primary)',
+        secondary: 'var(--secondary)',
+        accent: 'var(--accent)',
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.3s ease-out',
+        'slide-up': 'slideUp 0.4s ease-out',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'glitch': 'glitch 1s linear infinite',
+      },
+      keyframes: {
+        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        glitch: {
+          '0%, 100%': { transform: 'translate(0)' },
+          '20%': { transform: 'translate(-2px, 2px)' },
+          '40%': { transform: 'translate(-2px, -2px)' },
+          '60%': { transform: 'translate(2px, 2px)' },
+          '80%': { transform: 'translate(2px, -2px)' }
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+:root {
+  --primary: #3b82f6; --secondary: #8b5cf6; --accent: #06b6d4;
+  --bg: #f0f4f8; --surface: rgba(255,255,255,0.85); --text: #1e293b; --text-secondary: #64748b;
+  --border: rgba(148,163,184,0.2); --shadow: 0 8px 32px rgba(0,0,0,0.08);
+  --radius: 16px; --radius-sm: 8px;
+}
+.dark {
+  --bg: #0b1120; --surface: rgba(30,41,59,0.7); --text: #f1f5f9; --text-secondary: #94a3b8;
+  --border: rgba(148,163,184,0.1); --shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.theme-cyber {
+  --primary: #ff00ff; --secondary: #00ffff; --accent: #ffff00;
+  --bg: #050510; --surface: rgba(10,10,30,0.8); --text: #e0e0e0; --text-secondary: #8888aa;
+  --border: rgba(0,255,255,0.2); --shadow: 0 0 20px rgba(0,255,255,0.15);
+  --radius: 0px; --radius-sm: 0px;
+}
+.theme-pixel {
+  --primary: #ff6b6b; --secondary: #4ecdc4; --accent: #ffe66d;
+  --bg: #2d3436; --surface: rgba(45,52,54,0.95); --text: #dfe6e9; --text-secondary: #b2bec3;
+  --border: rgba(78,205,196,0.3); --shadow: 4px 4px 0px rgba(0,0,0,0.3);
+  --radius: 0px; --radius-sm: 0px;
+}
+.theme-minimal {
+  --primary: #000; --secondary: #666; --accent: #333;
+  --bg: #fff; --surface: #fff; --text: #000; --text-secondary: #666;
+  --border: #e5e5e5; --shadow: none;
+  --radius: 4px; --radius-sm: 2px;
+}
+
+* { scrollbar-width: thin; scrollbar-color: var(--primary) transparent; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  transition: background 0.3s, color 0.3s;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.glass {
+  background: var(--surface);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: var(--radius);
+  transition: all 0.3s ease;
+}
+.glass:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.12); }
+.dark .glass:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+
+.glass-sm {
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 20px; border-radius: var(--radius-sm);
+  font-weight: 500; font-size: 14px; cursor: pointer;
+  transition: all 0.2s; border: none; outline: none;
+  background: var(--primary); color: white;
+}
+.btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.btn:active { transform: translateY(0); }
+.btn-secondary { background: var(--secondary); }
+.btn-accent { background: var(--accent); color: #000; }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: rgba(128,128,128,0.1); }
+.btn-danger { background: #ef4444; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+.input {
+  width: 100%; padding: 12px 16px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 14px; outline: none; transition: all 0.2s;
+}
+.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px; font-size: 12px;
+  background: rgba(59,130,246,0.1); color: var(--primary);
+  border: 1px solid rgba(59,130,246,0.2); cursor: pointer;
+}
+.tag:hover { background: rgba(59,130,246,0.2); }
+
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  object-fit: cover; border: 2px solid var(--border);
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 600; font-size: 14px;
+}
+
+.nav-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-radius: var(--radius-sm);
+  color: var(--text-secondary); text-decoration: none;
+  font-size: 14px; transition: all 0.2s; cursor: pointer;
+}
+.nav-link:hover, .nav-link.active {
+  background: rgba(59,130,246,0.1); color: var(--primary);
+}
+
+.card-hover { transition: all 0.3s ease; cursor: pointer; }
+.card-hover:hover { transform: translateY(-4px); }
+
+.cyber-theme .glass { border: 1px solid rgba(0,255,255,0.3); box-shadow: 0 0 15px rgba(0,255,255,0.05); }
+.cyber-theme .btn { text-transform: uppercase; letter-spacing: 1px; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%); }
+.pixel-theme .glass { border: 2px solid var(--border); box-shadow: 4px 4px 0 rgba(0,0,0,0.3); }
+.pixel-theme .btn { border: 2px solid var(--text); box-shadow: 3px 3px 0 var(--text); border-radius: 0; }
+.pixel-theme .btn:active { box-shadow: 1px 1px 0 var(--text); transform: translate(2px, 2px); }
+
+.toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+.toast {
+  padding: 14px 20px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow); backdrop-filter: blur(20px);
+  display: flex; align-items: center; gap: 10px;
+  animation: slideUp 0.3s ease-out; max-width: 360px;
+}
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+.modal-content {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--border) 25%, rgba(128,128,128,0.1) 50%, var(--border) 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.poll-bar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.poll-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 0.5s ease; }
+
+.chat-bubble {
+  max-width: 70%; padding: 10px 14px; border-radius: 16px;
+  font-size: 14px; line-height: 1.5; word-break: break-word;
+}
+.chat-bubble-self { background: var(--primary); color: white; border-bottom-right-radius: 4px; }
+.chat-bubble-other { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+
+.stat-card {
+  padding: 20px; border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1));
+  border: 1px solid var(--border);
+}
+
+.progress-ring { transform: rotate(-90deg); }
+.progress-ring-circle { transition: stroke-dashoffset 0.5s ease; }
+
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+[data-theme="cyber"] body { background: #050510; }
+[data-theme="pixel"] body { background: #2d3436; image-rendering: pixelated; }
+[data-theme="minimal"] body { background: #fff; }
+</style>
+<base target="_blank">
+</head>
+<body class="antialiased">
+<div id="app"></div>
+<div id="toast-container" class="toast-container"></div>
+<div id="modal-container"></div>
+
+<script>
+// ==================== 核心数据库层 ====================
+const DB = {
+  _data: null,
+  init() {
+    try {
+      const raw = localStorage.getItem('campushub_v2');
+      if (raw) {
+        this._data = JSON.parse(raw);
+      } else {
+        this._seed();
+      }
+    } catch (e) {
+      console.warn('数据库损坏，已重置', e);
+      this._seed();
+    }
+    this._save();
+  },
+  _seed() {
+    const now = new Date().toISOString();
+    this._data = {
+      users: [
+        { id: 'u1', username: '校园大使', email: 'admin@campus.edu', password: 'admin123', avatar: '', bio: '官方账号', school: 'Campus大学', tags: ['官方','校园'], points: 9999, reputation: 1000, createdAt: now, settings: {theme:'glass',darkMode:false} },
+        { id: 'u2', username: '学霸小明', email: 'xiaoming@campus.edu', password: '123456', avatar: '', bio: '热爱学习', school: 'Campus大学', tags: ['学习','编程'], points: 520, reputation: 80, createdAt: now },
+        { id: 'u3', username: '文艺青年', email: 'art@campus.edu', password: '123456', avatar: '', bio: '摄影/电影/音乐', school: 'Campus大学', tags: ['摄影','电影'], points: 340, reputation: 45, createdAt: now },
+        { id: 'u4', username: '运动达人', email: 'sport@campus.edu', password: '123456', avatar: '', bio: '篮球/跑步/健身', school: 'Campus大学', tags: ['运动','健身'], points: 280, reputation: 60, createdAt: now }
+      ],
+      campuses: [
+        { id: 'c1', name: 'Campus大学主墙', description: 'Campus大学官方校园墙，分享校园生活点滴', cover: '', logo: '', tags: ['官方','综合'], visibility: 'public', joinType: 'open', ownerId: 'u1', members: ['u1','u2','u3','u4'], theme: 'glass', features: {posts:true,chat:true,darkroom:true,tasks:true,ai:true}, createdAt: now, stats: {posts:12,users:4} },
+        { id: 'c2', name: '二次元同好会', description: 'ACG文化交流基地', cover: '', logo: '', tags: ['二次元','ACG'], visibility: 'public', joinType: 'open', ownerId: 'u2', members: ['u2','u3'], theme: 'glass', features: {posts:true,chat:true,darkroom:false,tasks:true,ai:false}, createdAt: now, stats: {posts:5,users:2} }
+      ],
+      posts: [],
+      comments: [],
+      privateMessages: [],
+      chatRooms: [
+        { id: 'r1', campusId: 'c1', name: '灌水大厅', type: 'public', password: '', maxUsers: 100, announcement: '欢迎文明交流', members: ['u1','u2','u3','u4'], createdAt: now },
+        { id: 'r2', campusId: 'c1', name: '学习互助', type: 'public', password: '', maxUsers: 50, announcement: '互帮互助，共同进步', members: ['u1','u2'], createdAt: now }
+      ],
+      chatMessages: [],
+      tasks: [
+        { id: 't1', campusId: 'c1', title: '首次发帖', description: '在社区发布你的第一个帖子', reward: 10, condition: 'post_count>=1', type: 'system', status: 'active', completions: [], createdAt: now },
+        { id: 't2', campusId: 'c1', title: '连续签到7天', description: '坚持每日签到一周', reward: 50, condition: 'sign_streak>=7', type: 'system', status: 'active', completions: [], createdAt: now },
+        { id: 't3', campusId: 'c1', title: '获得10个赞', description: '发布的帖子累计获得10个赞', reward: 20, condition: 'total_likes>=10', type: 'system', status: 'active', completions: [], createdAt: now }
+      ],
+      activities: [],
+      products: [],
+      pointsRecords: [],
+      notifications: [],
+      identityGroups: [
+        { id: 'ig1', campusId: 'c1', name: '萌新', color: '#94a3b8', icon: 'seedling', conditions: {}, permissions: {post:true,comment:true,like:true}, users: ['u2','u3','u4'] },
+        { id: 'ig2', campusId: 'c1', name: '管理员', color: '#ef4444', icon: 'shield-alt', conditions: {}, permissions: {post:true,comment:true,like:true,admin:true}, users: ['u1'] }
+      ],
+      aiUsers: [],
+      aiAdminConfigs: {},
+      signRecords: {},
+      settings: { globalTheme: 'glass' }
+    };
+    // 生成示例帖子
+    const samplePosts = [
+      { id: 'p1', campusId: 'c1', authorId: 'u1', type: 'text', title: '欢迎来到Campus大学主墙！', content: '这里是校园墙主站，你可以创建属于自己的子校园墙，也可以加入现有的社区。\n\n主要功能包括：\n- 发帖互动\n- 积分任务\n- 暗阁交易\n- AI生态\n\n快来探索吧！', images: [], tags: ['公告','校园'], isAnonymous: false, status: 'published', isPinned: true, isFeatured: true, views: 156, likes: ['u2','u3','u4'], favorites: ['u2'], comments: 2, createdAt: now },
+      { id: 'p2', campusId: 'c1', authorId: 'u2', type: 'text', title: '高数期末复习资料分享', content: '整理了一份高数上册的重点笔记，包含极限、导数、积分三大模块的核心公式和例题解析。\n\n需要的朋友评论区扣1，我私发给你~', images: [], tags: ['学习','高数'], isAnonymous: false, status: 'published', isPinned: false, isFeatured: false, views: 89, likes: ['u1','u3'], favorites: ['u1'], comments: 1, createdAt: now },
+      { id: 'p3', campusId: 'c1', authorId: 'u3', type: 'poll', title: '周末校园摄影大赛主题投票', content: '大家希望本次摄影大赛的主题是什么？', images: [], tags: ['摄影','活动'], isAnonymous: false, status: 'published', pollOptions: ['校园风光','人物纪实','创意抽象','微距世界'], pollVotes: {'校园风光':3,'人物纪实':1,'创意抽象':0,'微距世界':2}, views: 45, likes: ['u1','u2','u4'], favorites: [], comments: 0, createdAt: now },
+      { id: 'p4', campusId: 'c1', authorId: 'u4', type: 'text', title: '篮球场约球，今天下午4点', content: '老地方，室内篮球场，3v3还差2个人，来的评论区报名！', images: [], tags: ['运动','约球'], isAnonymous: false, status: 'published', views: 34, likes: ['u1'], favorites: [], comments: 1, createdAt: now },
+      { id: 'p5', campusId: 'c2', authorId: 'u2', type: 'text', title: '推荐一部冷门神作动画', content: '《来自深渊》真的太好看了，画风治愈但剧情深刻，强烈推荐！', images: [], tags: ['动画','推荐'], isAnonymous: false, status: 'published', views: 28, likes: ['u3'], favorites: ['u3'], comments: 1, createdAt: now }
+    ];
+    const sampleComments = [
+      { id: 'cm1', postId: 'p1', authorId: 'u2', content: '太棒了！期待更多功能上线', parentId: null, likes: ['u3'], createdAt: now },
+      { id: 'cm2', postId: 'p1', authorId: 'u3', content: '界面设计很赞，玻璃态风格好看', parentId: null, likes: ['u2'], createdAt: now },
+      { id: 'cm3', postId: 'p2', authorId: 'u4', content: '111 求资料！', parentId: null, likes: [], createdAt: now },
+      { id: 'cm4', postId: 'p4', authorId: 'u1', content: '算我一个！', parentId: null, likes: [], createdAt: now },
+      { id: 'cm5', postId: 'p5', authorId: 'u3', content: '确实神作，剧场版也超棒', parentId: null, likes: ['u2'], createdAt: now }
+    ];
+    this._data.posts = samplePosts;
+    this._data.comments = sampleComments;
+  },
+  _save() {
+    try {
+      localStorage.setItem('campushub_v2', JSON.stringify(this._data));
+    } catch (e) {
+      console.error('保存数据失败', e);
+      U.toast('本地存储空间不足，请清理数据', 'error');
+    }
+  },
+  get(t) { return [...(this._data[t]||[])]; },
+  getById(t, id) { return this.get(t).find(x=>x.id===id)||null; },
+  insert(t, item) {
+    if(!this._data[t]) this._data[t]=[];
+    item.id = item.id || 'id_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+    item.createdAt = item.createdAt || new Date().toISOString();
+    this._data[t].push(item); this._save(); return item;
+  },
+  update(t, id, upd) {
+    const item = this._data[t]?.find(x=>x.id===id);
+    if(item) { Object.assign(item, upd); this._save(); return item; }
+    return null;
+  },
+  delete(t, id) { this._data[t]=(this._data[t]||[]).filter(x=>x.id!==id); this._save(); },
+  query(t, fn) { return this.get(t).filter(fn); }
+};
+
+// ==================== 状态管理 ====================
+const Store = {
+  state: { currentUser: null, currentCampus: null, theme: 'glass', darkMode: false, kimiKey: '' },
+  init() {
+    try {
+      const s = localStorage.getItem('campushub_state');
+      if(s) {
+        const d = JSON.parse(s);
+        Object.assign(this.state, d);
+        if(d.currentUser) this.state.currentUser = DB.getById('users', d.currentUser.id);
+        if(d.currentCampus) this.state.currentCampus = DB.getById('campuses', d.currentCampus.id);
+      }
+    } catch (e) {
+      console.warn('用户状态损坏，已重置', e);
+    }
+    this.state.kimiKey = localStorage.getItem('kimi_api_key') || '';
+    this.applyTheme();
+  },
+  save() {
+    try {
+      localStorage.setItem('campushub_state', JSON.stringify({
+        currentUser: this.state.currentUser,
+        currentCampus: this.state.currentCampus,
+        theme: this.state.theme,
+        darkMode: this.state.darkMode
+      }));
+    } catch (e) {
+      console.error('保存状态失败', e);
+    }
+  },
+  setUser(u) { this.state.currentUser=u; this.save(); },
+  setCampus(c) { this.state.currentCampus=c; this.save(); },
+  setTheme(t) { this.state.theme=t; this.applyTheme(); this.save(); },
+  setDark(d) { this.state.darkMode=d; this.applyTheme(); this.save(); },
+  applyTheme() {
+    document.documentElement.className = '';
+    if(this.state.darkMode) document.documentElement.classList.add('dark');
+    if(this.state.theme==='cyber') document.documentElement.classList.add('theme-cyber');
+    if(this.state.theme==='pixel') document.documentElement.classList.add('theme-pixel');
+    if(this.state.theme==='minimal') document.documentElement.classList.add('theme-minimal');
+    document.documentElement.setAttribute('data-theme', this.state.theme);
+  },
+  logout() { this.state.currentUser=null; this.state.currentCampus=null; this.save(); }
+};
+
+// ==================== 工具函数 ====================
+const U = {
+  fmtTime(d) {
+    const now = new Date(), t = new Date(d);
+    const diff = (now - t)/1000;
+    if(diff<60) return '刚刚';
+    if(diff<3600) return Math.floor(diff/60)+'分钟前';
+    if(diff<86400) return Math.floor(diff/3600)+'小时前';
+    if(diff<604800) return Math.floor(diff/86400)+'天前';
+    return t.toLocaleDateString('zh-CN');
+  },
+  esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; },
+  uid() { return 'id_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); },
+  toast(msg, type='info') {
+    const c = document.getElementById('toast-container');
+    if (!c) return;
+    const icons = {info:'info-circle',success:'check-circle',error:'exclamation-circle',warn:'exclamation-triangle'};
+    const colors = {info:'#3b82f6',success:'#22c55e',error:'#ef4444',warn:'#f59e0b'};
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = `<i class="fas fa-${icons[type]}" style="color:${colors[type]};font-size:18px"></i><span>${U.esc(msg)}</span>`;
+    c.appendChild(el);
+    setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(100%)';setTimeout(()=>el.remove(),300)},3000);
+  },
+  modal(html, onClose) {
+    const c = document.getElementById('modal-container');
+    c.innerHTML = `<div class="modal-overlay" onclick="if(event.target===this){U.closeModal();${onClose?'('+onClose+')()':''}}"><div class="modal-content">${html}</div></div>`;
+  },
+  closeModal() { document.getElementById('modal-container').innerHTML=''; },
+  getAvatar(u) {
+    if(!u) return '';
+    if(u.avatar) return `<img src="${U.esc(u.avatar)}" class="avatar" style="width:40px;height:40px">`;
+    return `<div class="avatar" style="width:40px;height:40px">${U.esc(u.username.slice(0,2))}</div>`;
+  },
+  getAvatarSmall(u, size=24) {
+    if(!u) return '';
+    if(u.avatar) return `<img src="${U.esc(u.avatar)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover">`;
+    return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;color:white;font-size:${size/2}px;font-weight:600">${U.esc(u.username.slice(0,1))}</div>`;
+  },
+  renderMarkdown(text) {
+    if(!text) return '';
+    return U.esc(text)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code style="background:rgba(128,128,128,0.1);padding:2px 4px;border-radius:4px;font-family:monospace">$1</code>')
+      .replace(/\n/g, '<br>');
+  },
+  isMember(campus, userId) {
+    if(!campus || !userId) return false;
+    return campus.members?.includes(userId) || campus.ownerId===userId;
+  },
+  isAdmin(campus, userId) {
+    if(!campus || !userId) return false;
+    if(campus.ownerId===userId) return true;
+    const igs = DB.query('identityGroups', g=>g.campusId===campus.id && g.users?.includes(userId));
+    return igs.some(g=>g.permissions?.admin);
+  }
+};
+
+// ==================== 服务层 ====================
+const S = {
+  auth: {
+    register(d) {
+      if(DB.query('users',u=>u.username===d.username).length) return {error:'用户名已存在'};
+      if(DB.query('users',u=>u.email===d.email).length) return {error:'邮箱已被注册'};
+      const u = DB.insert('users', {...d, points:100, reputation:0, createdAt:new Date().toISOString(), settings:{}});
+      S.points.add(u.id, null, 100, '注册奖励');
+      S.notify.create(u.id, 'system', '欢迎加入校园墙', '注册成功，获得100积分新手奖励！');
+      return {user:u};
+    },
+    login(d) {
+      const u = DB.get('users').find(x=>x.email===d.email && x.password===d.password);
+      if(!u) return {error:'邮箱或密码错误'};
+      return {user:u};
+    }
+  },
+  campus: {
+    create(d) {
+      const c = DB.insert('campuses', {...d, members:[d.ownerId], stats:{posts:0,users:1}, createdAt:new Date().toISOString()});
+      DB.insert('identityGroups', {campusId:c.id, name:'萌新', color:'#94a3b8', icon:'seedling', conditions:{}, permissions:{post:true,comment:true,like:true}, users:[d.ownerId]});
+      DB.insert('identityGroups', {campusId:c.id, name:'管理员', color:'#ef4444', icon:'shield-alt', conditions:{}, permissions:{post:true,comment:true,like:true,admin:true}, users:[d.ownerId]});
+      return c;
+    },
+    join(campusId, userId) {
+      const c = DB.getById('campuses', campusId);
+      if(!c) return {error:'子站不存在'};
+      if(c.members?.includes(userId)) return {error:'已是成员'};
+      c.members = [...(c.members||[]), userId];
+      DB.update('campuses', campusId, {members:c.members});
+      const ig = DB.query('identityGroups', g=>g.campusId===campusId && g.name==='萌新')[0];
+      if(ig) { ig.users = [...(ig.users||[]), userId]; DB.update('identityGroups', ig.id, {users:ig.users}); }
+      return {success:true};
+    }
+  },
+  post: {
+    create(d) {
+      const p = DB.insert('posts', {...d, status:'published', views:0, likes:[], favorites:[], comments:0, createdAt:new Date().toISOString()});
+      S.points.add(d.authorId, d.campusId, 5, '发布帖子');
+      S.checkTasks(d.authorId, d.campusId);
+      return p;
+    },
+    like(postId, userId) {
+      const p = DB.getById('posts', postId);
+      if(!p) return;
+      if(p.likes?.includes(userId)) { p.likes = p.likes.filter(x=>x!==userId); }
+      else { p.likes = [...(p.likes||[]), userId]; S.points.add(p.authorId, p.campusId, 1, '帖子被赞'); }
+      DB.update('posts', postId, {likes:p.likes});
+      return p.likes?.includes(userId);
+    },
+    favorite(postId, userId) {
+      const p = DB.getById('posts', postId);
+      if(!p) return;
+      if(p.favorites?.includes(userId)) { p.favorites = p.favorites.filter(x=>x!==userId); }
+      else { p.favorites = [...(p.favorites||[]), userId]; }
+      DB.update('posts', postId, {favorites:p.favorites});
+      return p.favorites?.includes(userId);
+    },
+    view(postId) {
+      const p = DB.getById('posts', postId);
+      if(p) DB.update('posts', postId, {views:(p.views||0)+1});
+    }
+  },
+  comment: {
+    create(d) {
+      const c = DB.insert('comments', {...d, likes:[], createdAt:new Date().toISOString()});
+      const p = DB.getById('posts', d.postId);
+      if(p) DB.update('posts', d.postId, {comments:(p.comments||0)+1});
+      S.points.add(d.authorId, p?.campusId, 2, '发表评论');
+      if(p && p.authorId!==d.authorId) S.notify.create(p.authorId, 'comment', '新评论', `${Store.state.currentUser?.username}评论了你的帖子《${p.title}》`);
+      return c;
+    }
+  },
+  points: {
+    add(userId, campusId, amount, reason) {
+      const u = DB.getById('users', userId);
+      if(u) DB.update('users', userId, {points:(u.points||0)+amount});
+      DB.insert('pointsRecords', {userId, campusId, amount, reason, createdAt:new Date().toISOString()});
+      if(Store.state.currentUser?.id===userId) Store.state.currentUser = DB.getById('users', userId);
+    },
+    getBalance(userId) { const u=DB.getById('users',userId); return u?.points||0; },
+    getRecords(userId) { return DB.query('pointsRecords',r=>r.userId===userId).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)); }
+  },
+  notify: {
+    create(userId, type, title, content) {
+      DB.insert('notifications', {userId, type, title, content, isRead:false, createdAt:new Date().toISOString()});
+    },
+    getUnread(userId) { return DB.query('notifications',n=>n.userId===userId && !n.isRead).length; },
+    markRead(userId) {
+      DB.get('notifications').filter(n=>n.userId===userId && !n.isRead).forEach(n=>DB.update('notifications', n.id, {isRead:true}));
+    }
+  },
+  chat: {
+    sendPM(senderId, receiverId, content) {
+      const msg = DB.insert('privateMessages', {senderId, receiverId, content, isRead:false, createdAt:new Date().toISOString()});
+      S.notify.create(receiverId, 'message', '新私信', `${Store.state.currentUser?.username}: ${content.slice(0,20)}`);
+      return msg;
+    },
+    getPMs(userId, otherId) {
+      return DB.query('privateMessages', m=>
+        (m.senderId===userId && m.receiverId===otherId) || (m.senderId===otherId && m.receiverId===userId)
+      ).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    },
+    getRecentChats(userId) {
+      const all = DB.query('privateMessages', m=>m.senderId===userId || m.receiverId===userId);
+      const map = new Map();
+      all.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).forEach(m=>{
+        const oid = m.senderId===userId ? m.receiverId : m.senderId;
+        if(!map.has(oid)) map.set(oid, m);
+      });
+      return Array.from(map.entries()).map(([userId,lastMsg])=>({userId,lastMsg}));
+    },
+    sendRoom(roomId, senderId, content) {
+      return DB.insert('chatMessages', {roomId, senderId, content, createdAt:new Date().toISOString()});
+    },
+    getRoomMsgs(roomId) {
+      return DB.query('chatMessages', m=>m.roomId===roomId).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    }
+  },
+  task: {
+    complete(taskId, userId) {
+      const t = DB.getById('tasks', taskId);
+      if(!t || t.completions?.includes(userId)) return false;
+      t.completions = [...(t.completions||[]), userId];
+      DB.update('tasks', taskId, {completions:t.completions});
+      S.points.add(userId, t.campusId, t.reward, `完成任务: ${t.title}`);
+      S.notify.create(userId, 'system', '任务完成', `完成任务「${t.title}」，获得${t.reward}积分`);
+      return true;
+    }
+  },
+  sign: {
+    do(userId, campusId) {
+      const today = new Date().toDateString();
+      const key = `${userId}_${campusId||'global'}`;
+      const rec = DB._data.signRecords[key] || {dates:[], streak:0};
+      if(rec.dates.includes(today)) return {error:'今日已签到'};
+      rec.dates.push(today);
+      const yesterday = new Date(Date.now()-86400000).toDateString();
+      rec.streak = rec.dates.includes(yesterday) ? rec.streak+1 : 1;
+      DB._data.signRecords[key] = rec; DB._save();
+      const reward = Math.min(rec.streak, 7);
+      S.points.add(userId, campusId, reward, `签到奖励(连续${rec.streak}天)`);
+      return {streak:rec.streak, reward};
+    },
+    get(userId, campusId) {
+      const key = `${userId}_${campusId||'global'}`;
+      return DB._data.signRecords[key] || {dates:[], streak:0};
+    }
+  },
+  checkTasks(userId, campusId) {
+    const tasks = DB.query('tasks', t=>t.campusId===campusId && t.type==='system');
+    const posts = DB.query('posts', p=>p.authorId===userId && p.campusId===campusId).length;
+    const totalLikes = DB.get('posts').filter(p=>p.authorId===userId).reduce((a,p)=>a+(p.likes?.length||0),0);
+    tasks.forEach(t=>{
+      if(t.completions?.includes(userId)) return;
+      if(t.condition==='post_count>=1' && posts>=1) S.task.complete(t.id, userId);
+      if(t.condition==='total_likes>=10' && totalLikes>=10) S.task.complete(t.id, userId);
+    });
+  }
+};
+
+// ==================== AI 服务 (真实调用 Kimi API) ====================
+const AI = {
+  async call(messages, temperature=0.7) {
+    const key = Store.state.kimiKey;
+    if(!key) return {error:'请先配置 Kimi API Key'};
+    try {
+      const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+        body: JSON.stringify({model:'moonshot-v1-8k', messages, temperature})
+      });
+      const data = await res.json();
+      if(data.error) return {error:data.error.message};
+      return {content: data.choices?.[0]?.message?.content};
+    } catch(e) { return {error:e.message}; }
+  },
+  async generatePost(topic, persona) {
+    const prompt = `你是一位${persona}的校园墙用户。请围绕「${topic}」生成一篇校园墙帖子，包含标题和正文。要求：1.语气自然像真实学生 2.内容健康积极 3.标题吸引人 4.正文200字以内 5.直接输出JSON格式：{"title":"...","content":"..."}`;
+    const r = await this.call([{role:'user',content:prompt}], 0.9);
+    if(r.error) return r;
+    try { const m = r.content.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : {error:'解析失败'}; }
+    catch(e) { return {error:'解析失败'}; }
+  },
+  async audit(content) {
+    const prompt = `请审核以下校园墙内容是否违规。违规类型：色情、暴力、广告、诈骗、辱骂、其他。只回复一个JSON：{"violation":true/false, "type":"...", "reason":"..."}\n\n内容：${content.slice(0,500)}`;
+    const r = await this.call([{role:'user',content:prompt}], 0.1);
+    if(r.error) return {violation:false};
+    try { const m = r.content.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : {violation:false}; }
+    catch(e) { return {violation:false}; }
+  },
+  async replyAsAI(style, context) {
+    const styles = {concise:'简洁', warm:'热情', humor:'幽默', pro:'专业'};
+    const prompt = `你是一位${styles[style]||'热情'}的校园墙用户。请根据以下上下文回复一条消息，要求自然、口语化、像真实学生聊天。不超过100字。\n\n上下文：${context}`;
+    const r = await this.call([{role:'user',content:prompt}], 0.8);
+    return r.error ? 'AI回复生成失败' : r.content;
+  }
+};
+
+
+// ==================== 路由与页面系统 ====================
+const App = {
+  mount() { return document.getElementById('app'); },
+  render() {
+    try {
+      const hash = window.location.hash.slice(1) || '/';
+      const [path, ...rest] = hash.split('?');
+      const params = new URLSearchParams(rest.join('?'));
+      const m = this.match(path);
+      if(!m) { this.mount().innerHTML = Pages.notFound(); return; }
+      const html = m.handler(m.params, params);
+      this.mount().innerHTML = html;
+      this.bindEvents();
+      window.scrollTo(0,0);
+    } catch(e) {
+      console.error('渲染错误：', e);
+      this.mount().innerHTML = `<div class="text-center py-20"><h2>页面加载出错</h2><p>${U.esc(e.message)}</p><button onclick="localStorage.removeItem('campushub_v2');localStorage.removeItem('campushub_state');location.reload()" class="btn">清除数据并刷新</button></div>`;
+    }
+  },
+  match(path) {
+    const routes = [
+      {p:'/', h:Pages.home},
+      {p:'/login', h:Pages.login},
+      {p:'/register', h:Pages.register},
+      {p:'/profile', h:Pages.profile},
+      {p:'/settings', h:Pages.settings},
+      {p:'/notifications', h:Pages.notifications},
+      {p:'/messages', h:Pages.messages},
+      {p:'/chat/:userId', h:(p,qp)=>Pages.chatDetail(p.userId, qp)},
+      {p:'/create-campus', h:Pages.createCampus},
+      {p:'/campus/:id', h:(p,qp)=>Pages.campusHome(p.id, qp)},
+      {p:'/campus/:id/post/:postId', h:(p)=>Pages.postDetail(p.id, p.postId)},
+      {p:'/campus/:id/new-post', h:(p)=>Pages.newPost(p.id)},
+      {p:'/campus/:id/rooms', h:(p)=>Pages.chatRooms(p.id)},
+      {p:'/campus/:id/room/:roomId', h:(p)=>Pages.roomDetail(p.id, p.roomId)},
+      {p:'/campus/:id/tasks', h:(p)=>Pages.tasks(p.id)},
+      {p:'/campus/:id/darkroom', h:(p)=>Pages.darkRoom(p.id)},
+      {p:'/campus/:id/shop', h:(p)=>Pages.shop(p.id)},
+      {p:'/campus/:id/admin', h:(p)=>Pages.admin(p.id)},
+      {p:'/campus/:id/ai', h:(p)=>Pages.aiHub(p.id)},
+      {p:'/campus/:id/design', h:(p)=>Pages.design(p.id)},
+      {p:'/user/:userId', h:(p)=>Pages.userProfile(p.userId)},
+    ];
+    for(const r of routes) {
+      const rp = r.p.split('/').filter(Boolean);
+      const pp = path.split('/').filter(Boolean);
+      if(rp.length!==pp.length) continue;
+      const params={}; let ok=true;
+      for(let i=0;i<rp.length;i++) {
+        if(rp[i].startsWith(':')) params[rp[i].slice(1)]=pp[i];
+        else if(rp[i]!==pp[i]) { ok=false; break; }
+      }
+      if(ok) return {handler:r.h, params};
+    }
+    return null;
+  },
+  bindEvents() {
+    document.querySelectorAll('[data-action]').forEach(el=>{
+      el.onclick = (e) => {
+        e.preventDefault();
+        const action = el.dataset.action;
+        const param = el.dataset.param;
+        Actions[action]?.(param, el);
+      };
+    });
+  },
+  init() {
+    window.addEventListener('hashchange', ()=>this.render());
+    this.render();
+  }
+};
+
+// ==================== 页面组件 ====================
+const Layout = {
+  nav() {
+    const u = Store.state.currentUser;
+    const unread = u ? S.notify.getUnread(u.id) : 0;
+    return `<nav class="glass fixed top-0 left-0 right-0 z-50 px-4 py-3">
+      <div class="max-w-7xl mx-auto flex items-center justify-between">
+        <a href="#/" class="flex items-center gap-3 text-xl font-bold" style="color:var(--primary)">
+          <i class="fas fa-university"></i> <span>校园墙</span>
+        </a>
+        <div class="hidden md:flex items-center gap-6">
+          <a href="#/" class="nav-link ${App.match(window.location.hash.slice(1)||'/')?.p==='/'?'active':''}"><i class="fas fa-compass"></i> 探索</a>
+          ${u?`<a href="#/profile" class="nav-link"><i class="fas fa-user"></i> 我的</a>
+          <a href="#/messages" class="nav-link relative"><i class="fas fa-comment-dots"></i> 消息</a>
+          <a href="#/notifications" class="nav-link relative"><i class="fas fa-bell"></i> 通知${unread?`<span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">${unread}</span>`:''}</a>`:''}
+          <a href="#/create-campus" class="btn btn-sm"><i class="fas fa-plus"></i> 创建子站</a>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="Actions.toggleDark()" class="w-9 h-9 rounded-full glass-sm flex items-center justify-center hover:opacity-80">
+            <i class="fas ${Store.state.darkMode?'fa-sun':'fa-moon'}"></i>
+          </button>
+          ${u?`<div class="flex items-center gap-2 cursor-pointer" onclick="window.location.hash='#/profile'">
+            ${U.getAvatarSmall(u, 32)} <span class="hidden sm:inline font-medium text-sm">${U.esc(u.username)}</span>
+          </div>
+          <button onclick="Actions.logout()" class="btn btn-ghost btn-sm"><i class="fas fa-sign-out-alt"></i></button>`
+          :`<a href="#/login" class="btn btn-sm">登录</a>`}
+        </div>
+      </div>
+    </nav>`;
+  },
+  sidebar(campus) {
+    if(!campus) return '';
+    const isAdmin = U.isAdmin(campus, Store.state.currentUser?.id);
+    return `<aside class="hidden lg:block w-64 shrink-0">
+      <div class="glass p-4 sticky top-24">
+        <div class="flex items-center gap-3 mb-4 pb-4 border-b" style="border-color:var(--border)">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg" style="background:linear-gradient(135deg,var(--primary),var(--secondary))">${U.esc(campus.name.slice(0,2))}</div>
+          <div><div class="font-bold">${U.esc(campus.name)}</div><div class="text-xs" style="color:var(--text-secondary)">${campus.members?.length||0} 成员</div></div>
+        </div>
+        <div class="space-y-1">
+          <a href="#/campus/${campus.id}" class="nav-link ${window.location.hash.includes('/post/')||window.location.hash===`#/campus/${campus.id}`?'active':''}"><i class="fas fa-home"></i> 首页</a>
+          <a href="#/campus/${campus.id}/new-post" class="nav-link"><i class="fas fa-pen"></i> 发布帖子</a>
+          <a href="#/campus/${campus.id}/rooms" class="nav-link ${window.location.hash.includes('/room/')?'active':''}"><i class="fas fa-comments"></i> 聊天室</a>
+          <a href="#/campus/${campus.id}/tasks" class="nav-link"><i class="fas fa-tasks"></i> 任务活动</a>
+          <a href="#/campus/${campus.id}/darkroom" class="nav-link"><i class="fas fa-store"></i> 暗阁交易</a>
+          <a href="#/campus/${campus.id}/shop" class="nav-link"><i class="fas fa-shopping-bag"></i> 积分商城</a>
+          ${isAdmin?`<div class="pt-3 mt-3 border-t" style="border-color:var(--border)"><div class="text-xs font-bold mb-2 px-3" style="color:var(--text-secondary)">管理</div>
+          <a href="#/campus/${campus.id}/admin" class="nav-link"><i class="fas fa-cog"></i> 管理后台</a>
+          <a href="#/campus/${campus.id}/ai" class="nav-link"><i class="fas fa-robot"></i> AI生态</a>
+          <a href="#/campus/${campus.id}/design" class="nav-link"><i class="fas fa-paint-brush"></i> 设计系统</a></div>`:''}
+        </div>
+      </div>
+    </aside>`;
+  },
+  mobileNav(campus) {
+    if(!campus) return '';
+    const isAdmin = U.isAdmin(campus, Store.state.currentUser?.id);
+    return `<div class="lg:hidden fixed bottom-0 left-0 right-0 glass z-50 px-2 py-2 flex justify-around text-xs">
+      <a href="#/campus/${campus.id}" class="flex flex-col items-center gap-1 p-2 ${window.location.hash===`#/campus/${campus.id}`?'text-blue-500':''}"><i class="fas fa-home text-lg"></i>首页</a>
+      <a href="#/campus/${campus.id}/new-post" class="flex flex-col items-center gap-1 p-2"><i class="fas fa-pen text-lg"></i>发布</a>
+      <a href="#/campus/${campus.id}/rooms" class="flex flex-col items-center gap-1 p-2"><i class="fas fa-comments text-lg"></i>聊天</a>
+      <a href="#/campus/${campus.id}/tasks" class="flex flex-col items-center gap-1 p-2"><i class="fas fa-tasks text-lg"></i>任务</a>
+      <a href="#/campus/${campus.id}/darkroom" class="flex flex-col items-center gap-1 p-2"><i class="fas fa-store text-lg"></i>暗阁</a>
+    </div>`;
+  },
+  wrap(content, campus=null, title='') {
+    return `${this.nav()}
+<div class="pt-20 pb-24 lg:pb-8 px-4 max-w-7xl mx-auto min-h-screen">
+  <div class="flex gap-6">
+    ${campus?this.sidebar(campus):''}
+    <main class="flex-1 min-w-0">
+      ${title?`<h1 class="text-2xl font-bold mb-6">${U.esc(title)}</h1>`:''}
+      ${content}
+    </main>
+    ${campus?this.rightSidebar(campus):''}
+  </div>
+</div>
+${campus?this.mobileNav(campus):''}`;
+  },
+  rightSidebar(campus) {
+    const u = Store.state.currentUser;
+    if(!u) return '';
+    const sign = S.sign.get(u.id, campus.id);
+    const today = new Date().toDateString();
+    const signed = sign.dates?.includes(today);
+    const hotPosts = DB.query('posts', p=>p.campusId===campus.id).sort((a,b)=>(b.likes?.length||0)-(a.likes?.length||0)).slice(0,5);
+    const tags = [...new Set(DB.query('posts',p=>p.campusId===campus.id).flatMap(p=>p.tags||[]))].slice(0,8);
+    return `<aside class="hidden xl:block w-72 shrink-0 space-y-4">
+      <div class="glass p-4">
+        <div class="flex items-center justify-between mb-3">
+          <span class="font-bold"><i class="fas fa-calendar-check mr-1"></i> 每日签到</span>
+          <span class="text-xs" style="color:var(--text-secondary)">连续${sign.streak||0}天</span>
+        </div>
+        <button data-action="signIn" data-param="${campus.id}" class="btn w-full justify-center ${signed?'opacity-50 cursor-not-allowed':''}">
+          ${signed?'<i class="fas fa-check"></i> 已签到':'<i class="fas fa-hand-pointer"></i> 点击签到'}
+        </button>
+        <div class="grid grid-cols-7 gap-1 mt-3">
+          ${Array.from({length:7},(_,i)=>{
+            const d = new Date(); d.setDate(d.getDate()-6+i);
+            const ds = d.toDateString();
+            const ok = sign.dates?.includes(ds);
+            return `<div class="aspect-square rounded-lg flex items-center justify-center text-xs ${ok?'bg-green-500/20 text-green-500':'bg-gray-500/10'}">${d.getDate()}</div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="glass p-4">
+        <div class="font-bold mb-3"><i class="fas fa-fire mr-1"></i> 热门帖子</div>
+        <div class="space-y-3">
+          ${hotPosts.map((p,i)=>`<a href="#/campus/${campus.id}/post/${p.id}" class="flex gap-3 group">
+            <span class="text-lg font-bold opacity-30 group-hover:opacity-60">${i+1}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate group-hover:text-blue-500 transition">${U.esc(p.title)}</div>
+              <div class="text-xs mt-0.5" style="color:var(--text-secondary)">${p.likes?.length||0} 赞 · ${p.comments||0} 评论</div>
+            </div>
+          </a>`).join('')||'<div class="text-sm opacity-50">暂无热门帖子</div>'}
+        </div>
+      </div>
+      <div class="glass p-4">
+        <div class="font-bold mb-3"><i class="fas fa-tags mr-1"></i> 热门话题</div>
+        <div class="flex flex-wrap gap-2">
+          ${tags.map(t=>`<a href="#/campus/${campus.id}?tag=${encodeURIComponent(t)}" class="tag">#${U.esc(t)}</a>`).join('')||'<span class="text-sm opacity-50">暂无话题</span>'}
+        </div>
+      </div>
+    </aside>`;
+  }
+};
+
+const Pages = {
+  notFound() {
+    return Layout.wrap(`<div class="text-center py-20"><div class="text-6xl mb-4">404</div><div class="text-xl opacity-60 mb-6">页面不存在</div><a href="#/" class="btn">返回首页</a></div>`);
+  },
+
+  home() {
+    const campuses = DB.get('campuses');
+    const user = Store.state.currentUser;
+    const myCampuses = user ? campuses.filter(c=>c.members?.includes(user.id)) : [];
+    const recCampuses = campuses.filter(c=>c.visibility==='public').sort((a,b)=>(b.members?.length||0)-(a.members?.length||0));
+    return Layout.wrap(`
+      <div class="space-y-8 animate-fade-in">
+        <div class="glass p-8 text-center relative overflow-hidden">
+          <div class="absolute inset-0 opacity-10" style="background:linear-gradient(135deg,var(--primary),var(--secondary))"></div>
+          <div class="relative z-10">
+            <h1 class="text-4xl font-bold mb-3">校园墙 CampusHub</h1>
+            <p class="text-lg opacity-70 mb-6 max-w-2xl mx-auto">一个平台，千种校园社区。创建属于你的子校园墙，连接每一个有趣的灵魂。</p>
+            <div class="flex justify-center gap-4">
+              <a href="#/create-campus" class="btn btn-lg"><i class="fas fa-plus"></i> 创建子站</a>
+              <a href="#explore" class="btn btn-ghost btn-lg"><i class="fas fa-compass"></i> 探索发现</a>
+            </div>
+          </div>
+        </div>
+
+        ${user && myCampuses.length?`
+        <div>
+          <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fas fa-th-large"></i> 我的子站</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${myCampuses.map(c=>Pages.campusCard(c)).join('')}
+          </div>
+        </div>`:''}
+
+        <div id="explore">
+          <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i class="fas fa-compass"></i> 探索发现</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${recCampuses.map(c=>Pages.campusCard(c)).join('')}
+          </div>
+        </div>
+      </div>
+    `);
+  },
+
+  campusCard(c) {
+    const owner = DB.getById('users', c.ownerId);
+    return `<a href="#/campus/${c.id}" class="glass p-5 card-hover block no-underline" style="color:var(--text)">
+      <div class="flex items-start gap-4">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl shrink-0" style="background:linear-gradient(135deg,var(--primary),var(--secondary))">${U.esc(c.name.slice(0,2))}</div>
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-lg mb-1 truncate">${U.esc(c.name)}</div>
+          <div class="text-sm opacity-60 mb-2 line-clamp-2">${U.esc(c.description||'')}</div>
+          <div class="flex items-center gap-3 text-xs opacity-50">
+            <span><i class="fas fa-user"></i> ${c.members?.length||0}</span>
+            <span><i class="fas fa-file-alt"></i> ${c.stats?.posts||0}</span>
+            <span><i class="fas fa-clock"></i> ${U.fmtTime(c.createdAt)}</span>
+          </div>
+          <div class="flex flex-wrap gap-1 mt-2">
+            ${(c.tags||[]).slice(0,3).map(t=>`<span class="tag text-xs">${U.esc(t)}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    </a>`;
+  },
+
+  login() {
+    return Layout.wrap(`
+      <div class="max-w-md mx-auto glass p-8 animate-slide-up">
+        <h2 class="text-2xl font-bold text-center mb-6">登录校园墙</h2>
+        <form onsubmit="event.preventDefault(); Actions.doLogin();">
+          <div class="space-y-4">
+            <div><label class="block text-sm font-medium mb-1">邮箱</label><input type="email" id="login-email" class="input" placeholder="your@email.com" required></div>
+            <div><label class="block text-sm font-medium mb-1">密码</label><input type="password" id="login-pwd" class="input" placeholder="••••••••" required></div>
+            <button type="submit" class="btn w-full justify-center"><i class="fas fa-sign-in-alt"></i> 登录</button>
+          </div>
+        </form>
+        <div class="mt-4 text-center text-sm opacity-60">
+          还没有账号？<a href="#/register" class="text-blue-500 hover:underline">立即注册</a>
+        </div>
+        <div class="mt-4 p-3 rounded-lg bg-blue-500/10 text-sm">
+          <div class="font-medium mb-1"><i class="fas fa-info-circle"></i> 演示账号</div>
+          <div class="opacity-70">邮箱: xiaoming@campus.edu / 密码: 123456</div>
+        </div>
+      </div>
+    `);
+  },
+
+  register() {
+    return Layout.wrap(`
+      <div class="max-w-md mx-auto glass p-8 animate-slide-up">
+        <h2 class="text-2xl font-bold text-center mb-6">注册校园墙</h2>
+        <form onsubmit="event.preventDefault(); Actions.doRegister();">
+          <div class="space-y-4">
+            <div><label class="block text-sm font-medium mb-1">用户名</label><input type="text" id="reg-user" class="input" placeholder="3-16个字符" minlength="3" maxlength="16" required></div>
+            <div><label class="block text-sm font-medium mb-1">邮箱</label><input type="email" id="reg-email" class="input" placeholder="your@email.com" required></div>
+            <div><label class="block text-sm font-medium mb-1">密码</label><input type="password" id="reg-pwd" class="input" placeholder="8-20位，含字母和数字" minlength="8" required></div>
+            <div><label class="block text-sm font-medium mb-1">学校</label><input type="text" id="reg-school" class="input" placeholder="你的学校名称"></div>
+            <button type="submit" class="btn w-full justify-center"><i class="fas fa-user-plus"></i> 注册</button>
+          </div>
+        </form>
+        <div class="mt-4 text-center text-sm opacity-60">
+          已有账号？<a href="#/login" class="text-blue-500 hover:underline">直接登录</a>
+        </div>
+      </div>
+    `);
+  },
+
+  profile() {
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    const myCampuses = DB.query('campuses', c=>c.members?.includes(u.id));
+    const myPosts = DB.query('posts', p=>p.authorId===u.id);
+    const myFavs = DB.get('posts').filter(p=>p.favorites?.includes(u.id));
+    const records = S.points.getRecords(u.id).slice(0,10);
+    return Layout.wrap(`
+      <div class="space-y-6 animate-fade-in">
+        <div class="glass p-6">
+          <div class="flex items-start gap-6">
+            <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-2xl" style="background:linear-gradient(135deg,var(--primary),var(--secondary))">${U.esc(u.username.slice(0,2))}</div>
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-1">
+                <h2 class="text-2xl font-bold">${U.esc(u.username)}</h2>
+                <span class="tag"><i class="fas fa-gem"></i> ${u.points} 积分</span>
+                <span class="tag" style="background:rgba(245,158,11,0.1);color:#f59e0b;border-color:rgba(245,158,11,0.2)"><i class="fas fa-star"></i> ${u.reputation} 声望</span>
+              </div>
+              <p class="opacity-60 mb-3">${U.esc(u.bio||'这个人很懒，什么都没写~')}</p>
+              <div class="flex items-center gap-4 text-sm opacity-50">
+                <span><i class="fas fa-school"></i> ${U.esc(u.school||'未设置学校')}</span>
+                <span><i class="fas fa-clock"></i> 加入于 ${U.fmtTime(u.createdAt)}</span>
+              </div>
+              <div class="flex gap-2 mt-3">
+                ${(u.tags||[]).map(t=>`<span class="tag">${U.esc(t)}</span>`).join('')||'<span class="text-sm opacity-40">暂无标签</span>'}
+              </div>
+            </div>
+            <a href="#/settings" class="btn btn-ghost btn-sm"><i class="fas fa-cog"></i> 设置</a>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="glass p-4 text-center"><div class="text-2xl font-bold">${myPosts.length}</div><div class="text-sm opacity-60">帖子</div></div>
+          <div class="glass p-4 text-center"><div class="text-2xl font-bold">${myFavs.length}</div><div class="text-sm opacity-60">收藏</div></div>
+          <div class="glass p-4 text-center"><div class="text-2xl font-bold">${myCampuses.length}</div><div class="text-sm opacity-60">加入子站</div></div>
+          <div class="glass p-4 text-center"><div class="text-2xl font-bold">${u.points}</div><div class="text-sm opacity-60">积分</div></div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4 flex items-center gap-2"><i class="fas fa-th-large"></i> 我的子站</h3>
+          ${myCampuses.length?`<div class="grid grid-cols-1 md:grid-cols-2 gap-4">${myCampuses.map(c=>Pages.campusCard(c)).join('')}</div>`:'<div class="text-center py-8 opacity-50">你还没有加入任何子站</div>'}
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4 flex items-center gap-2"><i class="fas fa-coins"></i> 积分记录</h3>
+          ${records.length?`<div class="space-y-2">${records.map(r=>`<div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(128,128,128,0.05)">
+            <div><div class="font-medium text-sm">${U.esc(r.reason)}</div><div class="text-xs opacity-50">${U.fmtTime(r.createdAt)}</div></div>
+            <span class="font-bold ${r.amount>0?'text-green-500':'text-red-500'}">${r.amount>0?'+':''}${r.amount}</span>
+          </div>`).join('')}</div>`:'<div class="text-center py-4 opacity-50">暂无积分记录</div>'}
+        </div>
+      </div>
+    `);
+  },
+
+  settings() {
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    return Layout.wrap(`
+      <div class="max-w-2xl mx-auto space-y-6 animate-fade-in">
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">个人资料</h3>
+          <div class="space-y-4">
+            <div><label class="block text-sm font-medium mb-1">昵称</label><input type="text" id="set-nickname" class="input" value="${U.esc(u.username)}"></div>
+            <div><label class="block text-sm font-medium mb-1">简介</label><textarea id="set-bio" class="input" rows="3">${U.esc(u.bio||'')}</textarea></div>
+            <div><label class="block text-sm font-medium mb-1">学校</label><input type="text" id="set-school" class="input" value="${U.esc(u.school||'')}"></div>
+            <div><label class="block text-sm font-medium mb-1">兴趣标签（逗号分隔）</label><input type="text" id="set-tags" class="input" value="${U.esc((u.tags||[]).join(','))}"></div>
+            <button data-action="saveProfile" class="btn"><i class="fas fa-save"></i> 保存修改</button>
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">Kimi API 配置</h3>
+          <p class="text-sm opacity-60 mb-3">配置后 AI 生态功能将真实调用 Kimi API 生成内容</p>
+          <div class="space-y-3">
+            <input type="password" id="kimi-key" class="input" placeholder="sk-..." value="${Store.state.kimiKey?Store.state.kimiKey.slice(0,10)+'...':''}">
+            <button data-action="saveKimiKey" class="btn"><i class="fas fa-key"></i> 保存 API Key</button>
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4 text-red-500">危险操作</h3>
+          <button data-action="clearData" class="btn btn-danger"><i class="fas fa-trash"></i> 清空所有本地数据</button>
+          <p class="text-xs opacity-50 mt-2">此操作不可恢复，将删除所有子站、帖子、用户数据</p>
+        </div>
+      </div>
+    `);
+  },
+
+  notifications() {
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    S.notify.markRead(u.id);
+    const list = DB.query('notifications', n=>n.userId===u.id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    return Layout.wrap(`
+      <div class="max-w-2xl mx-auto space-y-4 animate-fade-in">
+        <h2 class="text-xl font-bold">消息通知</h2>
+        ${list.length?list.map(n=>`<div class="glass p-4 flex gap-4 ${!n.isRead?'border-l-4 border-blue-500':''}">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:rgba(59,130,246,0.1);color:var(--primary)">
+            <i class="fas fa-${n.type==='comment'?'comment':n.type==='message'?'envelope':n.type==='like'?'heart':'bell'}"></i>
+          </div>
+          <div class="flex-1">
+            <div class="font-medium">${U.esc(n.title)}</div>
+            <div class="text-sm opacity-60 mt-1">${U.esc(n.content)}</div>
+            <div class="text-xs opacity-40 mt-2">${U.fmtTime(n.createdAt)}</div>
+          </div>
+        </div>`).join(''):'<div class="text-center py-20 opacity-50">暂无通知</div>'}
+      </div>
+    `);
+  },
+
+  messages() {
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    const recent = S.chat.getRecentChats(u.id);
+    return Layout.wrap(`
+      <div class="max-w-2xl mx-auto animate-fade-in">
+        <h2 class="text-xl font-bold mb-4">私信消息</h2>
+        <div class="space-y-2">
+          ${recent.length?recent.map(r=>{
+            const ou = DB.getById('users', r.userId);
+            if(!ou) return '';
+            return `<a href="#/chat/${ou.id}" class="glass p-4 flex items-center gap-4 card-hover">
+              ${U.getAvatarSmall(ou, 48)}
+              <div class="flex-1 min-w-0">
+                <div class="font-medium">${U.esc(ou.username)}</div>
+                <div class="text-sm opacity-60 truncate">${U.esc(r.lastMsg.content)}</div>
+              </div>
+              <div class="text-xs opacity-40">${U.fmtTime(r.lastMsg.createdAt)}</div>
+            </a>`;
+          }).join(''):'<div class="text-center py-20 opacity-50">暂无对话</div>'}
+        </div>
+      </div>
+    `);
+  },
+
+  chatDetail(userId) {
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    const ou = DB.getById('users', userId);
+    if(!ou) return Layout.wrap('<div class="text-center py-20">用户不存在</div>');
+    const msgs = S.chat.getPMs(u.id, userId);
+    return Layout.wrap(`
+      <div class="max-w-2xl mx-auto glass flex flex-col" style="height:calc(100vh - 140px)">
+        <div class="p-4 border-b flex items-center gap-3" style="border-color:var(--border)">
+          ${U.getAvatarSmall(ou, 36)} <span class="font-bold">${U.esc(ou.username)}</span>
+        </div>
+        <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-3">
+          ${msgs.map(m=>`<div class="flex ${m.senderId===u.id?'justify-end':'justify-start'}">
+            <div class="chat-bubble ${m.senderId===u.id?'chat-bubble-self':'chat-bubble-other'}">${U.esc(m.content)}</div>
+          </div>`).join('')||'<div class="text-center opacity-40 py-10">开始聊天吧</div>'}
+        </div>
+        <div class="p-4 border-t" style="border-color:var(--border)">
+          <form onsubmit="event.preventDefault(); Actions.sendPM('${userId}');" class="flex gap-2">
+            <input type="text" id="pm-input" class="input" placeholder="输入消息..." autocomplete="off">
+            <button type="submit" class="btn"><i class="fas fa-paper-plane"></i></button>
+          </form>
+        </div>
+      </div>
+    `, null, '');
+  },
+
+  createCampus() {
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    return Layout.wrap(`
+      <div class="max-w-2xl mx-auto glass p-8 animate-slide-up">
+        <h2 class="text-2xl font-bold mb-6">创建子校园墙</h2>
+        <form onsubmit="event.preventDefault(); Actions.doCreateCampus();">
+          <div class="space-y-5">
+            <div><label class="block text-sm font-medium mb-1">子站名称 *</label><input type="text" id="cc-name" class="input" placeholder="如：XX大学表白墙" required></div>
+            <div><label class="block text-sm font-medium mb-1">简介</label><textarea id="cc-desc" class="input" rows="3" placeholder="介绍你的子站..."></textarea></div>
+            <div><label class="block text-sm font-medium mb-1">标签（逗号分隔）</label><input type="text" id="cc-tags" class="input" placeholder="校园, 学习, 生活"></div>
+            <div class="grid grid-cols-2 gap-4">
+              <div><label class="block text-sm font-medium mb-1">访问权限</label>
+                <select id="cc-visibility" class="input"><option value="public">公开</option><option value="members">仅成员</option><option value="private">私有</option></select>
+              </div>
+              <div><label class="block text-sm font-medium mb-1">加入方式</label>
+                <select id="cc-join" class="input"><option value="open">开放</option><option value="invite">邀请制</option><option value="apply">需审核</option></select>
+              </div>
+            </div>
+            <div><label class="block text-sm font-medium mb-1">设计模板</label>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                ${['glass','cyber','minimal','pixel'].map(t=>`
+                  <label class="cursor-pointer">
+                    <input type="radio" name="cc-theme" value="${t}" ${t==='glass'?'checked':''} class="hidden peer">
+                    <div class="glass p-3 text-center peer-checked:ring-2 peer-checked:ring-blue-500 transition">
+                      <div class="w-full h-16 rounded-lg mb-2" style="background:${t==='glass'?'linear-gradient(135deg,#3b82f6,#8b5cf6)':t==='cyber'?'linear-gradient(135deg,#ff00ff,#00ffff)':t==='minimal'?'#fff':'linear-gradient(135deg,#ff6b6b,#4ecdc4)'};border:${t==='minimal'?'1px solid #e5e5e5':'none'}"></div>
+                      <div class="text-sm font-medium">${t==='glass'?'玻璃态':t==='cyber'?'赛博朋克':t==='minimal'?'极简风':'像素风'}</div>
+                    </div>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            <div><label class="block text-sm font-medium mb-2">初始化功能</label>
+              <div class="flex flex-wrap gap-3">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="feat-posts" checked class="accent-blue-500"> 发帖评论</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="feat-chat" checked class="accent-blue-500"> 聊天室</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="feat-darkroom" checked class="accent-blue-500"> 暗阁</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="feat-tasks" checked class="accent-blue-500"> 任务活动</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="feat-ai" class="accent-blue-500"> AI生态</label>
+              </div>
+            </div>
+            <button type="submit" class="btn w-full justify-center"><i class="fas fa-rocket"></i> 创建子站</button>
+          </div>
+        </form>
+      </div>
+    `);
+  },
+
+
+  campusHome(campusId, qp) {
+    const c = DB.getById('campuses', campusId);
+    if(!c) return Layout.wrap('<div class="text-center py-20">子站不存在</div>');
+    const u = Store.state.currentUser;
+    const isMember = U.isMember(c, u?.id);
+    const isAdmin = U.isAdmin(c, u?.id);
+    const tagFilter = qp?.get('tag');
+    const sort = qp?.get('sort') || 'hot';
+    let posts = DB.query('posts', p=>p.campusId===campusId && p.status==='published');
+    if(tagFilter) posts = posts.filter(p=>p.tags?.includes(tagFilter));
+    if(sort==='hot') posts.sort((a,b)=>{
+      const sa=(a.likes?.length||0)*3+(a.comments||0)*2+(a.views||0);
+      const sb=(b.likes?.length||0)*3+(b.comments||0)*2+(b.views||0);
+      return sb-sa;
+    });
+    else if(sort==='new') posts.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+
+    if(!isMember && c.visibility!=='public') {
+      return Layout.wrap(`
+        <div class="text-center py-20 glass">
+          <div class="text-6xl mb-4"><i class="fas fa-lock"></i></div>
+          <h2 class="text-xl font-bold mb-2">该子站仅成员可见</h2>
+          <p class="opacity-60 mb-6">你需要加入该子站才能查看内容</p>
+          ${u?`<button data-action="joinCampus" data-param="${campusId}" class="btn"><i class="fas fa-sign-in-alt"></i> 申请加入</button>`:`<a href="#/login" class="btn">登录后申请加入</a>`}
+        </div>
+      `, c);
+    }
+
+    return Layout.wrap(`
+      <div class="space-y-4 animate-fade-in">
+        <div class="glass p-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold" style="background:linear-gradient(135deg,var(--primary),var(--secondary))">${U.esc(c.name.slice(0,2))}</div>
+            <div>
+              <div class="font-bold">${U.esc(c.name)}</div>
+              <div class="text-xs opacity-60">${U.esc(c.description||'')}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            ${!isMember?`<button data-action="joinCampus" data-param="${campusId}" class="btn btn-sm"><i class="fas fa-plus"></i> 加入</button>`:''}
+            ${isAdmin?`<a href="#/campus/${campusId}/admin" class="btn btn-ghost btn-sm"><i class="fas fa-cog"></i></a>`:''}
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
+          <a href="#/campus/${campusId}?sort=hot" class="tag ${sort==='hot'?'ring-2 ring-blue-500':''}"><i class="fas fa-fire"></i> 最热</a>
+          <a href="#/campus/${campusId}?sort=new" class="tag ${sort==='new'?'ring-2 ring-blue-500':''}"><i class="fas fa-clock"></i> 最新</a>
+          ${isMember?`<a href="#/campus/${campusId}/new-post" class="tag" style="background:var(--primary);color:white"><i class="fas fa-pen"></i> 发布</a>`:''}
+          ${tagFilter?`<span class="tag" style="background:var(--secondary);color:white">#${U.esc(tagFilter)} <a href="#/campus/${campusId}" style="color:inherit;margin-left:4px"><i class="fas fa-times"></i></a></span>`:''}
+        </div>
+
+        ${posts.length?posts.map(p=>Pages.postCard(p, c)).join(''):'<div class="text-center py-20 opacity-50">暂无帖子，快来发布第一条吧！</div>'}
+      </div>
+    `, c);
+  },
+
+  postCard(p, campus) {
+    const u = DB.getById('users', p.authorId);
+    const author = p.isAnonymous ? {username:'匿名用户',avatar:''} : (u||{username:'未知用户',avatar:''});
+    const isLiked = p.likes?.includes(Store.state.currentUser?.id);
+    const isFav = p.favorites?.includes(Store.state.currentUser?.id);
+    return `<div class="glass p-5 card-hover">
+      <div class="flex items-center gap-3 mb-3">
+        ${p.isAnonymous?`<div class="avatar" style="width:36px;height:36px;font-size:12px;background:#64748b">匿</div>`:U.getAvatarSmall(author, 36)}
+        <div class="flex-1">
+          <div class="font-medium text-sm">${U.esc(author.username)}</div>
+          <div class="text-xs opacity-50">${U.fmtTime(p.createdAt)}</div>
+        </div>
+        ${p.isPinned?`<span class="tag text-xs" style="background:rgba(245,158,11,0.1);color:#f59e0b"><i class="fas fa-thumbtack"></i> 置顶</span>`:''}
+        ${p.isFeatured?`<span class="tag text-xs" style="background:rgba(236,72,153,0.1);color:#ec4899"><i class="fas fa-gem"></i> 精华</span>`:''}
+      </div>
+      <a href="#/campus/${campus.id}/post/${p.id}" style="color:var(--text);text-decoration:none">
+        <h3 class="font-bold text-lg mb-2 hover:text-blue-500 transition">${U.esc(p.title)}</h3>
+        <div class="text-sm opacity-80 line-clamp-3 mb-3">${U.renderMarkdown(p.content)}</div>
+        ${p.type==='poll'?`<div class="space-y-2 mb-3">${Object.entries(p.pollVotes||{}).map(([k,v])=>{
+          const total = Object.values(p.pollVotes||{}).reduce((a,b)=>a+b,0)||1;
+          const pct = Math.round((v/total)*100);
+          return `<div><div class="flex justify-between text-xs mb-1"><span>${U.esc(k)}</span><span>${pct}% (${v}票)</span></div><div class="poll-bar"><div class="poll-bar-fill" style="width:${pct}%"></div></div></div>`;
+        }).join('')}</div>`:''}
+        ${p.images?.length?`<div class="grid grid-cols-3 gap-2 mb-3">${p.images.map(img=>`<div class="aspect-square rounded-lg bg-cover bg-center" style="background-image:url('${img.replace(/'/g, "\\'")}')"></div>`).join('')}</div>`:''}
+      </a>
+      <div class="flex items-center gap-4 text-sm opacity-60 pt-3 border-t" style="border-color:var(--border)">
+        <button data-action="likePost" data-param="${p.id}" class="flex items-center gap-1 hover:text-red-500 transition ${isLiked?'text-red-500':''}"><i class="fas fa-heart"></i> ${p.likes?.length||0}</button>
+        <a href="#/campus/${campus.id}/post/${p.id}" class="flex items-center gap-1 hover:text-blue-500 transition"><i class="fas fa-comment"></i> ${p.comments||0}</a>
+        <button data-action="favPost" data-param="${p.id}" class="flex items-center gap-1 hover:text-yellow-500 transition ${isFav?'text-yellow-500':''}"><i class="fas fa-star"></i> ${p.favorites?.length||0}</button>
+        <span class="flex items-center gap-1"><i class="fas fa-eye"></i> ${p.views||0}</span>
+        <div class="flex-1"></div>
+        <div class="flex gap-1">${(p.tags||[]).map(t=>`<a href="#/campus/${campus.id}?tag=${encodeURIComponent(t)}" class="tag text-xs">#${U.esc(t)}</a>`).join('')}</div>
+      </div>
+    </div>`;
+  },
+
+  postDetail(campusId, postId) {
+    const c = DB.getById('campuses', campusId);
+    const p = DB.getById('posts', postId);
+    if(!p||!c) return Layout.wrap('<div class="text-center py-20">帖子不存在</div>', c);
+    S.post.view(postId);
+    const u = Store.state.currentUser;
+    const author = p.isAnonymous ? {username:'匿名用户'} : (DB.getById('users', p.authorId)||{username:'未知'});
+    const comments = DB.query('comments', cm=>cm.postId===postId && !cm.parentId).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    const isLiked = p.likes?.includes(u?.id);
+    const isFav = p.favorites?.includes(u?.id);
+    const isAdmin = U.isAdmin(c, u?.id);
+
+    return Layout.wrap(`
+      <div class="space-y-4 animate-fade-in">
+        <div class="glass p-6">
+          <div class="flex items-center gap-3 mb-4">
+            ${p.isAnonymous?`<div class="avatar" style="width:40px;height:40px;background:#64748b">匿</div>`:U.getAvatar(author)}
+            <div><div class="font-medium">${U.esc(author.username)}</div><div class="text-xs opacity-50">${U.fmtTime(p.createdAt)}</div></div>
+            ${isAdmin?`<div class="flex-1"></div>
+            <button data-action="togglePin" data-param="${p.id}" class="btn btn-ghost btn-sm">${p.isPinned?'<i class="fas fa-thumbtack text-yellow-500"></i> 取消置顶':'<i class="fas fa-thumbtack"></i> 置顶'}</button>
+            <button data-action="toggleFeature" data-param="${p.id}" class="btn btn-ghost btn-sm">${p.isFeatured?'<i class="fas fa-gem text-pink-500"></i> 取消精华':'<i class="fas fa-gem"></i> 加精'}</button>
+            <button data-action="deletePost" data-param="${p.id}" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>`:''}
+          </div>
+          <h1 class="text-2xl font-bold mb-4">${U.esc(p.title)}</h1>
+          <div class="prose max-w-none mb-4" style="color:var(--text)">${U.renderMarkdown(p.content)}</div>
+          ${p.type==='poll'?`<div class="space-y-3 mb-4 p-4 rounded-lg" style="background:rgba(128,128,128,0.05)">
+            <div class="font-medium mb-2">投票选项：</div>
+            ${Object.entries(p.pollVotes||{}).map(([k,v])=>{
+              const total = Object.values(p.pollVotes||{}).reduce((a,b)=>a+b,0)||1;
+              const pct = Math.round((v/total)*100);
+              return `<div class="cursor-pointer" data-action="votePoll" data-param="${postId}|${encodeURIComponent(k)}">
+                <div class="flex justify-between text-sm mb-1"><span>${U.esc(k)}</span><span>${pct}% (${v}票)</span></div>
+                <div class="poll-bar"><div class="poll-bar-fill" style="width:${pct}%"></div></div>
+              </div>`;
+            }).join('')}
+          </div>`:''}
+          ${p.images?.length?`<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">${p.images.map(img=>`<div class="aspect-video rounded-lg bg-cover bg-center cursor-pointer" style="background-image:url('${img.replace(/'/g, "\\'")}')" onclick="window.open('${img.replace(/'/g, "\\'")}')"></div>`).join('')}</div>`:''}
+          <div class="flex items-center gap-4 pt-4 border-t" style="border-color:var(--border)">
+            <button data-action="likePost" data-param="${p.id}" class="btn btn-ghost btn-sm ${isLiked?'text-red-500':''}"><i class="fas fa-heart"></i> ${p.likes?.length||0}</button>
+            <button data-action="favPost" data-param="${p.id}" class="btn btn-ghost btn-sm ${isFav?'text-yellow-500':''}"><i class="fas fa-star"></i> ${p.favorites?.length||0}</button>
+            <span class="text-sm opacity-50"><i class="fas fa-eye"></i> ${(p.views||0)+1}</span>
+            <div class="flex-1"></div>
+            <div class="flex gap-1">${(p.tags||[]).map(t=>`<a href="#/campus/${campusId}?tag=${encodeURIComponent(t)}" class="tag">#${U.esc(t)}</a>`).join('')}</div>
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">评论 (${p.comments||0})</h3>
+          ${u?`<form onsubmit="event.preventDefault(); Actions.addComment('${postId}');" class="flex gap-3 mb-6">
+            ${U.getAvatarSmall(u, 36)}
+            <div class="flex-1 flex gap-2">
+              <input type="text" id="comment-input" class="input" placeholder="写下你的评论..." required>
+              <button type="submit" class="btn btn-sm"><i class="fas fa-paper-plane"></i></button>
+            </div>
+          </form>`:'<div class="text-center py-4 opacity-50 mb-4"><a href="#/login" class="text-blue-500">登录</a> 后参与评论</div>'}
+          <div class="space-y-4">
+            ${comments.map(cm=>{
+              const cu = DB.getById('users', cm.authorId);
+              return `<div class="flex gap-3">
+                ${U.getAvatarSmall(cu, 32)}
+                <div class="flex-1">
+                  <div class="glass-sm p-3">
+                    <div class="font-medium text-sm">${U.esc(cu?.username||'未知')}</div>
+                    <div class="text-sm mt-1">${U.esc(cm.content)}</div>
+                  </div>
+                  <div class="flex items-center gap-4 mt-1 text-xs opacity-50 px-1">
+                    <span>${U.fmtTime(cm.createdAt)}</span>
+                    <button class="hover:text-blue-500"><i class="fas fa-heart"></i> ${cm.likes?.length||0}</button>
+                    <button class="hover:text-blue-500">回复</button>
+                  </div>
+                </div>
+              </div>`;
+            }).join('')||'<div class="text-center py-4 opacity-50">暂无评论</div>'}
+          </div>
+        </div>
+      </div>
+    `, c);
+  },
+
+  newPost(campusId) {
+    const c = DB.getById('campuses', campusId);
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    if(!U.isMember(c, u.id)) { U.toast('请先加入子站'); window.location.hash=`#/campus/${campusId}`; return ''; }
+    return Layout.wrap(`
+      <div class="max-w-2xl mx-auto glass p-6 animate-slide-up">
+        <h2 class="text-xl font-bold mb-4">发布新帖</h2>
+        <form onsubmit="event.preventDefault(); Actions.doNewPost('${campusId}');">
+          <div class="space-y-4">
+            <div><input type="text" id="np-title" class="input" placeholder="标题（1-50字）" required maxlength="50"></div>
+            <div>
+              <div class="flex gap-2 mb-2">
+                <button type="button" onclick="document.execCommand('bold')" class="btn btn-ghost btn-sm"><i class="fas fa-bold"></i></button>
+                <button type="button" onclick="document.execCommand('italic')" class="btn btn-ghost btn-sm"><i class="fas fa-italic"></i></button>
+                <button type="button" onclick="document.execCommand('underline')" class="btn btn-ghost btn-sm"><i class="fas fa-underline"></i></button>
+              </div>
+              <textarea id="np-content" class="input" rows="6" placeholder="正文内容，支持 Markdown 语法..." required></textarea>
+            </div>
+            <div><label class="block text-sm font-medium mb-1">话题标签（逗号分隔）</label><input type="text" id="np-tags" class="input" placeholder="校园, 学习, 生活"></div>
+            <div><label class="block text-sm font-medium mb-1">帖子类型</label>
+              <div class="flex gap-3">
+                <label class="flex items-center gap-2"><input type="radio" name="np-type" value="text" checked onchange="document.getElementById('poll-section').classList.add('hidden')"> 图文</label>
+                <label class="flex items-center gap-2"><input type="radio" name="np-type" value="poll" onchange="document.getElementById('poll-section').classList.remove('hidden')"> 投票</label>
+              </div>
+            </div>
+            <div id="poll-section" class="hidden">
+              <label class="block text-sm font-medium mb-1">投票选项（每行一个）</label>
+              <textarea id="np-poll" class="input" rows="3" placeholder="选项1&#10;选项2&#10;选项3"></textarea>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="np-anon"> 匿名发布</label>
+            </div>
+            <button type="submit" class="btn w-full justify-center"><i class="fas fa-paper-plane"></i> 发布</button>
+          </div>
+        </form>
+      </div>
+    `, c);
+  },
+
+  chatRooms(campusId) {
+    const c = DB.getById('campuses', campusId);
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    const rooms = DB.query('chatRooms', r=>r.campusId===campusId);
+    return Layout.wrap(`
+      <div class="space-y-4 animate-fade-in">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">聊天室</h2>
+          <button data-action="showCreateRoom" data-param="${campusId}" class="btn btn-sm"><i class="fas fa-plus"></i> 创建</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          ${rooms.map(r=>{
+            const last = DB.query('chatMessages', m=>m.roomId===r.id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0];
+            return `<a href="#/campus/${campusId}/room/${r.id}" class="glass p-4 card-hover">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white" style="background:linear-gradient(135deg,var(--secondary),var(--accent))"><i class="fas fa-comments"></i></div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-bold">${U.esc(r.name)}</div>
+                  <div class="text-sm opacity-60 truncate">${last?U.esc(last.content):'暂无消息'}</div>
+                </div>
+                <div class="text-xs opacity-40">${r.members?.length||0}人</div>
+              </div>
+            </a>`;
+          }).join('')||'<div class="text-center py-20 opacity-50 col-span-2">暂无聊天室</div>'}
+        </div>
+      </div>
+    `, c);
+  },
+
+  roomDetail(campusId, roomId) {
+    const c = DB.getById('campuses', campusId);
+    const r = DB.getById('chatRooms', roomId);
+    const u = Store.state.currentUser;
+    if(!r||!u) return Layout.wrap('<div class="text-center py-20">聊天室不存在</div>');
+    const msgs = S.chat.getRoomMsgs(roomId);
+    return Layout.wrap(`
+      <div class="glass flex flex-col" style="height:calc(100vh - 140px)">
+        <div class="p-4 border-b flex items-center justify-between" style="border-color:var(--border)">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white" style="background:linear-gradient(135deg,var(--secondary),var(--accent))"><i class="fas fa-comments"></i></div>
+            <div><div class="font-bold">${U.esc(r.name)}</div><div class="text-xs opacity-60">${r.members?.length||0} 人在线</div></div>
+          </div>
+          <div class="text-xs opacity-60 max-w-xs truncate hidden sm:block">公告: ${U.esc(r.announcement||'暂无公告')}</div>
+        </div>
+        <div id="room-scroll" class="flex-1 overflow-y-auto p-4 space-y-3">
+          ${msgs.map(m=>{
+            const su = DB.getById('users', m.senderId);
+            const isMe = m.senderId===u.id;
+            return `<div class="flex ${isMe?'justify-end':'justify-start'} items-end gap-2">
+              ${!isMe?U.getAvatarSmall(su, 28):''}
+              <div class="chat-bubble ${isMe?'chat-bubble-self':'chat-bubble-other'}">${U.esc(m.content)}</div>
+              ${isMe?U.getAvatarSmall(su, 28):''}
+            </div>`;
+          }).join('')||'<div class="text-center opacity-40 py-10">暂无消息，来说两句吧</div>'}
+        </div>
+        <div class="p-4 border-t" style="border-color:var(--border)">
+          <form onsubmit="event.preventDefault(); Actions.sendRoomMsg('${roomId}');" class="flex gap-2">
+            <input type="text" id="room-msg" class="input" placeholder="输入消息..." autocomplete="off">
+            <button type="submit" class="btn"><i class="fas fa-paper-plane"></i></button>
+          </form>
+        </div>
+      </div>
+    `, c, '');
+  },
+
+  tasks(campusId) {
+    const c = DB.getById('campuses', campusId);
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    const tasks = DB.query('tasks', t=>t.campusId===campusId);
+    const sign = S.sign.get(u.id, campusId);
+    const today = new Date().toDateString();
+    const signed = sign.dates?.includes(today);
+    return Layout.wrap(`
+      <div class="space-y-6 animate-fade-in">
+        <div class="glass p-6 text-center">
+          <div class="text-5xl font-bold mb-2" style="color:var(--primary)">${sign.streak||0}<span class="text-lg font-normal opacity-60">天</span></div>
+          <div class="opacity-60 mb-4">连续签到</div>
+          <button data-action="signIn" data-param="${campusId}" class="btn ${signed?'opacity-50 cursor-not-allowed':''}">
+            ${signed?'<i class="fas fa-check"></i> 今日已签到':'<i class="fas fa-hand-pointer"></i> 立即签到'}
+          </button>
+          <div class="grid grid-cols-7 gap-2 mt-4 max-w-md mx-auto">
+            ${['一','二','三','四','五','六','日'].map((d,i)=>`<div class="text-xs opacity-40">${d}</div>`).join('')}
+            ${Array.from({length:28},(_,i)=>{
+              const d = new Date(); d.setDate(d.getDate()-27+i);
+              const ds = d.toDateString();
+              const ok = sign.dates?.includes(ds);
+              return `<div class="aspect-square rounded-lg flex items-center justify-center text-xs ${ok?'bg-green-500/20 text-green-500':'bg-gray-500/10'}">${d.getDate()}</div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4"><i class="fas fa-tasks"></i> 任务看板</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${tasks.map(t=>{
+              const done = t.completions?.includes(u.id);
+              return `<div class="glass-sm p-4 ${done?'opacity-60':''}">
+                <div class="flex items-start justify-between mb-2">
+                  <div class="font-bold">${U.esc(t.title)}</div>
+                  ${done?'<span class="tag text-xs bg-green-500/10 text-green-500"><i class="fas fa-check"></i> 已完成</span>':`<span class="tag text-xs">+${t.reward} 积分</span>`}
+                </div>
+                <div class="text-sm opacity-60 mb-3">${U.esc(t.description)}</div>
+                ${!done?`<button data-action="claimTask" data-param="${t.id}" class="btn btn-sm w-full justify-center">领取任务</button>`:''}
+              </div>`;
+            }).join('')||'<div class="text-center py-10 opacity-50 col-span-3">暂无任务</div>'}
+          </div>
+        </div>
+      </div>
+    `, c);
+  },
+
+  darkRoom(campusId) {
+    const c = DB.getById('campuses', campusId);
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    const prods = DB.query('products', p=>p.campusId===campusId && p.status==='active');
+    return Layout.wrap(`
+      <div class="space-y-6 animate-fade-in">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold"><i class="fas fa-store"></i> 暗阁交易</h2>
+          <button data-action="showCreateProduct" data-param="${campusId}" class="btn btn-sm"><i class="fas fa-plus"></i> 发布商品</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          ${prods.map(pr=>`<div class="glass p-4 card-hover">
+            <div class="font-bold mb-1">${U.esc(pr.title)}</div>
+            <div class="text-sm opacity-60 mb-2 line-clamp-2">${U.esc(pr.description)}</div>
+            <div class="flex items-center justify-between">
+              <span class="font-bold" style="color:var(--primary)">${pr.price} ${pr.priceType==='points'?'积分':'元'}</span>
+              <span class="text-xs opacity-50">${pr.tradeType==='face'?'面交':pr.tradeType==='mail'?'邮寄':'线上'}</span>
+            </div>
+            <div class="flex gap-2 mt-3">
+              <button data-action="buyProduct" data-param="${pr.id}" class="btn btn-sm flex-1 justify-center"><i class="fas fa-shopping-cart"></i> 购买</button>
+              <a href="#/chat/${pr.sellerId}" class="btn btn-ghost btn-sm flex-1 justify-center"><i class="fas fa-comment"></i> 联系</a>
+            </div>
+          </div>`).join('')||'<div class="text-center py-20 opacity-50 col-span-3">暗阁空空如也，来发布第一条交易吧</div>'}
+        </div>
+      </div>
+    `, c);
+  },
+
+  shop(campusId) {
+    const c = DB.getById('campuses', campusId);
+    const u = Store.state.currentUser;
+    if(!u) { window.location.hash='#/login'; return ''; }
+    const items = [
+      {id:'si1', name:'置顶卡', desc:'帖子置顶24小时', price:100, icon:'arrow-up'},
+      {id:'si2', name:'匿名卡', desc:'匿名发帖3次', price:50, icon:'user-secret'},
+      {id:'si3', name:'改名卡', desc:'修改昵称1次', price:200, icon:'id-card'},
+      {id:'si4', name:'推流折扣券', desc:'暗阁推流8折', price:30, icon:'bullhorn'},
+    ];
+    return Layout.wrap(`
+      <div class="space-y-6 animate-fade-in">
+        <div class="glass p-6 flex items-center justify-between">
+          <div><div class="text-sm opacity-60">我的积分</div><div class="text-3xl font-bold" style="color:var(--primary)">${u.points}</div></div>
+          <i class="fas fa-coins text-4xl opacity-20"></i>
+        </div>
+        <h2 class="text-xl font-bold">积分商城</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          ${items.map(it=>`<div class="glass p-5 text-center card-hover">
+            <div class="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center text-2xl mb-3" style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:white"><i class="fas fa-${it.icon}"></i></div>
+            <div class="font-bold mb-1">${it.name}</div>
+            <div class="text-sm opacity-60 mb-3">${it.desc}</div>
+            <div class="font-bold text-lg mb-3" style="color:var(--primary)">${it.price} 积分</div>
+            <button data-action="buyItem" data-param="${it.id}|${it.price}|${it.name}" class="btn btn-sm w-full justify-center">兑换</button>
+          </div>`).join('')}
+        </div>
+      </div>
+    `, c);
+  },
+
+
+  admin(campusId) {
+    const c = DB.getById('campuses', campusId);
+    const u = Store.state.currentUser;
+    if(!U.isAdmin(c, u?.id)) { U.toast('无权访问'); window.location.hash=`#/campus/${campusId}`; return ''; }
+    const posts = DB.query('posts', p=>p.campusId===campusId);
+    const users = (c.members||[]).map(id=>DB.getById('users', id)).filter(Boolean);
+    const comments = DB.query('comments', cm=>{
+      const p = DB.getById('posts', cm.postId);
+      return p?.campusId===campusId;
+    });
+    const igs = DB.query('identityGroups', g=>g.campusId===campusId);
+
+    return Layout.wrap(`
+      <div class="space-y-6 animate-fade-in">
+        <h2 class="text-xl font-bold"><i class="fas fa-cog"></i> 管理后台</h2>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="stat-card"><div class="text-2xl font-bold">${users.length}</div><div class="text-sm opacity-60">用户数</div></div>
+          <div class="stat-card"><div class="text-2xl font-bold">${posts.length}</div><div class="text-sm opacity-60">帖子数</div></div>
+          <div class="stat-card"><div class="text-2xl font-bold">${comments.length}</div><div class="text-sm opacity-60">评论数</div></div>
+          <div class="stat-card"><div class="text-2xl font-bold">${igs.length}</div><div class="text-sm opacity-60">身份组</div></div>
+        </div>
+
+        <div class="glass p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold">帖子管理</h3>
+            <input type="text" id="admin-post-search" class="input w-64" placeholder="搜索帖子..." onkeyup="Actions.filterPosts(this.value)">
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b" style="border-color:var(--border)"><th class="text-left py-2 px-3">标题</th><th class="text-left py-2 px-3">作者</th><th class="text-left py-2 px-3">状态</th><th class="text-left py-2 px-3">数据</th><th class="text-right py-2 px-3">操作</th></tr></thead>
+              <tbody id="admin-posts-tbody">
+                ${posts.slice(0,20).map(p=>{
+                  const au = DB.getById('users', p.authorId);
+                  return `<tr class="border-b hover:opacity-80" style="border-color:var(--border)">
+                    <td class="py-2 px-3 max-w-xs truncate">${U.esc(p.title)}</td>
+                    <td class="py-2 px-3">${U.esc(au?.username||'未知')}</td>
+                    <td class="py-2 px-3"><span class="tag text-xs">${p.status}</span></td>
+                    <td class="py-2 px-3 text-xs opacity-60">${p.likes?.length||0}赞 ${p.comments||0}评</td>
+                    <td class="py-2 px-3 text-right">
+                      <button data-action="adminTogglePin" data-param="${p.id}" class="text-xs mr-2 hover:text-blue-500">${p.isPinned?'取消置顶':'置顶'}</button>
+                      <button data-action="adminDeletePost" data-param="${p.id}" class="text-xs text-red-500 hover:opacity-80">删除</button>
+                    </td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">用户管理</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b" style="border-color:var(--border)"><th class="text-left py-2 px-3">用户</th><th class="text-left py-2 px-3">身份组</th><th class="text-left py-2 px-3">积分</th><th class="text-right py-2 px-3">操作</th></tr></thead>
+              <tbody>
+                ${users.map(us=>{
+                  const usIgs = igs.filter(g=>g.users?.includes(us.id)).map(g=>g.name).join(', ')||'萌新';
+                  return `<tr class="border-b hover:opacity-80" style="border-color:var(--border)">
+                    <td class="py-2 px-3 flex items-center gap-2">${U.getAvatarSmall(us, 24)} ${U.esc(us.username)}</td>
+                    <td class="py-2 px-3">${U.esc(usIgs)}</td>
+                    <td class="py-2 px-3">${us.points}</td>
+                    <td class="py-2 px-3 text-right">
+                      <button data-action="adminKick" data-param="${us.id}|${campusId}" class="text-xs text-red-500 hover:opacity-80 mr-2">移出</button>
+                    </td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">身份组配置</h3>
+          <div class="space-y-3">
+            ${igs.map(g=>`<div class="glass-sm p-3 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white" style="background:${g.color}"><i class="fas fa-${g.icon}"></i></div>
+                <div><div class="font-medium">${U.esc(g.name)}</div><div class="text-xs opacity-60">${Object.entries(g.permissions||{}).filter(([k,v])=>v).map(([k])=>k).join(', ')}</div></div>
+              </div>
+              <div class="text-xs opacity-60">${g.users?.length||0} 人</div>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    `, c);
+  },
+
+  aiHub(campusId) {
+    const c = DB.getById('campuses', campusId);
+    const u = Store.state.currentUser;
+    if(!U.isAdmin(c, u?.id)) { U.toast('无权访问'); window.location.hash=`#/campus/${campusId}`; return ''; }
+    const aiUsers = DB.query('aiUsers', a=>a.campusId===campusId);
+    const config = DB._data.aiAdminConfigs[campusId] || {enabled:false, apiKey:'', auditEnabled:false};
+    return Layout.wrap(`
+      <div class="space-y-6 animate-fade-in">
+        <h2 class="text-xl font-bold"><i class="fas fa-robot"></i> AI 生态中心</h2>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">AI 管理员配置</h3>
+          <div class="space-y-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="ai-admin-enable" ${config.enabled?'checked':''} class="accent-blue-500 w-4 h-4">
+              <span>启用 AI 自动审核</span>
+            </label>
+            <div><label class="block text-sm font-medium mb-1">审核置信度阈值</label>
+              <input type="range" id="ai-threshold" min="0" max="100" value="${(config.confidenceThreshold||0.8)*100}" class="w-full">
+              <div class="text-xs opacity-60 mt-1">值越高，审核越严格</div>
+            </div>
+            <button data-action="saveAIConfig" data-param="${campusId}" class="btn"><i class="fas fa-save"></i> 保存配置</button>
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold">AI 用户管理</h3>
+            <button data-action="showCreateAI" data-param="${campusId}" class="btn btn-sm"><i class="fas fa-plus"></i> 创建 AI 用户</button>
+          </div>
+          <div class="space-y-3">
+            ${aiUsers.map(ai=>`<div class="glass-sm p-3 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)"><i class="fas fa-robot"></i></div>
+                <div><div class="font-medium">${U.esc(ai.name)}</div><div class="text-xs opacity-60">${ai.persona} · ${ai.activeHours}</div></div>
+              </div>
+              <div class="flex gap-2">
+                <button data-action="aiGenPost" data-param="${ai.id}" class="btn btn-sm btn-ghost"><i class="fas fa-magic"></i> 生成帖子</button>
+                <button data-action="toggleAI" data-param="${ai.id}" class="btn btn-sm btn-ghost">${ai.isActive?'停用':'启用'}</button>
+              </div>
+            </div>`).join('')||'<div class="text-center py-8 opacity-50">暂无 AI 用户</div>'}
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">AI 接管账号</h3>
+          <p class="text-sm opacity-60 mb-4">用户可消耗积分开启 AI 托管，自动回复私信和@消息</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="glass-sm p-4 text-center">
+              <div class="text-2xl mb-2"><i class="fas fa-user-astronaut"></i></div>
+              <div class="font-bold mb-1">简洁模式</div>
+              <div class="text-xs opacity-60 mb-3">言简意赅，高效回复</div>
+              <div class="font-bold text-lg mb-2">10 积分/天</div>
+            </div>
+            <div class="glass-sm p-4 text-center">
+              <div class="text-2xl mb-2"><i class="fas fa-fire"></i></div>
+              <div class="font-bold mb-1">热情模式</div>
+              <div class="text-xs opacity-60 mb-3">活泼热情，表情丰富</div>
+              <div class="font-bold text-lg mb-2">10 积分/天</div>
+            </div>
+            <div class="glass-sm p-4 text-center">
+              <div class="text-2xl mb-2"><i class="fas fa-laugh-beam"></i></div>
+              <div class="font-bold mb-1">幽默模式</div>
+              <div class="text-xs opacity-60 mb-3">风趣幽默，段子手</div>
+              <div class="font-bold text-lg mb-2">10 积分/天</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `, c);
+  },
+
+  design(campusId) {
+    const c = DB.getById('campuses', campusId);
+    const u = Store.state.currentUser;
+    if(!U.isAdmin(c, u?.id)) { U.toast('无权访问'); window.location.hash=`#/campus/${campusId}`; return ''; }
+    return Layout.wrap(`
+      <div class="space-y-6 animate-fade-in">
+        <h2 class="text-xl font-bold"><i class="fas fa-paint-brush"></i> 设计系统</h2>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">主题模板</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            ${['glass','cyber','minimal','pixel'].map(t=>`
+              <div class="cursor-pointer" data-action="setCampusTheme" data-param="${campusId}|${t}">
+                <div class="glass p-3 text-center ${c.theme===t?'ring-2 ring-blue-500':''} transition">
+                  <div class="w-full h-20 rounded-lg mb-2" style="background:${t==='glass'?'linear-gradient(135deg,#3b82f6,#8b5cf6)':t==='cyber'?'linear-gradient(135deg,#ff00ff,#00ffff)':t==='minimal'?'#fff':'linear-gradient(135deg,#ff6b6b,#4ecdc4)'};border:${t==='minimal'?'1px solid #e5e5e5':'none'}"></div>
+                  <div class="font-medium">${t==='glass'?'玻璃态':t==='cyber'?'赛博朋克':t==='minimal'?'极简风':'像素风'}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">自定义配色</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div><label class="block text-sm font-medium mb-1">主色</label><input type="color" id="custom-primary" value="#3b82f6" class="w-full h-10 rounded-lg cursor-pointer"></div>
+            <div><label class="block text-sm font-medium mb-1">辅助色</label><input type="color" id="custom-secondary" value="#8b5cf6" class="w-full h-10 rounded-lg cursor-pointer"></div>
+            <div><label class="block text-sm font-medium mb-1">强调色</label><input type="color" id="custom-accent" value="#06b6d4" class="w-full h-10 rounded-lg cursor-pointer"></div>
+          </div>
+          <button data-action="applyCustomColor" data-param="${campusId}" class="btn mt-4"><i class="fas fa-check"></i> 应用配色</button>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">自定义 CSS</h3>
+          <textarea id="custom-css" class="input font-mono text-sm" rows="8" placeholder="/* 在此注入自定义 CSS */
+.glass { border-radius: 24px; }"></textarea>
+          <button data-action="applyCustomCSS" data-param="${campusId}" class="btn mt-4"><i class="fas fa-code"></i> 应用 CSS</button>
+        </div>
+      </div>
+    `, c);
+  },
+
+  userProfile(userId) {
+    const u = DB.getById('users', userId);
+    if(!u) return Layout.wrap('<div class="text-center py-20">用户不存在</div>');
+    const posts = DB.query('posts', p=>p.authorId===userId && p.status==='published');
+    const isMe = Store.state.currentUser?.id===userId;
+    return Layout.wrap(`
+      <div class="space-y-6 animate-fade-in">
+        <div class="glass p-6">
+          <div class="flex items-start gap-6">
+            <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-2xl" style="background:linear-gradient(135deg,var(--primary),var(--secondary))">${U.esc(u.username.slice(0,2))}</div>
+            <div class="flex-1">
+              <h2 class="text-2xl font-bold mb-1">${U.esc(u.username)}</h2>
+              <p class="opacity-60 mb-2">${U.esc(u.bio||'这个人很懒~')}</p>
+              <div class="flex items-center gap-3 text-sm opacity-50">
+                <span><i class="fas fa-school"></i> ${U.esc(u.school||'未设置')}</span>
+                <span><i class="fas fa-coins"></i> ${u.points} 积分</span>
+              </div>
+            </div>
+            ${!isMe && Store.state.currentUser?`<a href="#/chat/${u.id}" class="btn btn-sm"><i class="fas fa-comment"></i> 私聊</a>`:''}
+          </div>
+        </div>
+        <h3 class="font-bold">发布的帖子</h3>
+        <div class="space-y-3">
+          ${posts.length?posts.map(p=>{
+            const c = DB.getById('campuses', p.campusId);
+            return `<a href="#/campus/${p.campusId}/post/${p.id}" class="glass p-4 block card-hover" style="color:var(--text)">
+              <div class="font-bold mb-1">${U.esc(p.title)}</div>
+              <div class="text-sm opacity-60">${U.esc(c?.name||'未知子站')} · ${U.fmtTime(p.createdAt)}</div>
+            </a>`;
+          }).join(''):'<div class="text-center py-10 opacity-50">暂无帖子</div>'}
+        </div>
+      </div>
+    `);
+  }
+};
+
+// ==================== 动作处理器 ====================
+const Actions = {
+  toggleDark() { Store.setDark(!Store.state.darkMode); App.render(); },
+
+  doLogin() {
+    const email = document.getElementById('login-email').value;
+    const pwd = document.getElementById('login-pwd').value;
+    const r = S.auth.login({email, password:pwd});
+    if(r.error) { U.toast(r.error, 'error'); return; }
+    Store.setUser(r.user);
+    U.toast('登录成功', 'success');
+    window.location.hash='#';
+  },
+
+  doRegister() {
+    const username = document.getElementById('reg-user').value;
+    const email = document.getElementById('reg-email').value;
+    const pwd = document.getElementById('reg-pwd').value;
+    const school = document.getElementById('reg-school').value;
+    if(pwd.length<8) { U.toast('密码至少8位', 'warn'); return; }
+    const r = S.auth.register({username, email, password:pwd, school, tags:[]});
+    if(r.error) { U.toast(r.error, 'error'); return; }
+    Store.setUser(r.user);
+    U.toast('注册成功，获得100积分', 'success');
+    window.location.hash='#';
+  },
+
+  logout() { Store.logout(); U.toast('已退出登录'); window.location.hash='#'; App.render(); },
+
+  saveProfile() {
+    const u = Store.state.currentUser;
+    if(!u) return;
+    const username = document.getElementById('set-nickname').value;
+    const bio = document.getElementById('set-bio').value;
+    const school = document.getElementById('set-school').value;
+    const tags = document.getElementById('set-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+    DB.update('users', u.id, {username, bio, school, tags});
+    Store.setUser(DB.getById('users', u.id));
+    U.toast('资料已保存', 'success');
+  },
+
+  saveKimiKey() {
+    const key = document.getElementById('kimi-key').value.trim();
+    Store.state.kimiKey = key;
+    localStorage.setItem('kimi_api_key', key);
+    U.toast('API Key 已保存', 'success');
+  },
+
+  clearData() {
+    if(!confirm('确定要清空所有数据吗？此操作不可恢复！')) return;
+    localStorage.removeItem('campushub_v2');
+    localStorage.removeItem('campushub_state');
+    localStorage.removeItem('kimi_api_key');
+    location.reload();
+  },
+
+  doCreateCampus() {
+    const u = Store.state.currentUser;
+    if(!u) { U.toast('请先登录'); return; }
+    const name = document.getElementById('cc-name').value;
+    const description = document.getElementById('cc-desc').value;
+    const tags = document.getElementById('cc-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+    const visibility = document.getElementById('cc-visibility').value;
+    const joinType = document.getElementById('cc-join').value;
+    const theme = document.querySelector('input[name="cc-theme"]:checked').value;
+    const features = {
+      posts: document.getElementById('feat-posts').checked,
+      chat: document.getElementById('feat-chat').checked,
+      darkroom: document.getElementById('feat-darkroom').checked,
+      tasks: document.getElementById('feat-tasks').checked,
+      ai: document.getElementById('feat-ai').checked
+    };
+    const c = S.campus.create({name, description, tags, visibility, joinType, theme, features, ownerId:u.id});
+    U.toast('子站创建成功', 'success');
+    window.location.hash=`#/campus/${c.id}`;
+  },
+
+  joinCampus(campusId) {
+    const u = Store.state.currentUser;
+    if(!u) { U.toast('请先登录'); window.location.hash='#/login'; return; }
+    const r = S.campus.join(campusId, u.id);
+    if(r.error) { U.toast(r.error, 'warn'); return; }
+    Store.state.currentCampus = DB.getById('campuses', campusId);
+    U.toast('加入成功', 'success');
+    App.render();
+  },
+
+  doNewPost(campusId) {
+    const u = Store.state.currentUser;
+    if(!u) return;
+    const title = document.getElementById('np-title').value;
+    const content = document.getElementById('np-content').value;
+    const tags = document.getElementById('np-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+    const type = document.querySelector('input[name="np-type"]:checked').value;
+    const isAnonymous = document.getElementById('np-anon').checked;
+    let pollOptions = {}, pollVotes = {};
+    if(type==='poll') {
+      const opts = document.getElementById('np-poll').value.split('\n').map(s=>s.trim()).filter(Boolean);
+      opts.forEach(o=>{ pollOptions[o]=o; pollVotes[o]=0; });
+    }
+    S.post.create({campusId, authorId:u.id, type, title, content, tags, isAnonymous, pollOptions, pollVotes});
+    U.toast('发布成功', 'success');
+    window.location.hash=`#/campus/${campusId}`;
+  },
+
+  likePost(postId) {
+    const u = Store.state.currentUser;
+    if(!u) { U.toast('请先登录'); return; }
+    const liked = S.post.like(postId, u.id);
+    U.toast(liked?'点赞成功':'取消点赞');
+    App.render();
+  },
+
+  favPost(postId) {
+    const u = Store.state.currentUser;
+    if(!u) { U.toast('请先登录'); return; }
+    const faved = S.post.favorite(postId, u.id);
+    U.toast(faved?'收藏成功':'取消收藏');
+    App.render();
+  },
+
+  addComment(postId) {
+    const u = Store.state.currentUser;
+    if(!u) return;
+    const input = document.getElementById('comment-input');
+    if (!input) return;
+    const content = input.value.trim();
+    if(!content) return;
+    S.comment.create({postId, authorId:u.id, content, parentId:null});
+    input.value='';
+    U.toast('评论成功', 'success');
+    App.render();
+  },
+
+  votePoll(param) {
+    const parts = param.split('|');
+    const postId = parts[0];
+    const option = decodeURIComponent(parts.slice(1).join('|'));
+    const p = DB.getById('posts', postId);
+    if(!p || p.type!=='poll') return;
+    p.pollVotes = p.pollVotes || {};
+    p.pollVotes[option] = (p.pollVotes[option]||0)+1;
+    DB.update('posts', postId, {pollVotes:p.pollVotes});
+    U.toast('投票成功', 'success');
+    App.render();
+  },
+
+  togglePin(postId) {
+    const p = DB.getById('posts', postId);
+    if(!p) return;
+    DB.update('posts', postId, {isPinned:!p.isPinned});
+    U.toast(p.isPinned?'已取消置顶':'已置顶');
+    App.render();
+  },
+
+  toggleFeature(postId) {
+    const p = DB.getById('posts', postId);
+    if(!p) return;
+    DB.update('posts', postId, {isFeatured:!p.isFeatured});
+    U.toast(p.isFeatured?'已取消精华':'已加精');
+    App.render();
+  },
+
+  deletePost(postId) {
+    if(!confirm('确定删除此帖子？')) return;
+    DB.delete('posts', postId);
+    U.toast('已删除');
+    window.history.back();
+  },
+
+  sendPM(userId) {
+    const u = Store.state.currentUser;
+    if(!u) return;
+    const input = document.getElementById('pm-input');
+    if (!input) return;
+    const content = input.value.trim();
+    if(!content) return;
+    S.chat.sendPM(u.id, userId, content);
+    input.value='';
+    App.render();
+    setTimeout(()=>{
+      const sc = document.getElementById('chat-scroll');
+      if(sc) sc.scrollTop = sc.scrollHeight;
+    }, 50);
+  },
+
+  sendRoomMsg(roomId) {
+    const u = Store.state.currentUser;
+    if(!u) return;
+    const input = document.getElementById('room-msg');
+    if (!input) return;
+    const content = input.value.trim();
+    if(!content) return;
+    S.chat.sendRoom(roomId, u.id, content);
+    input.value='';
+    App.render();
+    setTimeout(()=>{
+      const sc = document.getElementById('room-scroll');
+      if(sc) sc.scrollTop = sc.scrollHeight;
+    }, 50);
+  },
+
+  showCreateRoom(campusId) {
+    const html = `<div class="p-6"><h3 class="font-bold mb-4">创建聊天室</h3>
+      <div class="space-y-4"><div><label class="block text-sm font-medium mb-1">名称</label><input type="text" id="cr-name" class="input" placeholder="聊天室名称"></div>
+      <div><label class="block text-sm font-medium mb-1">类型</label><select id="cr-type" class="input"><option value="public">公开</option><option value="private">私密</option></select></div>
+      <div><label class="block text-sm font-medium mb-1">公告</label><input type="text" id="cr-announce" class="input" placeholder="可选"></div>
+      <button data-action="doCreateRoom" data-param="${campusId}" class="btn w-full justify-center">创建</button></div></div>`;
+    U.modal(html);
+  },
+
+  doCreateRoom(campusId) {
+    const u = Store.state.currentUser;
+    const name = document.getElementById('cr-name').value;
+    const type = document.getElementById('cr-type').value;
+    const announcement = document.getElementById('cr-announce').value;
+    if(!name) { U.toast('请输入名称'); return; }
+    DB.insert('chatRooms', {campusId, name, type, password:'', maxUsers:100, announcement, members:[u.id], createdAt:new Date().toISOString()});
+    U.closeModal();
+    U.toast('聊天室创建成功', 'success');
+    App.render();
+  },
+
+  signIn(campusId) {
+    const u = Store.state.currentUser;
+    if(!u) { U.toast('请先登录'); return; }
+    const r = S.sign.do(u.id, campusId);
+    if(r.error) { U.toast(r.error, 'warn'); return; }
+    U.toast(`签到成功！连续${r.streak}天，获得${r.reward}积分`, 'success');
+    App.render();
+  },
+
+  claimTask(taskId) {
+    const u = Store.state.currentUser;
+    if(!u) return;
+    const done = S.task.complete(taskId, u.id);
+    if(done) U.toast('任务完成，积分已发放', 'success');
+    else U.toast('任务已完成或条件未满足', 'warn');
+    App.render();
+  },
+
+  showCreateProduct(campusId) {
+    const html = `<div class="p-6"><h3 class="font-bold mb-4">发布商品</h3>
+      <div class="space-y-4"><div><label class="block text-sm font-medium mb-1">标题</label><input type="text" id="cp-title" class="input"></div>
+      <div><label class="block text-sm font-medium mb-1">描述</label><textarea id="cp-desc" class="input" rows="3"></textarea></div>
+      <div class="grid grid-cols-2 gap-3"><div><label class="block text-sm font-medium mb-1">价格</label><input type="number" id="cp-price" class="input" value="10"></div>
+      <div><label class="block text-sm font-medium mb-1">货币</label><select id="cp-type" class="input"><option value="points">积分</option><option value="cash">现金</option></select></div></div>
+      <div><label class="block text-sm font-medium mb-1">交易方式</label><select id="cp-trade" class="input"><option value="face">面交</option><option value="mail">邮寄</option><option value="online">线上</option></select></div>
+      <button data-action="doCreateProduct" data-param="${campusId}" class="btn w-full justify-center">发布</button></div></div>`;
+    U.modal(html);
+  },
+
+  doCreateProduct(campusId) {
+    const u = Store.state.currentUser;
+    const title = document.getElementById('cp-title').value;
+    const description = document.getElementById('cp-desc').value;
+    const price = parseInt(document.getElementById('cp-price').value)||0;
+    const priceType = document.getElementById('cp-type').value;
+    const tradeType = document.getElementById('cp-trade').value;
+    if(!title) { U.toast('请输入标题'); return; }
+    DB.insert('products', {campusId, sellerId:u.id, title, description, price, priceType, tradeType, status:'active', createdAt:new Date().toISOString()});
+    U.closeModal();
+    U.toast('商品发布成功', 'success');
+    App.render();
+  },
+
+  buyProduct(productId) {
+    const u = Store.state.currentUser;
+    if(!u) { U.toast('请先登录'); return; }
+    const pr = DB.getById('products', productId);
+    if(!pr) return;
+    if(pr.priceType==='points' && u.points<pr.price) { U.toast('积分不足', 'error'); return; }
+    if(confirm(`确认购买「${pr.title}」？${pr.priceType==='points'?`消耗${pr.price}积分`:''}`)) {
+      if(pr.priceType==='points') {
+        S.points.add(u.id, pr.campusId, -pr.price, `购买商品: ${pr.title}`);
+        if(pr.sellerId) S.points.add(pr.sellerId, pr.campusId, pr.price, `售出商品: ${pr.title}`);
+      }
+      DB.update('products', productId, {status:'sold', buyerId:u.id});
+      U.toast('购买成功', 'success');
+      App.render();
+    }
+  },
+
+  buyItem(param) {
+    const [id, price, name] = param.split('|');
+    const u = Store.state.currentUser;
+    if(!u) return;
+    const p = parseInt(price);
+    if(u.points < p) { U.toast('积分不足', 'error'); return; }
+    S.points.add(u.id, null, -p, `兑换: ${name}`);
+    U.toast(`成功兑换「${name}」`, 'success');
+    App.render();
+  },
+
+  saveAIConfig(campusId) {
+    const enabled = document.getElementById('ai-admin-enable').checked;
+    const threshold = parseInt(document.getElementById('ai-threshold').value)/100;
+    DB._data.aiAdminConfigs[campusId] = {enabled, confidenceThreshold:threshold};
+    DB._save();
+    U.toast('AI配置已保存', 'success');
+  },
+
+  showCreateAI(campusId) {
+    const html = `<div class="p-6"><h3 class="font-bold mb-4">创建 AI 用户</h3>
+      <div class="space-y-4"><div><label class="block text-sm font-medium mb-1">名称</label><input type="text" id="ai-name" class="input" placeholder="如：小助手"></div>
+      <div><label class="block text-sm font-medium mb-1">人设</label><select id="ai-persona" class="input"><option value="话痨型">话痨型</option><option value="高冷型">高冷型</option><option value="卖萌型">卖萌型</option><option value="学术型">学术型</option></select></div>
+      <div><label class="block text-sm font-medium mb-1">活跃时段</label><input type="text" id="ai-hours" class="input" value="08:00-22:00"></div>
+      <button data-action="doCreateAI" data-param="${campusId}" class="btn w-full justify-center">创建</button></div></div>`;
+    U.modal(html);
+  },
+
+  doCreateAI(campusId) {
+    const name = document.getElementById('ai-name').value;
+    const persona = document.getElementById('ai-persona').value;
+    const hours = document.getElementById('ai-hours').value;
+    if(!name) { U.toast('请输入名称'); return; }
+    DB.insert('aiUsers', {campusId, name, persona, activeHours:hours, postFreq:'1-3', topics:[], behaviors:{post:true,comment:true,like:true}, isActive:true});
+    U.closeModal();
+    U.toast('AI用户创建成功', 'success');
+    App.render();
+  },
+
+  async aiGenPost(aiId) {
+    const ai = DB.getById('aiUsers', aiId);
+    if(!ai) return;
+    U.toast('AI 正在生成内容...', 'info');
+    const topics = ['校园生活','学习经验','美食推荐','社团活动','考试周'];
+    const topic = topics[Math.floor(Math.random()*topics.length)];
+    const r = await AI.generatePost(topic, ai.persona);
+    if(r.error) { U.toast(r.error, 'error'); return; }
+    const c = DB.query('campuses', cp=>cp.id===ai.campusId)[0];
+    const post = S.post.create({
+      campusId: ai.campusId, authorId: ai.id, type:'text',
+      title: r.title, content: r.content, tags:['AI生成'], isAnonymous:false
+    });
+    U.toast('AI 帖子已生成', 'success');
+    window.location.hash=`#/campus/${ai.campusId}/post/${post.id}`;
+  },
+
+  toggleAI(aiId) {
+    const ai = DB.getById('aiUsers', aiId);
+    if(!ai) return;
+    DB.update('aiUsers', aiId, {isActive:!ai.isActive});
+    U.toast(ai.isActive?'AI 已停用':'AI 已启用');
+    App.render();
+  },
+
+  setCampusTheme(param) {
+    const [campusId, theme] = param.split('|');
+    DB.update('campuses', campusId, {theme});
+    U.toast('主题已切换');
+    App.render();
+  },
+
+  applyCustomColor(campusId) {
+    const primary = document.getElementById('custom-primary').value;
+    const secondary = document.getElementById('custom-secondary').value;
+    const accent = document.getElementById('custom-accent').value;
+    const c = DB.getById('campuses', campusId);
+    c.customColors = {primary, secondary, accent};
+    DB.update('campuses', campusId, {customColors:c.customColors});
+    document.documentElement.style.setProperty('--primary', primary);
+    document.documentElement.style.setProperty('--secondary', secondary);
+    document.documentElement.style.setProperty('--accent', accent);
+    U.toast('配色已应用');
+  },
+
+  applyCustomCSS(campusId) {
+    const css = document.getElementById('custom-css').value;
+    const c = DB.getById('campuses', campusId);
+    c.customCSS = css;
+    DB.update('campuses', campusId, {customCSS:css});
+    let style = document.getElementById('custom-campus-css');
+    if(!style) { style=document.createElement('style'); style.id='custom-campus-css'; document.head.appendChild(style); }
+    style.textContent = css;
+    U.toast('CSS 已注入');
+  },
+
+  filterPosts(q) {
+    const rows = document.querySelectorAll('#admin-posts-tbody tr');
+    rows.forEach(r=>{ r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase())?'':'none'; });
+  },
+
+  adminTogglePin(postId) { this.togglePin(postId); },
+  adminDeletePost(postId) { this.deletePost(postId); },
+  adminKick(param) {
+    const [userId, campusId] = param.split('|');
+    const c = DB.getById('campuses', campusId);
+    if(!c) return;
+    c.members = c.members.filter(id=>id!==userId);
+    DB.update('campuses', campusId, {members:c.members});
+    U.toast('用户已移出');
+    App.render();
+  }
+};
+
+// ==================== 初始化 ====================
+DB.init();
+Store.init();
+App.init();
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') U.closeModal();
+});
+
+setInterval(()=>{
+  if(window.location.hash.includes('/room/')) {
+    const roomId = window.location.hash.match(/room\/([^/]+)/)?.[1];
+    if(roomId) {
+      // 可选自动刷新
+    }
+  }
+}, 5000);
+
+console.log('CampusHub 校园墙主站已加载');
+</script>
+</body>
+</html>
