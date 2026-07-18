@@ -1,104 +1,164 @@
 {% extends "base.html" %}
-
-{% block title %}CampusHub — 校园墙主站{% endblock %}
-
+{% block title %}校园墙 · CampusWall{% endblock %}
 {% block content %}
+<!-- 加载动画 -->
+<div class="loading-screen" id="loadingScreen">
+    <div class="loading-logo">校园墙</div>
+    <div class="loading-text" id="loadingText"></div>
+</div>
+
+<!-- 背景层 -->
+<div class="bg-layer">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+</div>
+<div class="paper-texture"></div>
+
 <!-- 导航栏 -->
-<nav class="navbar">
-    <div class="container">
-        <a href="/" class="nav-brand">
-            <span class="logo-icon">CH</span>
-            <span class="logo-text">CampusHub</span>
-        </a>
-        <div class="nav-search">
-            <input type="text" id="searchInput" placeholder="搜索子站..." class="search-input">
-            <button id="searchBtn" class="search-btn">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </button>
-        </div>
-        <div class="nav-actions">
-            <button class="btn btn-outline btn-sm" onclick="showToast('登录功能开发中')">登录</button>
-            <button class="btn btn-primary btn-sm" onclick="showToast('注册功能开发中')">注册</button>
-        </div>
+<nav class="navbar" id="navbar">
+    <a href="/" class="nav-logo">
+        <div class="nav-logo-icon">🏫</div>
+        <span>校园墙</span>
+    </a>
+    <ul class="nav-links">
+        <li><a href="#stations">子站市场</a></li>
+        <li><a href="#posts">最新动态</a></li>
+    </ul>
+    <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn btn-outline btn-sm" onclick="showToast('登录功能开发中')">登录</button>
+        <button class="btn btn-primary btn-sm" onclick="showToast('注册功能开发中')">注册</button>
     </div>
 </nav>
 
-<!-- 英雄区 -->
-<section class="hero">
-    <div class="hero-geo hero-geo--1"></div>
-    <div class="hero-geo hero-geo--2"></div>
-    <div class="container hero-content">
-        <h1 class="animate__animated animate__fadeInUp">连接校园，分享青春</h1>
-        <p class="animate__animated animate__fadeInUp animate__delay-1s">
-            创建属于你的校园墙，让每一个声音都被听见
-        </p>
-        <div class="hero-btns animate__animated animate__fadeInUp animate__delay-2s">
-            <button class="btn btn-primary btn-lg" onclick="showToast('创建子站功能开发中')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                创建子站
-            </button>
-            <button class="btn btn-outline btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">
-                浏览子站
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-            </button>
-        </div>
+<!-- Hero 区 -->
+<section class="hero-section" id="hero">
+    <h1>连接校园<br>分享青春</h1>
+    <p>创建属于你的校园墙，让每一个声音都被听见 ✨</p>
+    <div class="hero-btns">
+        <button class="btn btn-primary btn-lg" onclick="showToast('创建子站功能开发中')">
+            + 创建子站
+        </button>
+        <button class="btn btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">
+            浏览子站 ↓
+        </button>
+    </div>
+    <div class="scroll-hint" id="scrollHint">
+        <span>向下滚动探索</span>
+        <div style="font-size:1.2rem;">↓</div>
     </div>
 </section>
+
+<!-- 过渡装饰 -->
+<div class="section-divider">
+    <div class="divider-line"></div>
+    <div class="divider-ornament">🌸</div>
+</div>
 
 <!-- 子站市场 -->
-<section id="stations" class="stations-section">
-    <div class="container">
-        <div class="section-header">
-            <div>
-                <h2 class="section-title">热门子站</h2>
-                <p class="section-subtitle">发现校园里的精彩社群</p>
-            </div>
-            <a href="#" class="section-more">查看全部 →</a>
+<section class="section" id="stations">
+    <div class="container" style="max-width:1100px;">
+        <div class="reveal" style="text-align:center;margin-bottom:40px;">
+            <h2 class="chapter-header" style="justify-content:center;">子站市场</h2>
+            <p class="chapter-sub">发现更多有趣的角落，找到属于你的同好圈子</p>
+        </div>
+        <div class="search-box reveal">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索感兴趣的子站...">
+        </div>
+        <div class="tag-bar reveal">
+            <span class="tag active">🔥 热门</span>
+            <span class="tag">✨ 最新</span>
+            <span class="tag">💎 推荐</span>
+            <span class="tag">📚 学习</span>
+            <span class="tag">🎮 游戏</span>
+            <span class="tag">🎵 音乐</span>
         </div>
         <div id="stationGrid" class="station-grid">
-            <!-- 由 JS 动态渲染 -->
+            <!-- JS 动态渲染 -->
         </div>
     </div>
 </section>
 
+<!-- 过渡装饰 -->
+<div class="section-divider">
+    <div class="divider-line"></div>
+    <div class="divider-ornament" style="animation-delay:-1.5s;">🍃</div>
+</div>
+
 <!-- 最新动态 -->
-<section class="posts-section">
-    <div class="container">
-        <div class="section-header">
-            <div>
-                <h2 class="section-title">最新动态</h2>
-                <p class="section-subtitle">来自各校园墙的实时更新</p>
-            </div>
-            <a href="#" class="section-more">查看全部 →</a>
+<section class="section" id="posts" style="padding-bottom:100px;">
+    <div class="container" style="max-width:800px;">
+        <div class="reveal" style="text-align:center;margin-bottom:40px;">
+            <h2 class="chapter-header" style="justify-content:center;">最新动态</h2>
+            <p class="chapter-sub">看看大家都在聊些什么</p>
         </div>
         <div id="postList" class="post-list">
-            <!-- 由 JS 动态渲染 -->
+            <!-- JS 动态渲染 -->
         </div>
     </div>
 </section>
 
 <!-- 页脚 -->
 <footer class="footer">
-    <div class="container">
-        <p>© 2026 CampusHub. 让校园更美好.</p>
-        <p class="footer-links">
-            <a href="#">关于我们</a> · 
-            <a href="#">用户协议</a> · 
-            <a href="#">隐私政策</a>
-        </p>
+    <p>Made with <span class="footer-heart">❤</span> for every student · 校园墙 CampusWall</p>
+    <div class="footer-links">
+        <a href="#">关于我们</a> · 
+        <a href="#">用户协议</a> · 
+        <a href="#">隐私政策</a>
     </div>
+    <p style="margin-top:8px;font-size:0.75rem;">这是一个温暖的、属于年轻人的校园社区</p>
 </footer>
 
-<!-- 提示 Toast -->
 <div id="toast" class="toast"></div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        loadStations();
-        loadPosts();
-        initSearch();
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    // 加载动画
+    const loadingTexts = ["正在打开社团活动室的门...", "阳光透过百叶窗洒了进来...", "欢迎来到校园墙 ✨"];
+    let textIdx = 0, charIdx = 0;
+    const loadingTextEl = document.getElementById('loadingText');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loadingLogo = document.querySelector('.loading-logo');
+
+    setTimeout(() => {
+        loadingLogo.style.transition = 'all 0.8s ease';
+        loadingLogo.style.opacity = '1';
+        loadingLogo.style.transform = 'translateY(0)';
+    }, 300);
+
+    function typeWriter() {
+        if (textIdx < loadingTexts.length) {
+            if (charIdx < loadingTexts[textIdx].length) {
+                loadingTextEl.innerHTML = loadingTexts[textIdx].substring(0, charIdx + 1) + '<span class="loading-cursor"></span>';
+                loadingTextEl.style.opacity = '1';
+                charIdx++;
+                setTimeout(typeWriter, 60);
+            } else {
+                setTimeout(() => { textIdx++; charIdx = 0; textIdx < loadingTexts.length ? typeWriter() : setTimeout(() => { loadingScreen.classList.add('hidden'); initScrollAnim(); }, 800); }, 600);
+            }
+        }
+    }
+    setTimeout(typeWriter, 1200);
+
+    // GSAP 滚动动画
+    function initScrollAnim() {
+        gsap.to('#navbar', { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
+        gsap.registerPlugin(ScrollTrigger);
+        gsap.utils.toArray('.reveal').forEach((el, i) => {
+            gsap.to(el, { scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none none' }, opacity: 1, y: 0, duration: 0.8, delay: i % 3 * 0.1, ease: 'power2.out' });
+        });
+        gsap.to('.bg-glow-1', { scrollTrigger: { trigger: 'body', start: 'top top', end: 'bottom bottom', scrub: 1 }, y: -100 });
+        gsap.to('.bg-glow-2', { scrollTrigger: { trigger: 'body', start: 'top top', end: 'bottom bottom', scrub: 1 }, y: -200 });
+        gsap.to('.bg-glow-3', { scrollTrigger: { trigger: 'body', start: 'top top', end: 'bottom bottom', scrub: 1 }, y: -150 });
+    }
+
+    // 数据加载
+    loadStations();
+    loadPosts();
+    initSearch();
+});
 </script>
 {% endblock %}

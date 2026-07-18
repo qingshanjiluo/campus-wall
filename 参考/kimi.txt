@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>校园墙 · Galgame Edition</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Press+Start+2P&family=ZCOOL+KuaiLe&display=swap');
+
+:root {
+  --pink-1: #ffe4ec;
+  --pink-2: #ffb3c6;
+  --pink-3: #ff8fab;
+  --pink-4: #fb6f92;
+  --orange: #ffb347;
+  --yellow: #fff68f;
+  --purple: #e6e6fa;
+  --cream: #fff8f0;
+  --klein: #002fa7;
+  --neon-yellow: #ccff00;
+  --text-dark: #3d2b1f;
+  --text-light: #6b5b4f;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Zen Maru Gothic', sans-serif;
+  background: var(--cream);
+  color: var(--text-dark);
+  overflow-x: hidden;
+}
+
+/* ===== 手绘涂鸦背景层 ===== */
+.doodle-layer {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 0; overflow: hidden;
+}
+.doodle-star {
+  position: absolute; opacity: 0;
+  animation: twinkle 3s ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%,100% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+  50% { opacity: 0.8; transform: scale(1.2) rotate(15deg); }
+}
+.doodle-cloud {
+  position: absolute; opacity: 0.15;
+  background: var(--pink-2); border-radius: 50%;
+  filter: blur(8px);
+}
+.doodle-line {
+  position: absolute; opacity: 0.08;
+  border-top: 2px dashed var(--pink-4);
+  transform: rotate(var(--r, 0deg));
+}
+.doodle-dot {
+  position: absolute; width: 6px; height: 6px;
+  border-radius: 50%; opacity: 0;
+  animation: popDot 4s ease-in-out infinite;
+}
+@keyframes popDot {
+  0%,100% { opacity: 0; transform: scale(0); }
+  30% { opacity: 0.6; transform: scale(1); }
+  70% { opacity: 0.3; }
+}
+
+/* ===== 章节滚动容器 ===== */
+.chapter {
+  min-height: 100vh; position: relative;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 4rem 2rem; z-index: 1;
+}
+
+.chapter-title {
+  font-family: 'ZCOOL KuaiLe', cursive;
+  font-size: clamp(3rem, 20vw, 12rem);
+  color: var(--pink-4);
+  text-shadow: 4px 4px 0 var(--yellow), 8px 8px 0 var(--purple);
+  transform: rotate(-3deg);
+  margin-bottom: 2rem;
+  opacity: 0;
+  line-height: 1;
+}
+
+.chapter-sub {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.7rem;
+  color: var(--text-light);
+  letter-spacing: 4px;
+  margin-top: -1rem;
+  opacity: 0;
+}
+
+/* ===== 中央角色立绘区域 ===== */
+.hero-section {
+  position: relative; min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+
+.character-container {
+  position: relative; width: 100%; max-width: 900px;
+  height: 80vh; display: flex; align-items: flex-end;
+  justify-content: center;
+}
+
+/* 角色立绘 - 纯CSS绘制 */
+.character {
+  position: relative; width: 320px; height: 500px;
+  z-index: 2; opacity: 0;
+}
+
+/* 身体 */
+.char-body {
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 160px; height: 220px;
+  background: linear-gradient(180deg, var(--pink-2) 0%, var(--pink-3) 100%);
+  border-radius: 40% 40% 35% 35%;
+  border: 3px solid var(--text-dark);
+  border-bottom: none;
+}
+
+/* 头部 */
+.char-head {
+  position: absolute; bottom: 200px; left: 50%; transform: translateX(-50%);
+  width: 140px; height: 130px;
+  background: linear-gradient(180deg, #ffe0bd 0%, #ffd4a8 100%);
+  border-radius: 50% 50% 45% 45%;
+  border: 3px solid var(--text-dark);
+  z-index: 3;
+}
+
+/* 头发 */
+.char-hair {
+  position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
+  width: 170px; height: 100px;
+  background: linear-gradient(180deg, #5a3a2a 0%, #3d2b1f 100%);
+  border-radius: 50% 50% 30% 30%;
+  border: 3px solid var(--text-dark);
+  z-index: 4;
+}
+.char-hair::before {
+  content: ''; position: absolute; top: 10px; left: -15px;
+  width: 50px; height: 80px;
+  background: linear-gradient(180deg, #5a3a2a 0%, #3d2b1f 100%);
+  border-radius: 50% 0 50% 50%;
+  border: 3px solid var(--text-dark);
+  border-right: none;
+}
+.char-hair::after {
+  content: ''; position: absolute; top: 10px; right: -15px;
+  width: 50px; height: 80px;
+  background: linear-gradient(180deg, #5a3a2a 0%, #3d2b1f 100%);
+  border-radius: 0 50% 50% 50%;
+  border: 3px solid var(--text-dark);
+  border-left: none;
+}
+
+/* 呆毛 */
+.char-ahoge {
+  position: absolute; top: -45px; left: 50%; transform: translateX(-50%);
+  width: 8px; height: 35px;
+  background: #5a3a2a;
+  border: 2px solid var(--text-dark);
+  border-radius: 50% 50% 0 0;
+  transform-origin: bottom center;
+  animation: ahogeWiggle 2s ease-in-out infinite;
+}
+@keyframes ahogeWiggle {
+  0%,100% { transform: translateX(-50%) rotate(-5deg); }
+  50% { transform: translateX(-50%) rotate(5deg); }
+}
+
+/* 眼睛 */
+.char-eye {
+  position: absolute; top: 45px; width: 28px; height: 32px;
+  background: var(--text-dark);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.char-eye.left { left: 28px; }
+.char-eye.right { right: 28px; }
+.char-eye::before {
+  content: ''; position: absolute; top: 5px; left: 5px;
+  width: 12px; height: 12px; background: white;
+  border-radius: 50%;
+}
+.char-eye::after {
+  content: ''; position: absolute; top: 18px; right: 5px;
+  width: 6px; height: 6px; background: white;
+  border-radius: 50%;
+}
+.char-eye.blink {
+  animation: blink 4s ease-in-out infinite;
+}
+@keyframes blink {
+  0%,96%,100% { transform: scaleY(1); }
+  98% { transform: scaleY(0.1); }
+}
+
+/* 腮红 */
+.char-blush {
+  position: absolute; top: 75px; width: 25px; height: 15px;
+  background: var(--pink-4); opacity: 0.4;
+  border-radius: 50%; filter: blur(3px);
+}
+.char-blush.left { left: 15px; }
+.char-blush.right { right: 15px; }
+
+/* 嘴巴 */
+.char-mouth {
+  position: absolute; top: 90px; left: 50%; transform: translateX(-50%);
+  width: 20px; height: 10px;
+  border-bottom: 3px solid var(--text-dark);
+  border-radius: 0 0 50% 50%;
+}
+
+/* 蝴蝶结 */
+.char-bow {
+  position: absolute; top: 180px; left: 50%; transform: translateX(-50%);
+  width: 60px; height: 30px; z-index: 5;
+}
+.char-bow::before, .char-bow::after {
+  content: ''; position: absolute;
+  width: 30px; height: 25px;
+  background: var(--pink-4);
+  border: 2px solid var(--text-dark);
+  border-radius: 50% 50% 0 50%;
+}
+.char-bow::before { left: 0; transform: rotate(-20deg); }
+.char-bow::after { right: 0; transform: rotate(20deg) scaleX(-1); }
+.char-bow-center {
+  position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+  width: 12px; height: 12px;
+  background: var(--pink-4);
+  border: 2px solid var(--text-dark);
+  border-radius: 50%; z-index: 6;
+}
+
+/* 手臂 */
+.char-arm {
+  position: absolute; bottom: 80px; width: 35px; height: 100px;
+  background: linear-gradient(180deg, #ffe0bd 0%, #ffd4a8 100%);
+  border: 3px solid var(--text-dark);
+  border-radius: 50%;
+}
+.char-arm.left { left: 70px; transform: rotate(15deg); }
+.char-arm.right { right: 70px; transform: rotate(-15deg); }
+
+/* 半透明覆盖 */
+.character::after {
+  content: ''; position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, transparent 30%, rgba(255,255,255,0.3) 100%);
+  pointer-events: none;
+}
+
+/* ===== 对话气泡 ===== */
+.speech-bubble {
+  position: absolute;
+  background: white;
+  border: 3px solid var(--text-dark);
+  border-radius: 25px;
+  padding: 1rem 1.5rem;
+  max-width: 280px;
+  box-shadow: 6px 6px 0 var(--pink-2);
+  z-index: 10;
+  opacity: 0;
+  transform: scale(0);
+}
+
+.speech-bubble::after {
+  content: ''; position: absolute;
+  width: 0; height: 0;
+}
+
+.speech-bubble.tail-left::after {
+  bottom: 20px; left: -15px;
+  border-top: 12px solid transparent;
+  border-bottom: 12px solid transparent;
+  border-right: 18px solid var(--text-dark);
+}
+.speech-bubble.tail-right::after {
+  bottom: 20px; right: -15px;
+  border-top: 12px solid transparent;
+  border-bottom: 12px solid transparent;
+  border-left: 18px solid var(--text-dark);
+}
+.speech-bubble.tail-bottom::after {
+  bottom: -15px; left: 50%; transform: translateX(-50%);
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 18px solid var(--text-dark);
+}
+.speech-bubble.tail-top::after {
+  top: -15px; left: 50%; transform: translateX(-50%);
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 18px solid var(--text-dark);
+}
+
+.speech-bubble.pink { background: var(--pink-1); box-shadow: 6px 6px 0 var(--pink-4); }
+.speech-bubble.yellow { background: var(--yellow); box-shadow: 6px 6px 0 var(--orange); }
+.speech-bubble.purple { background: var(--purple); box-shadow: 6px 6px 0 #b8b8d1; }
+.speech-bubble.neon { background: var(--neon-yellow); box-shadow: 6px 6px 0 var(--klein); }
+
+.bubble-title {
+  font-family: 'ZCOOL KuaiLe', cursive;
+  font-size: 1.1rem; color: var(--pink-4);
+  margin-bottom: 0.3rem;
+}
+.bubble-text {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.55rem; line-height: 1.8;
+  color: var(--text-dark);
+}
+.bubble-tag {
+  display: inline-block; margin-top: 0.5rem;
+  padding: 2px 8px; border-radius: 10px;
+  font-size: 0.6rem; font-family: 'Press Start 2P', cursive;
+  background: var(--pink-2); color: white;
+}
+
+/* ===== 帖子区域 ===== */
+.posts-section {
+  position: relative; padding: 4rem 1rem;
+  display: flex; flex-wrap: wrap;
+  justify-content: center; gap: 2rem;
+  max-width: 1200px; margin: 0 auto;
+}
+
+.post-bubble {
+  position: relative;
+  background: white;
+  border: 3px solid var(--text-dark);
+  border-radius: 20px;
+  padding: 1.2rem;
+  max-width: 320px;
+  box-shadow: 5px 5px 0 rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+  opacity: 0;
+}
+.post-bubble:hover {
+  transform: translateY(-5px) rotate(var(--hover-rot, 0deg)) scale(1.02);
+}
+
+.post-bubble:nth-child(odd) { transform: rotate(-2deg); --hover-rot: -1deg; }
+.post-bubble:nth-child(even) { transform: rotate(2deg); --hover-rot: 1deg; }
+.post-bubble:nth-child(3n) { background: var(--pink-1); }
+.post-bubble:nth-child(3n+1) { background: var(--yellow); }
+.post-bubble:nth-child(3n+2) { background: var(--purple); }
+
+.post-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 3px solid var(--text-dark);
+  float: left; margin-right: 12px;
+  background: linear-gradient(135deg, var(--pink-2), var(--orange));
+}
+
+.post-name {
+  font-family: 'ZCOOL KuaiLe', cursive;
+  font-size: 1rem; color: var(--pink-4);
+}
+
+.post-time {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.45rem; color: var(--text-light);
+  margin-top: 2px;
+}
+
+.post-content {
+  clear: both; margin-top: 12px;
+  font-size: 0.8rem; line-height: 1.7;
+  color: var(--text-dark);
+}
+
+.post-actions {
+  margin-top: 10px; display: flex; gap: 12px;
+}
+.post-action {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.5rem; color: var(--text-light);
+  cursor: pointer; transition: color 0.2s;
+}
+.post-action:hover { color: var(--pink-4); }
+
+/* ===== 选项按钮 ===== */
+.choice-btn {
+  display: inline-block;
+  padding: 0.8rem 2rem;
+  margin: 0.5rem;
+  background: white;
+  border: 3px solid var(--text-dark);
+  border-radius: 50px;
+  font-family: 'ZCOOL KuaiLe', cursive;
+  font-size: 1rem;
+  color: var(--text-dark);
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--pink-2);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.choice-btn::before {
+  content: ''; position: absolute; top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+  transition: left 0.5s;
+}
+.choice-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--pink-4);
+}
+.choice-btn:hover::before { left: 100%; }
+.choice-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--pink-2);
+}
+
+.choice-btn.pink { background: var(--pink-1); }
+.choice-btn.yellow { background: var(--yellow); }
+.choice-btn.purple { background: var(--purple); }
+.choice-btn.neon { background: var(--neon-yellow); }
+
+/* ===== 巨型装饰元素 ===== */
+.giant-star {
+  position: absolute;
+  font-size: 30vw;
+  color: var(--yellow);
+  opacity: 0.15;
+  z-index: 0;
+  pointer-events: none;
+  animation: floatStar 6s ease-in-out infinite;
+}
+@keyframes floatStar {
+  0%,100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-30px) rotate(10deg); }
+}
+
+/* ===== 子站导航 ===== */
+.substation-grid {
+  display: flex; flex-wrap: wrap;
+  justify-content: center; gap: 1.5rem;
+  max-width: 1000px; margin: 2rem auto;
+}
+
+.substation-card {
+  width: 160px; height: 160px;
+  background: white;
+  border: 3px solid var(--text-dark);
+  border-radius: 30% 70% 60% 40% / 50% 40% 60% 50%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: 5px 5px 0 var(--pink-3);
+  transition: all 0.3s ease;
+  position: relative;
+  opacity: 0;
+}
+.substation-card:hover {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 8px 8px 0 var(--pink-4);
+}
+.substation-card:nth-child(1) { background: var(--pink-1); border-radius: 60% 40% 50% 50% / 40% 60% 40% 60%; }
+.substation-card:nth-child(2) { background: var(--yellow); border-radius: 40% 60% 60% 40% / 60% 40% 60% 40%; }
+.substation-card:nth-child(3) { background: var(--purple); border-radius: 50% 50% 40% 60% / 50% 50% 60% 40%; }
+.substation-card:nth-child(4) { background: var(--neon-yellow); border-radius: 60% 40% 40% 60% / 40% 60% 50% 50%; }
+.substation-card:nth-child(5) { background: #ffb3c6; border-radius: 40% 60% 50% 50% / 60% 40% 40% 60%; }
+.substation-card:nth-child(6) { background: #e6e6fa; border-radius: 50% 50% 60% 40% / 40% 60% 40% 60%; }
+
+.substation-icon {
+  font-size: 2.5rem; margin-bottom: 0.5rem;
+}
+.substation-name {
+  font-family: 'ZCOOL KuaiLe', cursive;
+  font-size: 0.9rem; color: var(--text-dark);
+}
+.substation-count {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.5rem; color: var(--text-light);
+  margin-top: 4px;
+}
+
+/* ===== 打字机光标 ===== */
+.typewriter-cursor {
+  display: inline-block; width: 8px; height: 1em;
+  background: var(--pink-4);
+  margin-left: 2px;
+  animation: cursorBlink 0.8s step-end infinite;
+  vertical-align: text-bottom;
+}
+@keyframes cursorBlink {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ===== 底部 ===== */
+.footer-section {
+  padding: 4rem 2rem; text-align: center;
+  position: relative;
+}
+
+.footer-text {
+  font-family: 'ZCOOL KuaiLe', cursive;
+  font-size: 2rem; color: var(--pink-4);
+  transform: rotate(-2deg);
+}
+
+.footer-sub {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.6rem; color: var(--text-light);
+  margin-top: 1rem; letter-spacing: 2px;
+}
+
+/* ===== 滚动提示 ===== */
+.scroll-hint {
+  position: absolute; bottom: 30px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.5rem; color: var(--text-light);
+  animation: bounce 2s ease-in-out infinite;
+}
+@keyframes bounce {
+  0%,100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(10px); }
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .character { transform: scale(0.7); }
+  .speech-bubble { max-width: 200px; font-size: 0.8rem; }
+  .posts-section { padding: 2rem 0.5rem; }
+  .substation-card { width: 130px; height: 130px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 手绘涂鸦背景层 -->
+<div class="doodle-layer" id="doodleLayer"></div>
+
+<!-- ===== 第一章：邂逅 ===== -->
+<section class="chapter hero-section" id="chapter1">
+  <div class="giant-star" style="top:10%;left:-10%;">★</div>
+  <div class="giant-star" style="bottom:5%;right:-5%;font-size:25vw;color:var(--pink-2);">✦</div>
+  
+  <div class="character-container">
+    <!-- 对话气泡 - 围绕角色 -->
+    <div class="speech-bubble tail-right pink" style="top:5%;left:5%;">
+      <div class="bubble-title">校园墙</div>
+      <div class="bubble-text" id="type1">欢迎来到这个<br>充满奇迹的校园...<span class="typewriter-cursor"></span></div>
+    </div>
+    
+    <div class="speech-bubble tail-left yellow" style="top:15%;right:5%;">
+      <div class="bubble-title">今日热点</div>
+      <div class="bubble-text" id="type2">食堂新出了<br>草莓味包子！<span class="typewriter-cursor"></span></div>
+      <span class="bubble-tag">HOT</span>
+    </div>
+    
+    <div class="speech-bubble tail-bottom purple" style="bottom:20%;left:0%;">
+      <div class="bubble-title">失物招领</div>
+      <div class="bubble-text" id="type3">捡到一只<br>粉色猫耳耳机<span class="typewriter-cursor"></span></div>
+    </div>
+    
+    <div class="speech-bubble tail-top neon" style="bottom:10%;right:0%;">
+      <div class="bubble-title">表白墙</div>
+      <div class="bubble-text" id="type4">三楼靠窗的<br>那个身影...<span class="typewriter-cursor"></span></div>
+    </div>
+    
+    <!-- 角色立绘 -->
+    <div class="character" id="character">
+      <div class="char-ahoge"></div>
+      <div class="char-hair"></div>
+      <div class="char-head">
+        <div class="char-eye left blink"></div>
+        <div class="char-eye right blink"></div>
+        <div class="char-blush left"></div>
+        <div class="char-blush right"></div>
+        <div class="char-mouth"></div>
+      </div>
+      <div class="char-bow"><div class="char-bow-center"></div></div>
+      <div class="char-body"></div>
+      <div class="char-arm left"></div>
+      <div class="char-arm right"></div>
+    </div>
+  </div>
+  
+  <div class="scroll-hint">▼ SCROLL ▼</div>
+</section>
+
+<!-- ===== 第二章：探索 ===== -->
+<section class="chapter" id="chapter2">
+  <h2 class="chapter-title" id="ch2Title">第二章</h2>
+  <p class="chapter-sub" id="ch2Sub">EXPLORE THE SUBSTATIONS</p>
+  
+  <div class="substation-grid">
+    <div class="substation-card" data-name="表白墙">
+      <div class="substation-icon">💌</div>
+      <div class="substation-name">表白墙</div>
+      <div class="substation-count">1,234 POSTS</div>
+    </div>
+    <div class="substation-card" data-name="失物招领">
+      <div class="substation-icon">🔍</div>
+      <div class="substation-name">失物招领</div>
+      <div class="substation-count">567 POSTS</div>
+    </div>
+    <div class="substation-card" data-name="二手交易">
+      <div class="substation-icon">🛒</div>
+      <div class="substation-name">二手交易</div>
+      <div class="substation-count">890 POSTS</div>
+    </div>
+    <div class="substation-card" data-name="学习互助">
+      <div class="substation-icon">📚</div>
+      <div class="substation-name">学习互助</div>
+      <div class="substation-count">2,341 POSTS</div>
+    </div>
+    <div class="substation-card" data-name="活动招募">
+      <div class="substation-icon">🎉</div>
+      <div class="substation-name">活动招募</div>
+      <div class="substation-count">445 POSTS</div>
+    </div>
+    <div class="substation-card" data-name="树洞">
+      <div class="substation-icon">🌳</div>
+      <div class="substation-name">树洞</div>
+      <div class="substation-count">3,678 POSTS</div>
+    </div>
+  </div>
+  
+  <div style="margin-top:3rem;">
+    <button class="choice-btn pink">进入表白墙</button>
+    <button class="choice-btn yellow">查看失物</button>
+    <button class="choice-btn purple">发布帖子</button>
+  </div>
+</section>
+
+<!-- ===== 第三章：交流 ===== -->
+<section class="chapter" id="chapter3">
+  <h2 class="chapter-title" id="ch3Title">第三章</h2>
+  <p class="chapter-sub" id="ch3Sub">LATEST CONVERSATIONS</p>
+  
+  <div class="posts-section">
+    <div class="post-bubble">
+      <div class="post-avatar"></div>
+      <div class="post-name">小樱花</div>
+      <div class="post-time">3分钟前</div>
+      <div class="post-content">
+        今天在图书馆三楼靠窗的位置看到了一个超级好看的男生！穿着白色卫衣，戴着银色项链，专注看书的样子太迷人了...有人认识他吗？
+      </div>
+      <div class="post-actions">
+        <span class="post-action">♥ 128</span>
+        <span class="post-action">💬 45</span>
+        <span class="post-action">↗ 分享</span>
+      </div>
+    </div>
+    
+    <div class="post-bubble">
+      <div class="post-avatar" style="background:linear-gradient(135deg,#a8e6cf,#dcedc1);"></div>
+      <div class="post-name">薄荷糖</div>
+      <div class="post-time">15分钟前</div>
+      <div class="post-content">
+        急！有没有人有高等数学下册的笔记？下周就要考试了，我可以请喝奶茶交换！最好是字迹工整的那种~
+      </div>
+      <div class="post-actions">
+        <span class="post-action">♥ 67</span>
+        <span class="post-action">💬 23</span>
+        <span class="post-action">↗ 分享</span>
+      </div>
+    </div>
+    
+    <div class="post-bubble">
+      <div class="post-avatar" style="background:linear-gradient(135deg,#ffd3b6,#ffaaa5);"></div>
+      <div class="post-name">橘子汽水</div>
+      <div class="post-time">1小时前</div>
+      <div class="post-content">
+        食堂二楼新开的麻辣烫真的绝了！汤底是骨汤熬的，辣度可以自选，而且蔬菜特别新鲜。推荐大家一定要试试那个手工丸子！
+      </div>
+      <div class="post-actions">
+        <span class="post-action">♥ 256</span>
+        <span class="post-action">💬 89</span>
+        <span class="post-action">↗ 分享</span>
+      </div>
+    </div>
+    
+    <div class="post-bubble">
+      <div class="post-avatar" style="background:linear-gradient(135deg,#c7ceea,#b5ead7);"></div>
+      <div class="post-name">星夜</div>
+      <div class="post-time">2小时前</div>
+      <div class="post-content">
+        失物招领：在体育馆女更衣室捡到一个粉色猫耳头戴式耳机，品牌是Sony的，看起来很新。请失主联系我认领！
+      </div>
+      <div class="post-actions">
+        <span class="post-action">♥ 34</span>
+        <span class="post-action">💬 12</span>
+        <span class="post-action">↗ 分享</span>
+      </div>
+    </div>
+    
+    <div class="post-bubble">
+      <div class="post-avatar" style="background:linear-gradient(135deg,#ffdab9,#e2f0cb);"></div>
+      <div class="post-name">棉花糖</div>
+      <div class="post-time">3小时前</div>
+      <div class="post-content">
+        有人想一起组队参加下周的校园歌手大赛吗？我是吉他手，想找一位主唱和鼓手。风格偏民谣和流行，有兴趣的私聊我！
+      </div>
+      <div class="post-actions">
+        <span class="post-action">♥ 189</span>
+        <span class="post-action">💬 56</span>
+        <span class="post-action">↗ 分享</span>
+      </div>
+    </div>
+    
+    <div class="post-bubble">
+      <div class="post-avatar" style="background:linear-gradient(135deg,#ff9aa2,#ffb7b2);"></div>
+      <div class="post-name">蓝莓酱</div>
+      <div class="post-time">5小时前</div>
+      <div class="post-content">
+        出闲置：九成新iPad Air 5，64G，星光色，带原装Apple Pencil。因为换了Pro所以出掉，价格可议，面交优先~
+      </div>
+      <div class="post-actions">
+        <span class="post-action">♥ 78</span>
+        <span class="post-action">💬 31</span>
+        <span class="post-action">↗ 分享</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 终章 ===== -->
+<section class="chapter footer-section" id="chapter4">
+  <div class="giant-star" style="top:20%;right:5%;font-size:20vw;color:var(--purple);">✿</div>
+  <h2 class="chapter-title" id="ch4Title" style="font-size:15vw;">待续...</h2>
+  <p class="chapter-sub" id="ch4Sub">TO BE CONTINUED</p>
+  <div class="footer-text">校园墙 · 你的故事从这里开始</div>
+  <div class="footer-sub">© 2026 CAMPUS WALL GALGAME EDITION</div>
+  <div style="margin-top:2rem;">
+    <button class="choice-btn neon">开始你的故事</button>
+  </div>
+</section>
+
+<script>
+// ===== 生成手绘涂鸦背景 =====
+function generateDoodles() {
+  const layer = document.getElementById('doodleLayer');
+  const colors = ['#ffb3c6', '#ffb347', '#fff68f', '#e6e6fa', '#fb6f92', '#ccff00'];
+  
+  for (let i = 0; i < 30; i++) {
+    const star = document.createElement('div');
+    star.className = 'doodle-star';
+    star.innerHTML = Math.random() > 0.5 ? '★' : '✦';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.fontSize = (Math.random() * 20 + 10) + 'px';
+    star.style.color = colors[Math.floor(Math.random() * colors.length)];
+    star.style.animationDelay = Math.random() * 3 + 's';
+    layer.appendChild(star);
+  }
+  
+  for (let i = 0; i < 8; i++) {
+    const cloud = document.createElement('div');
+    cloud.className = 'doodle-cloud';
+    cloud.style.left = Math.random() * 100 + '%';
+    cloud.style.top = Math.random() * 100 + '%';
+    cloud.style.width = (Math.random() * 100 + 60) + 'px';
+    cloud.style.height = (Math.random() * 60 + 30) + 'px';
+    layer.appendChild(cloud);
+  }
+  
+  for (let i = 0; i < 15; i++) {
+    const line = document.createElement('div');
+    line.className = 'doodle-line';
+    line.style.left = Math.random() * 100 + '%';
+    line.style.top = Math.random() * 100 + '%';
+    line.style.width = (Math.random() * 150 + 50) + 'px';
+    line.style.setProperty('--r', (Math.random() * 360) + 'deg');
+    layer.appendChild(line);
+  }
+  
+  for (let i = 0; i < 50; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'doodle-dot';
+    dot.style.left = Math.random() * 100 + '%';
+    dot.style.top = Math.random() * 100 + '%';
+    dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+    dot.style.animationDelay = Math.random() * 4 + 's';
+    layer.appendChild(dot);
+  }
+}
+generateDoodles();
+
+// ===== 打字机效果 =====
+function typeWriter(element, text, speed = 50) {
+  let i = 0;
+  const cursor = element.querySelector('.typewriter-cursor');
+  element.innerHTML = '';
+  if (cursor) element.appendChild(cursor);
+  
+  function type() {
+    if (i < text.length) {
+      const span = document.createElement('span');
+      span.textContent = text.charAt(i);
+      if (cursor) element.insertBefore(span, cursor);
+      else element.appendChild(span);
+      i++;
+      setTimeout(type, speed + Math.random() * 30);
+    }
+  }
+  type();
+}
+
+// ===== 页面加载动画 =====
+window.addEventListener('load', () => {
+  anime({
+    targets: '#character',
+    opacity: [0, 1],
+    translateY: [50, 0],
+    duration: 1500,
+    easing: 'easeOutElastic(1, .6)',
+    delay: 300
+  });
+  
+  const bubbles = document.querySelectorAll('.speech-bubble');
+  bubbles.forEach((bubble, i) => {
+    anime({
+      targets: bubble,
+      opacity: [0, 1],
+      scale: [0, 1],
+      rotate: [Math.random() * 10 - 5, 0],
+      duration: 800,
+      delay: 800 + i * 400,
+      easing: 'easeOutBack'
+    });
+  });
+  
+  setTimeout(() => typeWriter(document.getElementById('type1'), '欢迎来到这个\n充满奇迹的校园...', 60), 1200);
+  setTimeout(() => typeWriter(document.getElementById('type2'), '食堂新出了\n草莓味包子！', 60), 2000);
+  setTimeout(() => typeWriter(document.getElementById('type3'), '捡到一只\n粉色猫耳耳机', 60), 2800);
+  setTimeout(() => typeWriter(document.getElementById('type4'), '三楼靠窗的\n那个身影...', 60), 3600);
+});
+
+// ===== 滚动触发动画 =====
+const observerOptions = { threshold: 0.2, rootMargin: '0px 0px -50px 0px' };
+
+const chapterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      
+      if (id === 'chapter2') {
+        anime({ targets: '#ch2Title', opacity: [0,1], translateX: [-100,0], duration: 1200, easing: 'easeOutExpo' });
+        anime({ targets: '#ch2Sub', opacity: [0,1], translateY: [20,0], duration: 800, delay: 400, easing: 'easeOutQuad' });
+        anime({
+          targets: '.substation-card',
+          opacity: [0,1], scale: [0.5,1], rotate: [Math.random()*20-10, 0],
+          delay: anime.stagger(150, {start: 600}),
+          duration: 800, easing: 'easeOutBack'
+        });
+      }
+      
+      if (id === 'chapter3') {
+        anime({ targets: '#ch3Title', opacity: [0,1], translateX: [100,0], duration: 1200, easing: 'easeOutExpo' });
+        anime({ targets: '#ch3Sub', opacity: [0,1], translateY: [20,0], duration: 800, delay: 400, easing: 'easeOutQuad' });
+        anime({
+          targets: '.post-bubble',
+          opacity: [0,1], translateY: [60,0],
+          delay: anime.stagger(200, {start: 600}),
+          duration: 1000, easing: 'easeOutCubic'
+        });
+      }
+      
+      if (id === 'chapter4') {
+        anime({ targets: '#ch4Title', opacity: [0,1], scale: [0.5,1], duration: 1500, easing: 'easeOutElastic(1, .5)' });
+        anime({ targets: '#ch4Sub', opacity: [0,1], duration: 800, delay: 500 });
+      }
+    }
+  });
+}, observerOptions);
+
+document.querySelectorAll('.chapter').forEach(ch => chapterObserver.observe(ch));
+
+// ===== 鼠标视差效果 =====
+document.addEventListener('mousemove', (e) => {
+  const x = (e.clientX / window.innerWidth - 0.5) * 20;
+  const y = (e.clientY / window.innerHeight - 0.5) * 20;
+  
+  const character = document.getElementById('character');
+  if (character) {
+    character.style.transform = `translate(${x * 0.3}px, ${y * 0.3}px)`;
+  }
+  
+  document.querySelectorAll('.speech-bubble').forEach((bubble, i) => {
+    const factor = (i + 1) * 0.1;
+    bubble.style.transform = `translate(${x * factor}px, ${y * factor}px)`;
+  });
+});
+
+// ===== 点击互动 =====
+document.querySelectorAll('.substation-card').forEach(card => {
+  card.addEventListener('click', () => {
+    anime({
+      targets: card,
+      scale: [1, 1.2, 1],
+      duration: 400,
+      easing: 'easeInOutQuad'
+    });
+  });
+});
+
+document.querySelectorAll('.choice-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    anime({
+      targets: this,
+      scale: [1, 0.95, 1.05, 1],
+      duration: 300,
+      easing: 'easeInOutQuad'
+    });
+  });
+});
+
+// ===== 点赞互动 =====
+document.querySelectorAll('.post-action').forEach(action => {
+  if (action.textContent.includes('♥')) {
+    action.addEventListener('click', function() {
+      const current = parseInt(this.textContent.match(/\d+/)[0]);
+      this.textContent = `♥ ${current + 1}`;
+      anime({
+        targets: this,
+        scale: [1, 1.5, 1],
+        color: ['#6b5b4f', '#fb6f92', '#6b5b4f'],
+        duration: 500,
+        easing: 'easeOutElastic(1, .5)'
+      });
+    });
+  }
+});
+</script>
+</body>
+</html>
