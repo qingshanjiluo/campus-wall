@@ -1,0 +1,43 @@
+.vs
+
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# backup
+backup
+!scripts/backup
+
+# sitemap
+public/*.xml
+
+# docs
+docs/milkdown
+docs/milkdown-src
+
+# ignore for devcontainer
+.pnpm-store
+
+# reference
+refs

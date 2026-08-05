@@ -1,0 +1,105 @@
+package service
+
+// The claim funnel's upstream query is load-bearing in a way that is invisible
+// from this side: drop `claimed=false` and the modal quietly lists works kungal
+// ALREADY has, which is the exact opposite of what it offers. Drop the entity
+// scope and every entity page shows the same global list. So the query is
+// pinned here.
+//
+// The upstream is stubbed empty on purpose — ToCards short-circuits before
+// touching the DB or the user service, so these need no fixtures.
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"sync"
+	"testing"
+
+	"kun-galgame-api/internal/galgame/client"
+)
+
+type draftsRecorder struct {
+	mu    sync.Mutex
+	path  string
+	query url.Values
+}
+
+func (r *draftsRecorder) service(t *testing.T) *DraftsService {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		r.mu.Lock()
+		r.path = req.URL.Path
+		r.query = req.URL.Query()
+		r.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"items":[],"total":0}}`))
+	}))
+	t.Cleanup(srv.Close)
+	return NewDraftsService(client.New(srv.URL, "nm_test_key", ""), &GalgameEnricher{})
+}
+
+func (r *draftsRecorder) get(key string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.query.Get(key)
+}
+
+func TestDrafts_AsksForUnclaimedWorksOnly(t *testing.T) {
+	rec := &draftsRecorder{}
+	svc := rec.service(t)
+
+	if _, appErr := svc.GetDrafts(context.Background(), 2, 24, DraftFilters{}); appErr != nil {
+		t.Fatalf("GetDrafts: %v", appErr)
+	}
+	if rec.path != "/v1/catalog/works/search" {
+		t.Errorf("path = %q, want /v1/catalog/works/search", rec.path)
+	}
+	// The whole point of the funnel: works NO product has an entry for.
+	if got := rec.get("claimed"); got != "false" {
+		t.Errorf("claimed = %q, want false — anything else lists games kungal already has", got)
+	}
+	if got := rec.get("page"); got != "2" {
+		t.Errorf("page = %q, want 2", got)
+	}
+	if got := rec.get("limit"); got != "24" {
+		t.Errorf("limit = %q, want 24", got)
+	}
+	// The age gate is open on every lane (doc 106 §38). The EDITORIAL gate is
+	// absent here and only here: the funnel pins claimed=false, so no row can
+	// carry a wiki verdict for content_limit= to match against, and sending it
+	// could only empty the funnel for the SFW default.
+	if got := rec.get("nsfw"); got != "1" {
+		t.Errorf("nsfw = %q, want 1 — the age gate is never a population cut", got)
+	}
+	if got := rec.get("content_limit"); got != "" {
+		t.Errorf("content_limit = %q, want it absent on the unclaimed-works funnel", got)
+	}
+}
+
+func TestDrafts_EntityScopeUsesCatalogIDs(t *testing.T) {
+	for name, tc := range map[string]struct {
+		filters DraftFilters
+		param   string
+		want    string
+	}{
+		"label":  {DraftFilters{LabelID: 129}, "label_id", "129"},
+		"tag":    {DraftFilters{TagID: 55}, "tag_id", "55"},
+		"engine": {DraftFilters{EngineID: 7}, "engine_id", "7"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := &draftsRecorder{}
+			svc := rec.service(t)
+			if _, appErr := svc.GetDrafts(context.Background(), 1, 24, tc.filters); appErr != nil {
+				t.Fatalf("GetDrafts: %v", appErr)
+			}
+			if got := rec.get(tc.param); got != tc.want {
+				t.Errorf("%s = %q, want %q", tc.param, got, tc.want)
+			}
+			if got := rec.get("nsfw"); got != "1" {
+				t.Errorf("nsfw = %q, want 1 on every lane", got)
+			}
+		})
+	}
+}

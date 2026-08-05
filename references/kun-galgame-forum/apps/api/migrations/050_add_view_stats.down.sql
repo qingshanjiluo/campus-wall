@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS galgame_view_daily;
+DROP TABLE IF EXISTS topic_view_daily;
+DROP TABLE IF EXISTS galgame_quiz_view_daily;
+ALTER TABLE galgame DROP COLUMN IF EXISTS view_7d;
+ALTER TABLE galgame DROP COLUMN IF EXISTS view_30d;
+ALTER TABLE topic DROP COLUMN IF EXISTS view_7d;
+ALTER TABLE topic DROP COLUMN IF EXISTS view_30d;
+ALTER TABLE galgame_quiz DROP COLUMN IF EXISTS view_7d;
+ALTER TABLE galgame_quiz DROP COLUMN IF EXISTS view_30d;

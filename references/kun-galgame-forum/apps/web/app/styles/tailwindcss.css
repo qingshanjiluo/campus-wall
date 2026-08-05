@@ -1,0 +1,177 @@
+@import 'tailwindcss';
+
+/*
+ * KunUI design system, sourced from the PUBLISHED @kungal/ui-* packages (1.9.1).
+ *   @kungal/ui-tokens     — semantic OKLCH colors (50–950) + the two glass knobs
+ *                           (`--kun-global-opacity` → page bg + default-100;
+ *                           `--kun-surface-opacity` → raised surfaces: cards /
+ *                           inputs / modals / dropdowns), `.kun-dark-mode` variant,
+ *                           `radius-kun-*`, `z-kun-*`, `shadow-kun-*` elevation,
+ *                           animation keyframes, font stack, base layer.
+ *   @kungal/ui-vue/style  — components' scoped styles (modal/drawer/lightbox
+ *                           transitions, spoiler blur, Loli mascot, toast list).
+ * 1.8 moved KunUI from a border-defined look to surface-elevation: a card is an
+ * opaque `content1` fill lifted by `shadow-kun-sm` (border now opt-in) over a
+ * soft-neutral page bg. The forum drives `--kun-surface-opacity` from the 透明度
+ * setting (settings.ts) so surfaces stay translucent over a background image.
+ */
+@import '@kungal/ui-tokens';
+@import '@kungal/ui-vue/style.css';
+/* Generate the Tailwind utility classes used by @kungal/editor-nuxt's KunUI
+   chrome (<KunEditorToolbar> / <KunEditorViewSwitch> / the sticker grid). The
+   package's tailwind.css @source's its own runtime components (pnpm-safe). */
+@import '@kungal/editor-nuxt/tailwind.css';
+
+/*
+ * Tailwind v4 does not scan node_modules by default, so it would drop the
+ * utility classes KunUI components reference (e.g. `bg-content1/85`,
+ * `rounded-kun-md`, `z-kun-modal`). These tell it to scan the compiled
+ * packages. Paths are relative to THIS file (apps/web/app/styles/).
+ */
+@source '../../node_modules/@kungal/ui-vue';
+@source '../../node_modules/@kungal/ui-core';
+
+/*
+ * `desktop-nav`: the desktop icon sidebar (KunLayoutSidebar rail) reveals its
+ * links on HOVER (RailGroup flyouts), which touch devices cannot do. So the rail
+ * must show ONLY in a genuine desktop-pointer environment — wide enough AND a fine
+ * pointer that can hover. Everything else — phones, ALL touch tablets (incl. iPad
+ * portrait 768px AND landscape >1024px), and narrow desktop windows — gets the
+ * touch-friendly hamburger drawer instead. Keying the rail on hover/pointer (not
+ * width alone) is the correct fix for hover menus on tablets, and being pure CSS
+ * it's right on every device with no JS and no hydration flash.
+ *   rail:      `hidden desktop-nav:block`
+ *   hamburger: `flex desktop-nav:hidden`
+ */
+@custom-variant desktop-nav {
+  @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+    @slot;
+  }
+}
+
+/*
+ * Global corner-radius knob. A single multiplier — --kun-radius-scale, set by
+ * the 圆角 setting (setKUNGalgameRounded) — rounds the WHOLE UI:
+ *
+ *   • KunUI components (rounded-kun-*) read --kun-radius-scale on their OWN
+ *     (@kungal/ui-tokens >= 0.5.1 bakes `calc(base * var(--kun-radius-scale,1))`
+ *     into --radius-kun-*), so we must NOT redeclare --radius-kun-* here — the
+ *     tokens' own :root would win the cascade anyway. We just set the variable.
+ *   • The forum's OWN components use default Tailwind `rounded-*` (→ --radius-*),
+ *     which the tokens don't touch — so we re-derive those from the same
+ *     multiplier below. Unlayered :root, so it beats @theme's static values.
+ *
+ * The base values below are ALIGNED to KunUI 0.9.0's rounded-kun-* scale so the
+ * forum's own rounded-* visually match adjacent KunUI components (its defaults
+ * jumped to a HeroUI-style sm 6 / md 12 / lg 16 in 0.9.0). The mapping is
+ * name-for-name where the scales overlap:
+ *     rounded-sm → kun-sm (6px) · rounded-md → kun-md (12px) · rounded-lg →
+ *     kun-lg (16px)
+ * and xl/2xl/3xl extend above kun-lg (KunUI has no larger bucket). Keep these
+ * in sync if KunUI's --radius-kun-* base values change again.
+ *
+ * `rounded-full` (pills / avatars / switches), `rounded-none`, and the kun
+ * none/full buckets are intentionally untouched. Scale 1 = the look above;
+ * 0 = fully square.
+ */
+:root {
+  --kun-radius-scale: 1;
+
+  --radius-xs: calc(0.25rem * var(--kun-radius-scale)); /* 4px */
+  --radius-sm: calc(0.375rem * var(--kun-radius-scale)); /* 6px  = kun-sm */
+  --radius-md: calc(0.75rem * var(--kun-radius-scale)); /* 12px = kun-md */
+  --radius-lg: calc(1rem * var(--kun-radius-scale)); /* 16px = kun-lg */
+  --radius-xl: calc(1.25rem * var(--kun-radius-scale)); /* 20px */
+  --radius-2xl: calc(1.5rem * var(--kun-radius-scale)); /* 24px */
+  --radius-3xl: calc(2rem * var(--kun-radius-scale)); /* 32px */
+}
+
+/*
+ * Bare `rounded` is the one Tailwind v4 radius utility that bakes a fixed
+ * 0.25rem literal instead of reading a --radius-* var, so it would ignore the
+ * scale (it's used by a few elements like checkboxes). Re-point it at the
+ * scaled kun-sm radius so it matches KunUI's smallest rounding AND follows the
+ * 圆角 setting. Unlayered → wins.
+ */
+.rounded {
+  border-radius: calc(0.375rem * var(--kun-radius-scale)); /* 6px = kun-sm */
+}
+
+/*
+ * Reserve the scrollbar gutter globally so the document's content width is
+ * IDENTICAL whether a page overflows (classic scrollbar shown) or is height-
+ * locked and doesn't (e.g. /edit/topic, /user/*, galgame/toolset detail). The
+ * document (html) is the scroller. Without this, navigating from a scrolling
+ * page to a non-scrolling one removes the ~15px scrollbar, so the centered
+ * layout (max-w-7xl + justify-center) widens and everything shifts sideways —
+ * seen as a "jump/teleport" right at the tail of the out-in page transition.
+ * (This is a browser layout fact, not a Nuxt/transition bug; the transition
+ * only makes the width change visible at the swap.)
+ *
+ * `scrollbar-gutter: stable` (Baseline 2024) is the exact modern tool. It is a
+ * no-op under overlay scrollbars (macOS/iOS) — where nothing shifts anyway — so
+ * it acts ONLY where the problem exists (classic scrollbars on Windows/Linux).
+ * Single-edge `stable`, NOT `both-edges` (buggy in Chrome + wastes the opposite
+ * gutter): a constant content box per page is all that's needed to kill the
+ * jump. `overflow-y: scroll` is the pre-Baseline fallback (older Safari) — an
+ * always-present track that reserves the width unconditionally. Unlayered → wins
+ * over the tokens' `@layer base` html/body rules.
+ */
+html {
+  overflow-y: scroll;
+}
+@supports (scrollbar-gutter: stable) {
+  html {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+}
+
+/*
+ * Keep FLOATING overlays opaque. The 透明度 setting drives --kun-surface-opacity
+ * for the frosted-glass look of IN-PAGE surfaces (cards, form fields) over the
+ * background image. But KunUI routes overlays through the SAME `content1`
+ * surface, so the slider would also make modals / menus / dropdowns / tooltips
+ * see-through and their text unreadable over arbitrary page content.
+ *
+ * Re-declaring --kun-surface-opacity here does NOT work: KunUI declares
+ *   --color-content1: oklch(var(--content1) / var(--kun-surface-opacity))
+ * in @theme (i.e. on :root), so the var() is substituted AT :root (with the
+ * slider value) and the result is then inherited ALREADY-resolved — a descendant
+ * overlay changing --kun-surface-opacity can't retroactively recompute it. So we
+ * re-declare --color-content1 itself on the overlay roots, which re-runs oklch()
+ * locally with the inherited (light/dark) --content1 triple pinned to alpha 1.
+ * `bg-content1` reads that, so every overlay surface resolves fully opaque —
+ * including the modal panel, which ships plain `bg-content1` since kun-ui 2.8.3.
+ * The modal backdrop is a separate dark scrim (not content1) and is unaffected.
+ *   [data-kun-overlay] → Modal (ancestor of .kun-modal-panel) · Drawer · toasts
+ *   .z-kun-modal / .z-kun-alert / .z-kun-message → modal / alert-dialog / toast
+ *                        panels, explicit in case a panel carries the z-class but
+ *                        not data-kun-overlay (kun-ui 2.x; alert was see-through)
+ *   .z-kun-popover     → Dropdown · ContextMenu · Popover · Tooltip ·
+ *                        Select / Autocomplete lists · DatePicker calendar
+ *   .kun-sidebar-drawer → the mobile hamburger drawer (force-expanded Sidebar.vue)
+ *   .kun-reply-panel   → the desktop topic reply pop-up panel (topic/reply/Panel.vue)
+ * The loli (KunLoliProvider / useKunLoliInfo) carries NONE of these classes, so it
+ * keeps the frosted --kun-surface-opacity look on purpose. KunPopover panels we
+ * own can also opt in directly via the 2.2.0 `opaque` prop (e.g. the editor menu).
+ */
+[data-kun-overlay],
+.z-kun-popover,
+.z-kun-modal,
+.z-kun-alert,
+.z-kun-message,
+.kun-sidebar-drawer,
+.kun-reply-panel {
+  --color-content1: oklch(var(--content1) / 1);
+}
+
+/*
+ * Belt-and-suspenders pin for the modal panel. Redundant since kun-ui 2.8.3 —
+ * the panel now ships plain `bg-content1`, already opaque via the overlay-root
+ * re-declaration above (before 2.8.3 it shipped `bg-content1/85` and needed this
+ * higher-specificity rule to beat the 15% glass). Kept as a cheap backstop.
+ */
+[data-kun-overlay] .kun-modal-panel {
+  background-color: var(--color-content1);
+}

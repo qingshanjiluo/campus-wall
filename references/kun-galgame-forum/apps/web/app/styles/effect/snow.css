@@ -1,0 +1,32 @@
+#kun-snow-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.kun-snowflake {
+  position: absolute;
+  top: -10px;
+  color: white;
+  text-shadow: 0 0 10px white;
+  user-select: none;
+  animation-name: kun-snow;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes kun-snow {
+  0% {
+    transform: translateX(0) translateY(0);
+    opacity: inherit;
+  }
+  50% {
+    transform: translateX(25px) translateY(50vh);
+  }
+  100% {
+    transform: translateX(-25px) translateY(110vh);
+    opacity: 0;
+  }
+}

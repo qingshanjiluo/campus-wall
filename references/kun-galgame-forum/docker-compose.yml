@@ -1,0 +1,99 @@
+# kungal (kun-galgame-forum) — forum site (Go Fiber API + Nuxt 4 SSR).
+#
+# Stateless api + web only. The backing services (Postgres / Redis) and the
+# upstreams (oauth / galgame-wiki / image) are OWNED BY the kun-galgame-infra
+# stack; kungal connects to them by service name on its network. So this file
+# does NOT define postgres/redis — bring infra up first (it creates the network),
+# then run here. Same shape as moyu's compose. See docker/README.md.
+#
+# Host ports are in the 1xxxx range so the stack coexists with a running `air`
+# dev server. Service-to-service traffic uses container ports via service names
+# (postgres:5432, redis:6379, http://kungal-api:2334, http://oauth:9277, …).
+#
+# Quick start (infra must be up first → its network exists):
+#   docker compose build
+#   docker compose run --rm migrate     # ⚠ see docker/migrate runbook for the ORDER
+#   docker compose up -d api web
+name: kungal
+
+x-svc-health: &svc-health
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 15s
+
+services:
+  # ───────────────────────────── Go API (pure-Go, distroless) ────────────────
+  # 服务名直接叫 kungal-api(与 prod 一致):两仓都叫 `api` 在共享网络会 DNS 冲突,
+  # 用唯一服务名,SSR(kungal-web → http://kungal-api:2334)才能解析到。
+  kungal-api:
+    build:
+      context: .
+      dockerfile: docker/go.Dockerfile
+      args: { CMD: server, GO_VERSION: "1.26" }
+    image: kungal/api
+    env_file: [./docker/api.env]
+    ports: ["15012:2334"]
+    # No depends_on on postgres/redis: they live in the kun-galgame-infra compose
+    # (a separate project), not here — cross-project depends_on isn't possible.
+    # `restart: unless-stopped` reconnects once the infra stack is up.
+    healthcheck:
+      # distroless has no shell → the binary self-probes /healthz, exits 0/1.
+      test: ["CMD", "/app", "healthcheck"]
+      <<: *svc-health
+    restart: unless-stopped
+
+  # ───────────────────────────── Nuxt 4 SSR frontend ─────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: docker/nuxt.Dockerfile
+      # Public config is BAKED here (browser-facing defaults). To build once and
+      # reconfigure per env, leave these empty and set NUXT_PUBLIC_* in web.env.
+      args:
+        API_BASE_URL: http://localhost:15012
+        OAUTH_SERVER_URL: http://localhost:15005/api/v1
+        OAUTH_FRONTEND_URL: http://localhost:15008
+        OAUTH_CLIENT_ID: kungal-web
+        OAUTH_REDIRECT_URI: http://localhost:15013/auth/callback
+        KUN_GALGAME_URL: http://localhost:15013
+    image: kungal/web
+    env_file: [./docker/web.env]
+    ports: ["15013:7777"]
+    depends_on:
+      kungal-api: { condition: service_healthy }
+    healthcheck:
+      # node-slim has no curl; a tiny TCP liveness probe instead.
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('net').connect(7777,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"
+      <<: *svc-health
+    restart: unless-stopped
+
+  # ─────────────────────── one-off jobs (profile: jobs) ──────────────────────
+  # Not started by `up`. The kungal migration ORDER is non-trivial (005/006/007/
+  # 012/015 are deferred and must run AFTER oauth's migrate-users). For a fresh
+  # cross-repo bootstrap follow docs/migration; routine deploys run the default
+  # set:
+  #   docker compose run --rm migrate                 # default (excludes 005/006/007/012/015)
+  #   docker compose run --rm migrate --only=015      # e.g. after 007 exists
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/go.Dockerfile
+      args: { CMD: migrate, GO_VERSION: "1.26" }
+    image: kungal/migrate
+    env_file: [./docker/api.env]
+    profiles: ["jobs"]
+    # No depends_on: postgres/redis live in the infra compose (cross-project),
+    # not here. Run after infra's postgres is up.
+    restart: "no"
+
+# kungal joins the infra network so `postgres`/`redis`/`oauth`/`galgame`/`image`
+# resolve by service name. infra must be up first (it creates this network).
+networks:
+  default:
+    name: kun-galgame-infra_default
+    external: true

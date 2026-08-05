@@ -1,0 +1,29 @@
+# Build context is the repo root for every image, so be aggressive — without
+# this Docker ships gigabytes of node_modules / build output to the daemon.
+.git
+.github
+**/node_modules
+**/.nuxt
+**/.output
+**/dist
+apps/api/tmp
+apps/api/build
+**/*.test
+**/*.log
+**/.DS_Store
+
+# Local env / secrets — never bake into an image. docker/*.env is read at
+# runtime via env_file, NOT copied in.
+**/.env
+**/.env.*
+docker/*.env
+
+# Dev-only Docker (devcontainer) + big local fixtures.
+.devcontainer
+**/coverage
+**/.pnpm-store
+scripts/*.dump
+
+# Docs / references — not needed to build any image.
+docs
+**/refs

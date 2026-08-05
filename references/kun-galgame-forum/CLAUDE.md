@@ -1,0 +1,54 @@
+# kun-galgame-forum (kungal) — AI Agent Project Guide
+
+## 铁律 (Iron Rules — non-negotiable; these override every other guideline in this file)
+
+1. **No background gradients in any UI, ever — except two sanctioned cases.** Never use gradient backgrounds in UI design (`bg-gradient-*`, `from-*/via-*/to-*`, `linear-gradient()`, `radial-gradient()`, `conic-gradient()`, etc.); use solid colors from the project's palette. **The only two sanctioned exceptions (do NOT remove them in a "no-gradient" sweep)**: (a) the galgame card cover's bottom→top legibility scrim — `bg-gradient-to-t from-black/60 to-transparent` in `apps/web/app/components/galgame/card/Card.vue`; (b) the console ASCII startup banner's text gradient in `apps/web/app/widget/showMoeMessage.ts`. Both are annotated in-code with a comment pointing back to this rule.
+2. **Prefer KunUI components; do not modify KunUI itself.** When adding or changing frontend UI, reach for a KunUI component (`@kungal/ui-*`) first — do not hand-roll a native/custom component unless there is genuinely no KunUI equivalent for what you need. If KunUI appears to have a bug or is missing a feature, **do not edit KunUI's code** (it is a shared upstream library) — report it to the user directly instead, and let them decide how to proceed.
+
+
+Visual novel / galgame **forum**. `apps/api` = Go Fiber v3 + GORM + Postgres, `apps/web` = Nuxt 4.
+This repo is one of the **downstreams of kun-galgame-infra (the OAuth / identity / contract hub)** (the other is kun-galgame-patch / moyu).
+
+## Core Engineering Principles
+
+> Shared baseline across all KUN Galgame repositories. Defaults, not dogma — apply judgment.
+
+1. All commit messages must be written entirely in English.
+2. All code comments must be written entirely in English.
+3. Keep each source file under ~500 lines where practical; once a file grows past ~300 lines, consider splitting it (a guideline, not a hard rule).
+4. Write every frontend function as an arrow function; compose/merge class names with `cn` wherever practical.
+5. Deliberately balance elegant modularity against necessary duplication — choose per case instead of always favoring either.
+6. Constantly verify that frontend and backend agree on the data: field shapes and response formats must match what each side expects.
+7. After every change, watch for unintended side effects elsewhere.
+8. If a change requires running a migration, tell the user explicitly at the end — which command, and against which database.
+9. Always seek the most modern, elegant solution that fits the project's current state; consult the latest official docs and resources online when useful.
+10. Never let the pursuit of elegance or modularity make the code complex or hard to follow, and don't write over-defensive code.
+11. A Nuxt page — and any component used as a page/route root — must have a **single real root element**: never `display: contents` (generates no box, so the transition can't attach) and never a leading comment / whitespace / sibling at the template root (a comment is itself a root node). Either trips Nuxt's "does not have a single root node" warning and drops the page-transition enter animation (the page appears without animating). Keep explanatory comments *inside* the root element.
+12. Reserve the scrollbar gutter globally — `html { scrollbar-gutter: stable }`, with an `overflow-y: scroll` `@supports` fallback — so the document width is constant across routes. Otherwise navigating from a scrolling page to a height-locked one (no scrollbar) removes the classic scrollbar's ~15px and the centered layout shifts sideways: a "teleport" at the tail of the page transition. This is a browser layout fact, not a transition bug. Use single-edge `stable` (`both-edges` is buggy in Chrome); it's a harmless no-op under overlay scrollbars (macOS/iOS).
+13. **One task = one Codex session; one assigned target repo = one branch = one worktree.** Never let two sessions write this checkout; prefer `codex-session new kun-galgame-forum <session>`. The launcher exposes source-repo reference material through `$CODEX_SESSION_REFS` when present; read it in place and never copy it into any worktree. A single-repo session may write only its own worktree; an explicitly coordinated cross-repo operation may write only separately assigned target worktrees. Launcher source checkouts and refs are always read-only.
+14. DB-backed tests must use only the launcher-provided, explicit, unique `TEST_DATABASE_DSN`; never discover or fall back to a DSN from `.env`, and never print the DSN. Run shared-database Go integration suites with `-count=1 -p 1`, never against a live or rehearsal database.
+
+## Current catalog cutover state
+
+- The `w161-p3` line moves submission, claims, editing, and the cron inbox from the retired wiki family to catalog. Treat the read-only source-workspace file at `${CODEX_SESSION_REPO%/*}/kun-galgame-infra/refs/proj/161-n5-grand-window.md` as the coordination ledger—not a `../` path from this worktree—and verify both branch and deployment state before assuming the cutover is live.
+- The old `/galgame/messages/feed` S2S source is retired; the staged cron consumes `/api/v1/catalog/claim-events/feed` with a distinct cursor/idempotency namespace. The still-present user/admin wiki-message proxy code is legacy retirement debt, not a contract for new work.
+- Catalog `site` and catalog source key are different identities. Keep dual-read compatibility where the Wave 161 branch records it; do not collapse them back into one constant.
+
+## Cross-Service Contracts (inviolable — owned by kun-galgame-infra)
+
+The active authoritative contract docs are synced as **read-only mirrors** under `docs/{oauth,image_service,artifact}/` (the file headers carry a GENERATED banner). Catalog is consumed from infra/portal without a vendored mirror; galgame-wiki is a retired portal/tombstone contract, not a live local mirror.
+**To change a contract, change it at the infra source — do not touch the copies here**; the copies are regenerated by kungal-docs's `pnpm docs:sync`. Core invariants:
+
+- **Identity (C1/C2)**: `user.id` is **the same integer** across this database, OAuth, and the other downstream — never renumber a user; local tables align with OAuth `users.id` via `*_user_id`. OAuth owns identity and issues JWTs; this service only **verifies signatures, never issues** (see `internal/middleware/auth.go`).
+- **User profile (C6)**: **do not persist it to the local user table, do not treat it as the source of truth** (a short-TTL in-memory cache is fine — `pkg/userclient` already has a built-in ~10min TTL); fetch by id list via `GET /users/batch` (OAuth Client Basic Auth, ≤100 ids, **does not return** email / moemoepoint / created_at). Use `GET /users/search` for @-mention autocomplete (**do not cache**); use `/oauth/userinfo` for the current user. OAuth ships no SDK — implement a thin client yourself.
+- **Moemoepoint (C3)**: a single balance per user, **single-sourced in OAuth**; the local `users.moemoepoint` is a cached view and must not be treated as the source of truth. Grant/deduct goes through the s2s API, with idempotency key = `<app>:<event>:<ref>` (e.g. `kungal:liked:topic_1207`). Reasons available to downstreams: `content_approved` / `content_removed` / `daily_checkin` / `liked`; **reserved by OAuth, forbidden over s2s**: `admin_grant` / `admin_deduct` / `migration` / `register_gift`. The pusher is in `internal/moemoepoint/pusher.go`. The s2s endpoints are **already implemented** (`POST/GET /users/:id/moemoepoint`, `Adjust` is idempotent; see infra `internal/platform/auth/handler/moemoepoint_handler.go` and `cmd/oauth/main.go`).
+- **Images (C4)**: the content-addressed image host lives in OAuth (avatars / shared images **do not go through local S3**). URL = `{base}/{aa}/{bb}/{hash}[_variant].webp` (two-level hex sharding); pass `*_image_hash` fields and resolve them via the image client.
+- **Catalog claims (C5 successor)**: catalog owns claim lifecycle events. New synchronization consumes `GET /api/v1/catalog/claim-events/feed`; never add a new consumer of the retired wiki message feed. User-facing notification/read-state replacement must follow the Wave 161 coordination ledger rather than reviving a removed upstream route.
+
+For active vendored contracts see `docs/oauth/`, `docs/image_service/`, and `docs/artifact/`; for catalog and the galgame retirement tombstone use the infra-owned source/portal.
+
+## This Repo's Key Points
+
+- Auth lives in `internal/middleware/auth.go`: it is a **BFF opaque session** (`kungal_session` cookie + the OAuth token stored in Redis), not pure JWT verification. The session has **90-day sliding renewal** (active users no longer get logged out every week) — the model and the 2026-06 fix are in `docs/proj/session-lifetime.md`.
+- Modifying any file under `docs/{oauth,image_service,artifact}/` is **wrong** — those are infra's mirrors; to change them, change infra and then run `docs:sync`.
+- **A database schema change must come with a migration reminder**: this repo's schema goes through `apps/api/migrations/NNN_*.up.sql` (idempotent, `IF NOT EXISTS`) plus a built-in migrate runner, and **does not run AutoMigrate at startup**. Whenever you add a migration file / change a table structure, **at the end of the task you must explicitly tell the user: whether a migration needs to be run in production, and which command to run**. Skipping it → live code reads a column that does not exist → silent failure (cf. the 2026-06 infra moemoepoint grant outage: a missing column made moemoepoint unobtainable site-wide for ~29h).

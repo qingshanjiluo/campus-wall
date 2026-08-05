@@ -1,0 +1,99 @@
+<script setup lang="ts">
+import { watchDebounced } from '@vueuse/core'
+import { useRouteQuery } from '@vueuse/router'
+
+// Page lives in the URL (?page=N) so the list is shareable / survives
+// refresh + back-forward. Default 1 is omitted from the URL. limit is fixed.
+const page = useRouteQuery('page', 1, { mode: 'replace', transform: Number })
+const limit = 100
+
+const { data, status } = await useKunFetch<{
+  officials: GalgameOfficialItem[]
+  total: number
+}>(`/galgame-official`, {
+  method: 'GET',
+  query: { page, limit }
+})
+
+const searchResult = ref<GalgameTaxonomySearchItem[]>([])
+const searchQuery = ref('')
+const isSearching = ref(false)
+const displayOfficials = computed(() =>
+  searchQuery.value.trim() ? searchResult.value : data.value!.officials
+)
+
+const handleSearch = async () => {
+  if (!searchQuery.value.trim()) {
+    searchResult.value = []
+    return
+  }
+  isSearching.value = true
+  const res = await kunFetch<GalgameTaxonomySearchItem[]>(
+    `/galgame-official/search`,
+    {
+      method: 'GET',
+      query: { q: searchQuery.value.split(' ') }
+    }
+  )
+  isSearching.value = false
+
+  searchResult.value = res ?? []
+}
+
+watchDebounced(
+  () => searchQuery.value,
+  () => {
+    handleSearch()
+  },
+  { debounce: 500, maxWait: 1000 }
+)
+</script>
+
+<template>
+  <div class="space-y-6">
+    <KunHeader
+      name="Galgame 会社 / 厂商资料库"
+      description="这里展示了绝大多数 Galgame 的制作厂商 / Galgame 会社, 并有会社别名 (例如 Yuzusoft 的别名为柚子社), 您可以点击会社以查看这个会社制作的所有 Galgame"
+    >
+      <template #endContent>
+        <div>
+          <KunInput
+            v-model="searchQuery"
+            type="text"
+            placeholder="搜索会社名称、描述或别名..."
+          />
+
+          <div class="text-default-600 mt-4 flex items-center gap-4 text-sm">
+            <span v-if="!searchQuery.trim()">
+              {{ `总计 ${data?.total || 0} 个会社` }}
+            </span>
+            <span v-else>{{ `搜索结果: ${searchResult.length} 个会社` }}</span>
+          </div>
+        </div>
+      </template>
+    </KunHeader>
+
+    <div
+      class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4"
+    >
+      <GalgameOfficialCard
+        v-for="official in displayOfficials"
+        :key="official.id"
+        :official="official"
+      />
+    </div>
+
+    <KunNull
+      v-if="!isSearching && !displayOfficials.length && searchQuery.trim()"
+    />
+
+    <KunLoading v-if="isSearching" />
+
+    <KunPagination
+      v-if="data && data.total > limit && !searchQuery.trim()"
+      v-model:current-page="page"
+      :total-page="Math.ceil(data.total / limit)"
+      :is-loading="status === 'pending'"
+    />
+  </div>
+</template>

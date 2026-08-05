@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /edit
+Disallow: /message
+Disallow: /api
+Disallow: /zh-cn
+Disallow: /ja-jp
+Disallow: /zh-tw
+
+Sitemap: https://www.kungal.com/sitemap_index.xml

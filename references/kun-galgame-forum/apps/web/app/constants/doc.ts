@@ -1,0 +1,21 @@
+import type { KunUIColor, KunUISize } from '@kungal/ui-core'
+
+export const KUN_DOC_CATEGORY_MAP: Record<string, string> = {
+  galgame: 'Galgame',
+  kun: '关于鲲',
+  notice: '网站公告',
+  other: '其它'
+}
+
+export const KUN_DOC_CATEGORY_COLOR_MAP: Record<string, KunUIColor> = {
+  galgame: 'success',
+  kun: 'secondary',
+  notice: 'primary',
+  other: 'default'
+}
+
+export const KUN_DOC_STATUS_OPTIONS = [
+  { value: 0, label: '草稿' },
+  { value: 1, label: '已发布' },
+  { value: 2, label: '隐藏' }
+]

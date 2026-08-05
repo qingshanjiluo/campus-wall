@@ -1,0 +1,187 @@
+/*
+ * Milkdown WYSIWYG content styles. Kept in lockstep with the rendered output
+ * (styles/prose.css → .kun-prose) so the editor PREVIEW matches what the
+ * backend actually renders. When you change a content rule here, mirror it in
+ * prose.css (and vice-versa).
+ *
+ * The two intentionally-different bits are editor affordances (scroll box,
+ * focus ring, placeholder, padding) and code blocks: the editor edits code in
+ * CodeMirror (codeBlockComponent), while the render shows a .kun-code-container
+ * — those two can't and shouldn't look identical.
+ */
+/* The 500px cap + scrolling now live on the <KunOverlayScroll> wrapper around
+   <Milkdown /> (see Editor.vue) — NOT here — so the editor gets a thin,
+   auto-hiding overlay scrollbar instead of the glaring native dark-mode one. */
+.milkdown {
+  @apply text-default-800 leading-7 whitespace-pre-line;
+}
+
+.milkdown .ProseMirror[data-placeholder]::before {
+  @apply text-default-400 dark:text-default-500 pointer-events-none absolute top-4 right-6 left-6 text-sm content-[attr(data-placeholder)];
+}
+
+.milkdown .ProseMirror {
+  @apply focus:bg-default-500/5 min-h-[300px] rounded-lg border p-4 transition-colors duration-200 focus:outline-none;
+}
+
+/* Headings — match .kun-prose. h1 is styled identically to h2 because the
+ * renderer downgrades markdown h1 → <h2> (h1ToH2Extension), so a "# title" must
+ * preview at the same size it renders at. */
+.milkdown h1,
+.milkdown h2 {
+  @apply text-default-900 mt-8 mb-4 pt-4 text-xl leading-tight font-bold tracking-tight;
+}
+
+.milkdown h3 {
+  @apply text-default-900 mt-6 mb-3 pt-3 text-lg leading-snug font-semibold tracking-tight;
+}
+
+.milkdown h4 {
+  @apply text-default-900 my-3 text-base leading-snug font-semibold tracking-tight;
+}
+
+.milkdown h5 {
+  @apply text-default-800 my-3 text-sm leading-snug font-medium tracking-tight;
+}
+
+.milkdown h6 {
+  @apply text-default-800 my-3 text-xs leading-snug font-medium tracking-tight;
+}
+
+/* Paragraphs */
+.milkdown p {
+  @apply py-1;
+  overflow-wrap: break-word;
+}
+
+/* Links */
+.milkdown a {
+  @apply text-primary-500 decoration-primary-200 hover:text-primary-600 hover:decoration-primary-400 cursor-pointer font-medium break-all underline underline-offset-2 transition-colors duration-200;
+}
+
+/* Lists */
+.milkdown ul {
+  @apply marker:text-default-400 my-6 list-outside list-disc space-y-3 pl-8;
+}
+
+.milkdown ol {
+  @apply marker:text-default-400 my-6 list-outside list-decimal space-y-3 pl-8;
+}
+
+.milkdown li {
+  @apply mt-2 leading-relaxed;
+}
+
+.milkdown li > ul,
+.milkdown li > ol {
+  @apply my-2 space-y-2;
+}
+
+/* Blockquote */
+.milkdown blockquote {
+  @apply border-primary-200 bg-primary-50/50 text-default-800 my-8 rounded-r-lg border-l-4 py-1 pr-4 pl-6 font-medium;
+}
+
+.milkdown blockquote p {
+  @apply m-0;
+}
+
+/* Images */
+.milkdown img {
+  @apply border-default-200 my-8 max-w-full cursor-pointer rounded-lg border;
+}
+
+/* Match prose.css: inline stickers at ~80px (was a 128px block). */
+.milkdown img[alt='Sticker'] {
+  @apply mx-0.5 inline-block h-20 w-auto max-w-full align-middle;
+}
+.milkdown p:has(> img[alt='Sticker']:only-child) {
+  @apply my-1 inline-block;
+}
+
+/* Tables — the editor has no .kun-table-container wrapper, but the cell styling
+ * mirrors prose.css. */
+.milkdown table {
+  @apply border-default-200 my-8 w-full overflow-hidden rounded-lg border text-sm;
+}
+
+.milkdown table th {
+  @apply border-default-200 text-default-700 bg-default-50/50 px-4 py-3 text-left text-sm font-semibold tracking-wide uppercase;
+}
+
+.milkdown table td {
+  @apply border-default-200 text-default-600 border-b px-4 py-3;
+}
+
+.milkdown table tr:last-child td {
+  @apply border-b-0;
+}
+
+.milkdown table tr:hover {
+  @apply bg-default-50/50 transition-colors duration-200;
+}
+
+/* Inline code — match prose.css (.kun-prose code). */
+.milkdown :not(pre) > code {
+  @apply bg-primary/15 rounded-lg px-2 py-0.5 font-mono text-sm;
+}
+
+/* Strikethrough / mark / kbd / hr */
+.milkdown del {
+  @apply text-default-500 line-through;
+}
+
+.milkdown mark {
+  @apply bg-warning-100 text-warning-800 rounded-sm px-1;
+}
+
+.milkdown kbd {
+  @apply bg-default-100 border-default-300 text-default-700 rounded-sm border px-2 py-1 font-mono text-sm;
+}
+
+.milkdown hr {
+  @apply border-default-200 my-12;
+}
+
+/* Code blocks — editor-only (CodeMirror). The render uses .kun-code-container
+ * (prose.css); these two diverge by design (edit vs display). */
+.milkdown pre {
+  @apply bg-default-50 border-default-200 ring-default-200/50 my-6 overflow-x-auto rounded-xl border p-4 break-words whitespace-pre-wrap ring-1;
+}
+
+.milkdown pre code {
+  @apply text-default-800 border-0 bg-transparent p-0 whitespace-pre shadow-none;
+}
+
+/* @mention chip inside the editor — a non-navigating span atom (a real <a>
+ * would steal the click mid-compose). The rendered form is styled in prose.css. */
+.milkdown .kun-mention {
+  @apply text-primary bg-primary/10 mx-1 rounded px-1 font-medium;
+}
+
+/* Quote reference chip inside the editor (#floor) — neutral tint to set it
+ * apart from the primary-tinted @mention. The rendered form becomes a card
+ * (Phase 3 hydration). */
+.milkdown .kun-quote {
+  @apply text-default-700 bg-default-200 mx-1 rounded px-1 font-medium;
+}
+
+/* @mention autocomplete dropdown. SlashProvider positions it absolutely
+ * (left/top) and toggles [data-show] synchronously, so visibility is
+ * attribute-driven CSS — the panel is laid out before computePosition resolves. */
+.kun-mention-dropdown {
+  @apply bg-default-50 border-default-200 absolute z-50 hidden max-h-64 w-56 flex-col gap-0.5 overflow-y-auto rounded-xl border p-1 shadow-lg;
+}
+
+.kun-mention-dropdown[data-show='true'] {
+  @apply flex;
+}
+
+/* SlashProvider appends the dropdown INSIDE .milkdown, so the prose `.milkdown
+ * img` rule (display:block + my-8 margins + rounded-2xl) bleeds onto the avatar
+ * and balloons each row to ~100px. Re-scope the avatar img back to a 24px
+ * circle. Same specificity as `.milkdown img` but later in source order, and
+ * both are unlayered, so this wins. */
+.kun-mention-dropdown img {
+  @apply m-0 size-6 rounded-full object-cover;
+}

@@ -1,0 +1,187 @@
+/*
+ * Forum prose LAYER — sits on top of @kungal/ui-vue/prose.css (imported first
+ * in index.css), which now owns the base editorial typography: `.kun-prose`
+ * (article) + `.kun-prose-compact` (comment / reply density, via KunContent's
+ * `compact` prop). This file keeps ONLY what kun-ui's prose can't know about:
+ *
+ *   - server-rendered code blocks (`.kun-code-container` + copy button +
+ *     line/diff highlighting). Token colours live in code-theme.css, math in
+ *     editor/katex.css — kun-ui ships neither.
+ *   - the wide-table scroll wrapper, heading anchors, stickers, figure / dl /
+ *     strikethrough — kun-ui styles none of these.
+ *   - reconciliation: neutralize kun-ui's bare `pre` styling inside our
+ *     `.kun-code-container` so its border / radius / bg / margin don't double
+ *     up with the container's.
+ *   - full-width override: kun-ui centres `.kun-prose` on a 40rem measure; the
+ *     forum's content cards want the full width.
+ */
+
+.kun-prose {
+  /* kun-ui centres the article column at 40rem; forum content fills its card. */
+  max-width: none;
+  margin-inline: 0;
+
+  /* Heading anchor links stay text-coloured (not link-blue/underlined). */
+  & .anchor {
+    @apply text-default-800 hover:text-primary-500 no-underline;
+  }
+
+  /* Wide tables scroll inside a wrapper — kun-ui styles a bare <table> only,
+     with no overflow handling, so a >600px table would break the layout. */
+  & .kun-table-container {
+    @apply w-full overflow-x-auto;
+
+    & table {
+      @apply border-default-200 my-8 w-full min-w-[600px] border-collapse border-spacing-0 overflow-hidden rounded-lg border text-sm;
+    }
+
+    & thead {
+      @apply bg-default-50/50;
+    }
+
+    & th {
+      @apply border-default-200 text-default-700 px-4 py-3 text-left text-sm font-semibold tracking-wide whitespace-nowrap uppercase;
+    }
+
+    & td {
+      @apply border-default-200 text-default-600 border-b px-4 py-3 whitespace-nowrap;
+    }
+
+    & tr:last-child td {
+      @apply border-b-0;
+    }
+
+    & tr:hover {
+      @apply bg-default-50/50 transition-colors duration-200;
+    }
+  }
+
+  /* Figures + definition lists + strikethrough + stickers — kun-ui has none. */
+  & figure {
+    @apply my-8;
+
+    & figcaption {
+      @apply text-default-500 mt-3 text-center text-sm;
+    }
+  }
+
+  & dt {
+    @apply text-default-900 mt-4 font-semibold;
+  }
+  & dd {
+    @apply border-default-200 mt-2 border-l-2 pl-4;
+  }
+
+  /* Mirror of editor.css `.milkdown del` (renderers differ on which `~~` emits). */
+  & del,
+  & s {
+    @apply text-default-500 line-through;
+  }
+
+  /* Stickers are inline (was a 128px block that hogged a line), at a readable
+     ~80px rather than emoji-tiny. */
+  & img[alt='Sticker'] {
+    @apply mx-0.5 inline-block h-20 w-auto max-w-full align-middle;
+  }
+  /* A lone sticker lands in its own block <p>, which forced it onto its own
+     line. Let sticker-only paragraphs flow inline, so a sticker sits with
+     adjacent text / packs with other stickers instead of hogging a line. */
+  & p:has(> img[alt='Sticker']:only-child) {
+    @apply my-1 inline-block;
+  }
+
+  /* ── Code blocks ─────────────────────────────────────────────────────────
+     Server-rendered as `.kun-code-container > .kun-code-header + pre > code`.
+     The container owns the border / radius / overflow; the `pre` is stripped
+     of kun-ui's bare-`pre` chrome so they don't stack (double border / fill). */
+  & .kun-code-container {
+    @apply border-default-200 relative my-6 overflow-x-auto rounded-xl border;
+
+    & pre {
+      @apply m-0 overflow-x-auto rounded-none border-0 bg-transparent p-4;
+
+      & code {
+        @apply block w-fit rounded-none border-0 bg-transparent p-0;
+      }
+    }
+  }
+
+  & .kun-code-header {
+    @apply text-default-500 border-default-200 bg-secondary-50/50 flex items-center justify-between border-b px-4 py-2 text-xs;
+  }
+
+  & .lang {
+    @apply font-mono font-semibold tracking-wider uppercase;
+  }
+
+  & .copy {
+    @apply text-default-500 hover:bg-secondary-200 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border-none bg-transparent transition-colors duration-200;
+
+    &::before {
+      content: '';
+      display: block;
+      width: 16px;
+      height: 16px;
+      background-color: currentColor;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2' ry='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E")
+        no-repeat center / contain;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2' ry='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E")
+        no-repeat center / contain;
+    }
+
+    &.copied::before {
+      -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+    }
+  }
+
+  & .code-highlight {
+    @apply float-left min-w-full;
+  }
+
+  & .code-line {
+    @apply -mx-4 block border-l-4 border-transparent px-4;
+
+    &.inserted {
+      @apply bg-success-500/10;
+    }
+    &.deleted {
+      @apply bg-danger-500/10;
+    }
+  }
+
+  & .highlight-line {
+    @apply border-primary-500 bg-primary-500/10 -mx-4 border-l-4;
+  }
+
+  & .line-number::before {
+    content: attr(line);
+    @apply mr-4 -ml-2 inline-block w-4 text-right text-gray-400;
+  }
+}
+
+/* @mention / quote chips in RENDERED content. Topics render under `.kun-prose`,
+ * replies/comments under `.kun-prose-compact` (KunContent's `compact` prop), so
+ * both are scoped. The editor's own chips live in editor.css (`.milkdown …`).
+ *
+ * - .kun-mention is a real navigating link (server sets href=/user/<id>) — style
+ *   it as a chip so it reads differently from ordinary prose links.
+ * - .kun-quote is the `#<floor>` reference. Pre-hydration it's an inline badge;
+ *   the client upgrades it into a card + in-page jump (Phase 3b). */
+.kun-prose .kun-mention,
+.kun-prose-compact .kun-mention {
+  @apply text-primary bg-primary/10 mx-1 rounded px-1 font-medium no-underline;
+
+  &:hover {
+    @apply bg-primary/20;
+  }
+}
+
+.kun-prose .kun-quote,
+.kun-prose-compact .kun-quote {
+  @apply text-default-700 bg-default-200 mx-1 cursor-pointer rounded px-1 font-medium;
+
+  &:hover {
+    @apply bg-default-300;
+  }
+}

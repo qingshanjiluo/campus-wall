@@ -1,0 +1,82 @@
+<script setup lang="ts">
+import {
+  KUN_GALGAME_RESOURCE_LANGUAGE_MAP,
+  KUN_GALGAME_RESOURCE_PLATFORM_MAP,
+  KUN_GALGAME_RESOURCE_TYPE_MAP
+} from '~/constants/galgame'
+
+const route = useRoute()
+const resourceId = computed(() => Number((route.params as { id: string }).id))
+
+const { data, refresh } = await useKunFetch<
+  GalgameResourcePageData | 'not found'
+>(`/galgame-resource/${resourceId.value}`, {
+  query: { resource_id: resourceId }
+})
+
+if (data.value && data.value !== 'not found') {
+  const titleBase = getPreferredLanguageText(data.value.galgame.name)
+
+  // NSFW resources must not feed crawlers: useKunSeoMeta below would
+  // otherwise overwrite the robots=noindex from useKunDisableSeo and
+  // leak title/description/og:image. Branch hard.
+  if (data.value.galgame.content_limit === 'nsfw') {
+    useKunDisableSeo(titleBase)
+  } else {
+    const resource = data.value.resource
+
+    const typeLabel =
+      KUN_GALGAME_RESOURCE_TYPE_MAP[resource.type] || resource.type
+    const languageLabel =
+      KUN_GALGAME_RESOURCE_LANGUAGE_MAP[resource.language] || resource.language
+    const platformLabel =
+      KUN_GALGAME_RESOURCE_PLATFORM_MAP[resource.platform] || resource.platform
+
+    const description = `${typeLabel} · ${languageLabel} · ${platformLabel} · ${resource.size}`
+
+    useKunSeoMeta({
+      title: `${titleBase} ${typeLabel}资源下载`,
+      description: data.value.resource.note
+        ? markdownToText(data.value.resource.note).trim().slice(0, 233)
+        : description,
+      ogImage: getEffectiveBanner(data.value.galgame)
+    })
+  }
+} else {
+  useKunDisableSeo('未找到 Galgame 资源')
+}
+</script>
+
+<template>
+  <div v-if="data" class="space-y-3">
+    <template v-if="data !== 'not found'">
+      <GalgameResourceDetailHero :galgame="data.galgame" />
+
+      <KunAdAIFYBanner class-name="hidden lg:block" />
+
+      <!-- min-w-0 on both tracks: a `1fr` track floors at max-content, so a
+           long download link or a wide code block would push its column open
+           and shift the split as content loads. -->
+      <div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <GalgameResourceDetailPanel
+          class="min-w-0 lg:col-span-2"
+          :galgame="data.galgame"
+          :resource="data.resource"
+          :refresh="refresh"
+        />
+
+        <GalgameResourceDetailRecommendations
+          class="min-w-0"
+          :recommendations="data.recommendations"
+        />
+      </div>
+
+      <GalgameResourceCommentCommunityContainer :resource-id="resourceId" />
+    </template>
+
+    <KunNull
+      v-else
+      description="未找到对应的 Galgame 资源，或该资源已被移除。"
+    />
+  </div>
+</template>

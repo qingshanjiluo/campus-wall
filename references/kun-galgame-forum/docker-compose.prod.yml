@@ -1,0 +1,245 @@
+# kungal (kun-galgame-forum) — PRODUCTION compose (Dokploy + GHCR images).
+#
+# Downstream app: owns NO backing services. Joins the shared `dokploy-network`
+# and reaches infra by service name (postgres:5432, redis:6379, oauth:9277,
+# catalog:9281, image:9278). Bring infra up first.
+#
+# vs docker-compose.yml (dev): `image:` not `build:`, `expose:` not `ports:`,
+# and **NO `env_file`** — all config is inline `environment:` so Dokploy needs no
+# `docker/*.env` on disk. Non-secret/domains are literal; secrets come from the
+# kungal app's **Dokploy Environment** via ${VAR}.
+#
+# Set in kungal's Dokploy Environment:
+#   POSTGRES_PASSWORD  OAUTH_CLIENT_SECRET  JWT_SECRET  MEILI_MASTER_KEY
+#   (optional) KUN_IMAGE_CLIENT_ID/SECRET  FILE_STORAGE_* (B2 工具集)  MAIL_*
+# These MUST match infra's: POSTGRES_PASSWORD = infra POSTGRES_PASSWORD;
+# MEILI_MASTER_KEY = infra MEILI_MASTER_KEY; OAUTH_CLIENT_SECRET = 注册论坛 client 的明文.
+# (JWT_SECRET here is kungal's OWN session secret — need NOT match infra.)
+#
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d      # migrate auto-runs (gated) before kungal-api
+# The migrate service is no longer in the `jobs` profile: a plain `up` runs it
+# first (kungal-api depends_on it: service_completed_successfully) so pending
+# migrations auto-apply and the API never serves an un-migrated schema. Deferred
+# / cross-repo-ordered migrations are still held back by the migrate binary's
+# default `-exclude` list (005/006/007/012/015 today); to add a FUTURE cross-repo
+# migration, append its prefix to that default in cmd/migrate/main.go, then run
+# it manually with `--only=NNN` at the right moment (docs/migration + 16-data-cutover.md).
+name: kungal
+
+x-svc-health: &svc-health
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 15s
+
+# ── api / migrate / tools runtime env (literal = non-secret; ${VAR} = panel) ──
+x-kungal-api-env: &kungal-api-env
+  SERVER_PORT: "2334"
+  SERVER_MODE: prod
+  CORS_ALLOW_ORIGINS: https://www.kungal.com,https://kungal.com
+  # ⚠ POSTGRES_PASSWORD 直接拼进 DSN → 必须 URL-safe(字母数字;勿含 @ : / # % ? &,否则 URL 解析坏)
+  KUN_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in Dokploy}@postgres:5432/kungalgame
+  DB_MAX_OPEN_CONNS: "25"
+  DB_MAX_IDLE_CONNS: "10"
+  DB_CONN_MAX_LIFETIME: "300"
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+  REDIS_DB: "0"
+  OAUTH_SERVER_URL: http://oauth:9277/api/v1
+  OAUTH_CLIENT_ID: 4ed9bc99ec0a789a4796b83e22bd84c5
+  OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:?set OAUTH_CLIENT_SECRET in Dokploy (论坛 client 注册时的明文)}
+  OAUTH_REDIRECT_URI: https://www.kungal.com/auth/callback
+  # ── comment areas on the community primitive (track 03) ──
+  # Community is now the UNCONDITIONAL backend for the galgame + resource
+  # (rating / website / toolset) comment areas: the legacy in-forum comment
+  # routes were retired (charter step 06a), so the per-area *_COMMENTS_COMMUNITY
+  # flags and the *_COMMENT_READONLY freeze switches are gone. Client creds fall
+  # back to OAUTH_CLIENT_ID/SECRET above (app.go); unconfigured = comments
+  # degrade (reads empty / writes 503). The frozen galgame_comment* / resource
+  # comment tables still back profile / admin / search reads and await a later
+  # deploy-then-drop migration.
+  KUN_COMMUNITY_API_BASE: http://community:9282/api/v1/community
+  # ── DLsite 联盟补票链接 (合作公告 topic/3867) ──
+  # {workno} 由 catalog 的 refs.dlsite 原样替换。整段模板走 env 而非拼装:
+  # DLsite 的联盟路径可能按站点段不同 (/soft/ 是 pro/VJ 路径), 换路径只改这里。
+  # 空模板 = 功能关闭, 补票提示回落成原来的纯文案。
+  KUN_DLSITE_LINK_TEMPLATE: ${KUN_DLSITE_LINK_TEMPLATE:-https://dlaf.jp/soft/dlaf/=/t/s/link/work/aid/kungal/locale/zh_CN/id/{workno}.html/?locale=zh_CN}
+  # 优惠券落地页。必须是短链 (合作方要求, 防网络审查拦截) —— 自建短链服务就绪前
+  # 先用 umami 短链承载。
+  KUN_DLSITE_COUPON_URL: ${KUN_DLSITE_COUPON_URL:-https://umami.kungal.org/q/N3TmTZJ9X}
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in Dokploy (kungal 自己的会话密钥)}
+  # toolset archive uploads (Backblaze B2). 空则上传路由仍注册、调用 500(应用只 warn 不拦);要开 toolset 上传就填全 5 个
+  # (内嵌/内容图不走这里 — 全部经 image_service,详见 KUN_IMAGE_CLIENT_*)
+  FILE_STORAGE_ENDPOINT: ${FILE_STORAGE_ENDPOINT:-}
+  FILE_STORAGE_REGION: ${FILE_STORAGE_REGION:-}
+  FILE_STORAGE_BUCKET: ${FILE_STORAGE_BUCKET:-}
+  FILE_STORAGE_ACCESS_KEY: ${FILE_STORAGE_ACCESS_KEY:-}
+  FILE_STORAGE_SECRET_KEY: ${FILE_STORAGE_SECRET_KEY:-}
+  # mail (blank → disabled)
+  MAIL_HOST: ${MAIL_HOST:-}
+  MAIL_PORT: ${MAIL_PORT:-587}
+  MAIL_USER: ${MAIL_USER:-}
+  MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+  MAIL_FROM: ${MAIL_FROM:-}
+  # search — key MUST == infra MEILI_MASTER_KEY
+  MEILISEARCH_URL: http://meilisearch:7700
+  MEILISEARCH_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY in Dokploy (= infra 的同名值)}
+  # NextMoe catalog galgame surface (host base, no /api suffix): the client
+  # derives {base}/internal (internal-tier read face, X-API-Key) + {base}/api
+  # (legacy face for writes / admin / feeds).
+  KUN_NEXTMOE_API_BASE: http://catalog:9281
+  # internal-tier devapi key for the read face (X-API-Key). REQUIRED whenever a
+  # base is set: an empty key fail-fasts at config load (the legacy /api rollback
+  # valve was retired in open-API phase 2 wave 05). Set in Dokploy; plaintext in
+  # kungal-neo /root/phase2-internal-keys.env (kungal-forum-internal-s2s).
+  KUN_NEXTMOE_API_KEY: ${KUN_NEXTMOE_API_KEY:-}
+  # catalog read proxy (step 36): credits / entity reverse-lookups. Reuses the
+  # OAuth client pair for S2S Basic auth; unset → those routes degrade to 503.
+  KUN_CATALOG_API_BASE: http://catalog:9281
+  # image_service (shared CDN domain == infra KUN_IMAGE_PUBLIC_BASE_URL)
+  KUN_IMAGE_PUBLIC_BASE_URL: https://image.kungal.iloveren.link
+  KUN_IMAGE_CLIENT_BASE_URL: http://image:9278
+  # kungal's image_service client IS its own OAuth client (same id/secret as the
+  # login client above): image_service authenticates uploads via HTTP Basic
+  # (client_id:client_secret), then checks image_enabled + image_site_key +
+  # image_allowed_presets on the infra oauth_clients row (set to enabled /
+  # site_key=kungal / [topic, galgame_banner]). So reuse the OAuth creds rather
+  # than a separate Dokploy var.
+  KUN_IMAGE_CLIENT_ID: 4ed9bc99ec0a789a4796b83e22bd84c5
+  KUN_IMAGE_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:?set OAUTH_CLIENT_SECRET in Dokploy}
+  # artifact service (toolset archive upload/download). Same pattern as the image
+  # client: kungal's artifact "site" IS its OAuth client, so the artifact client
+  # creds fall back to OAUTH_CLIENT_ID/SECRET (no separate Dokploy var). Only the
+  # base URL is needed — and it MUST be wired here in the anchor (a Dokploy panel
+  # var alone never reaches the container, the moyu lesson). At prod cutover the
+  # infra oauth_clients row must also have artifact_enabled + site_key=kungal.
+  KUN_ARTIFACT_CLIENT_BASE_URL: http://artifact:9279
+  # kungal-link-live-checker — the "report resource expired" gate (dead→失效 /
+  # alive→驳回误报 / unknown→旧流程). Set all 4 in Dokploy to enable it; the
+  # checker is behind Cloudflare Access so the CF service-token headers are
+  # required alongside the Bearer key. Any unset → gate OFF (legacy flow). These
+  # MUST be wired here — a Dokploy panel var only reaches the container when the
+  # compose env references it, which is exactly why the gate stayed off before.
+  LINK_CHECKER_BASE_URL: ${LINK_CHECKER_BASE_URL:-}
+  LINK_CHECKER_API_KEY: ${LINK_CHECKER_API_KEY:-}
+  CF_ACCESS_CLIENT_ID: ${CF_ACCESS_CLIENT_ID:-}
+  CF_ACCESS_CLIENT_SECRET: ${CF_ACCESS_CLIENT_SECRET:-}
+  # Trust & Safety (doc 18): report intake (kungal → trust) + enforcement
+  # callback verification (trust → kungal). BASE_URL/SITE are non-secret
+  # structural values → literal, like the sibling service URLs above (a Dokploy
+  # panel var alone never reaches the container — the moyu/image lesson). The Go
+  # defaults (127.0.0.1:9283 / kungal) are WRONG in-container for BASE_URL, so
+  # pin the dokploy-network name (infra exposes the trust service as `trust`).
+  # ⚠ With BASE_URL set, report intake goes LIVE the moment kungal deploys — so
+  # infra's trust service + kungal's 6 subject_kind rows + the subject_url column
+  # must be up FIRST, else reports 403 (catalog_site unbound) / 422 (kind
+  # unregistered or pre-subject_url schema). CALLBACK_SECRET (panel) gates ONLY
+  # the inbound enforcement callback: empty → callbacks fail-closed 401 while
+  # reports still flow, so enforcement stays off until you set it to the SAME
+  # secret registered on kungal's subject_kind rows in the trust registry.
+  KUN_TRUST_BASE_URL: http://trust:9283
+  KUN_TRUST_SITE: kungal
+  KUN_TRUST_CALLBACK_SECRET: ${KUN_TRUST_CALLBACK_SECRET:-}
+  # Two INDEPENDENT wave-1 moderation switches for topic/reply create+edit, both
+  # default off (never keyed off client presence). CHECK = synchronous pre-write
+  # word-list gate (deny blocks / hold publishes+logs / fail-open ≤500ms); SCAN =
+  # async post-commit shadow scan (best-effort). Flip to true only AFTER infra
+  # mints kungal's S2S client + registers the forum_topic/forum_reply kinds.
+  KUN_TRUST_CHECK_ENABLED: ${KUN_TRUST_CHECK_ENABLED:-false}
+  KUN_TRUST_SCAN_ENABLED: ${KUN_TRUST_SCAN_ENABLED:-false}
+
+services:
+  # ───────────────────────────── Go API (distroless) ─────────────────────────
+  # 服务名直接叫 kungal-api(不是 `api` + alias):Dokploy 不应用 compose 的 networks.aliases,
+  # 只把「服务名」注册到 dokploy-network。两仓都叫 `api` 会在共享网络上 DNS 冲突,所以用唯一服务名,
+  # SSR(kungal-web → http://kungal-api:2334)才能解析到。
+  kungal-api:
+    image: ghcr.io/kunmoe/kungal-api:latest
+    pull_policy: always
+    environment: { <<: *kungal-api-env }
+    expose: ["2334"]
+    # Wait for `migrate` to finish so the API never serves an un-migrated schema
+    # (a failed migration blocks startup by design). postgres/redis live in the
+    # infra app (no depends_on for them) — restart reconnects.
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/app", "healthcheck"]
+      <<: *svc-health
+    restart: unless-stopped
+
+  # ───────────────────────────── Nuxt 4 SSR frontend ─────────────────────────
+  # Public config is read at RUNTIME (kungal-web is NOT baked at CI) — set below.
+  web:
+    image: ghcr.io/kunmoe/kungal-web:latest
+    pull_policy: always
+    environment:
+      # SSR renders absolute times in this zone (the container is otherwise UTC);
+      # <KunTime> re-renders in the viewer's own timezone after mount. Asia/Shanghai
+      # matches the CN-majority audience so most users see no post-hydration shift.
+      TZ: Asia/Shanghai
+      NODE_ENV: production
+      NUXT_API_BASE_URL: http://kungal-api:2334 # SSR → 本仓 api 服务名 kungal-api(唯一,避免与 moyu api 冲突)
+      NUXT_PUBLIC_API_BASE_URL: https://www.kungal.com # browser
+      NUXT_PUBLIC_OAUTH_SERVER_URL: https://oauth.kungal.com/api/v1
+      NUXT_PUBLIC_OAUTH_FRONTEND_URL: https://oauth.kungal.com
+      NUXT_PUBLIC_OAUTH_CLIENT_ID: 4ed9bc99ec0a789a4796b83e22bd84c5
+      NUXT_PUBLIC_OAUTH_REDIRECT_URI: https://www.kungal.com/auth/callback
+      NUXT_PUBLIC_KUN_GALGAME_URL: https://www.kungal.com
+    expose: ["7777"]
+    depends_on:
+      kungal-api: { condition: service_healthy }
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('net').connect(7777,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"
+      <<: *svc-health
+    restart: unless-stopped
+    # Memory cap + auto-restart = OOM-recycle backstop for the upstream Nuxt
+    # 4.2.2 SSR memory leak (nuxt#34071: per-request render context not freed).
+    # Fresh kungal-web is ~0.3–0.9 GiB; the leak grew it to ~2.8 GiB and pegged a
+    # core (GC thrash). 2g caps that: normal load fits, and once the leak fills
+    # 2g the kernel OOM-kills node → restart: unless-stopped brings it back fresh.
+    # Remove/raise once the upstream leak is fixed or Nuxt is upgraded.
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  # ───────────────────────── schema migrations (auto on `up`) ────────────────
+  # Runs on a plain `up` (kungal-api depends_on it) → pending migrations apply
+  # before the API starts. The binary's default `-exclude` still holds back the
+  # deferred/cross-repo migrations (005/006/007/012/015); run those manually with
+  # `--only=NNN` at the right moment. See docs/migration + 16-data-cutover.md.
+  migrate:
+    image: ghcr.io/kunmoe/kungal-migrate:latest
+    pull_policy: always
+    # The image bakes migrations at /migrations but its WORKDIR is
+    # /home/nonroot, so the binary's default `-path migrations` (relative)
+    # resolves to a non-existent dir → it silently finds 0 migrations and
+    # exits 0 ("没有待执行的迁移"). Pin CWD to / so `-path migrations` → /migrations.
+    # (Keeps manual `... run --rm migrate --only=NNN` working too, vs hard-coding
+    # the command.) Proper long-term fix is the Dockerfile WORKDIR / COPY path.
+    working_dir: /
+    environment: { <<: *kungal-api-env }
+    restart: "no"
+
+  # ─────────────────────── one-off jobs (profile: jobs) ──────────────────────
+  # All cmd/* binaries (check-dup-email / backfill-provider-names / migrate --only=…):
+  #   docker compose -f docker-compose.prod.yml --profile jobs run --rm tools backfill-provider-names
+  tools:
+    image: ghcr.io/kunmoe/kungal-tools:latest
+    pull_policy: always
+    environment: { <<: *kungal-api-env }
+    profiles: ["jobs"]
+    restart: "no"
+
+networks:
+  default:
+    name: dokploy-network
+    external: true

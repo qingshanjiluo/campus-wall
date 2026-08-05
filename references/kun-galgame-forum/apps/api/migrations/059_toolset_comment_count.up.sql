@@ -1,0 +1,31 @@
+-- galgame_toolset.comment_count: LIVE display counter for a toolset's community
+-- comments (charter step 06a). Since the toolset comment area moved onto the
+-- community primitive, the old count(*) over the frozen galgame_toolset_comment
+-- table is retired; this column is maintained ±1 by the community comment BFF
+-- (resource_comment_write.go: create +1 / tombstone -1, mirroring the website
+-- counter — charter ruling 21). Additive + idempotent, so it auto-runs on deploy
+-- (NOT in the migrate --exclude list).
+ALTER TABLE galgame_toolset ADD COLUMN IF NOT EXISTS comment_count INT NOT NULL DEFAULT 0;
+
+-- MANUAL CROSS-DB BACKFILL — run AFTER infra deploys the community service, ONCE.
+-- The existing toolset comments were imported into kun_community at cutover (the
+-- step 06 import), so seed this counter from the visible community posts per
+-- "toolset:<id>" anchor. kungalgame and kun_community live on the SAME Postgres
+-- instance (mirror of migration 057's like-copy note), so this runs as a manual
+-- psql against the community DB, writing back into the forum DB (or via dblink):
+--
+--   UPDATE galgame_toolset t SET comment_count = sub.n
+--   FROM (
+--     SELECT split_part(th.anchor_id, ':', 2)::int AS toolset_id,
+--            COUNT(p.id) AS n
+--     FROM community_thread th
+--     JOIN community_post p ON p.thread_id = th.id
+--     WHERE th.site = 'kungal'
+--       AND th.anchor_kind = 2            -- site_resource
+--       AND th.anchor_id LIKE 'toolset:%'
+--       AND p.status = 0                  -- visible only
+--     GROUP BY 1
+--   ) sub
+--   WHERE t.id = sub.toolset_id;
+--
+-- Toolsets with no community comments keep the DEFAULT 0 (no row in sub).

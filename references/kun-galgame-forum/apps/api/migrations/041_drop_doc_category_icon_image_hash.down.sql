@@ -1,0 +1,2 @@
+ALTER TABLE doc_category
+  ADD COLUMN IF NOT EXISTS icon_image_hash VARCHAR(128) NOT NULL DEFAULT '';

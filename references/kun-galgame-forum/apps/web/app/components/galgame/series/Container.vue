@@ -1,0 +1,61 @@
+<script setup lang="ts">
+import { useRouteQuery } from '@vueuse/router'
+
+// Page lives in the URL (?page=N) so the list is shareable / survives
+// refresh + back-forward. Default 1 is omitted from the URL. limit is fixed —
+// each card fans out a five-cover montage, so a page is deliberately small.
+const page = useRouteQuery('page', 1, { mode: 'replace', transform: Number })
+const limit = 12
+
+const { data, status } = await useKunFetch<{
+  series: GalgameSeriesCard[]
+  total: number
+}>('/galgame-series/cards', {
+  method: 'GET',
+  query: { page, limit }
+})
+
+// SFW mode lists only the series that hide nothing from the reader, which on
+// this catalogue is a handful — say so, rather than letting the index look
+// broken next to a 会社 / 标签 page that still lists thousands.
+const { showKUNGalgameContentLimit } = storeToRefs(usePersistSettingsStore())
+const isSfwMode = computed(() => showKUNGalgameContentLimit.value !== 'nsfw')
+</script>
+
+<template>
+  <div class="space-y-3">
+    <KunHeader
+      name="Galgame 系列"
+      description="Galgame 全系列所有 Galgame 作品。例如美少女万华镜 1, 2, 3, 4, 5, 雪女, 外传 就是一个 Galgame 系列。某个会社制作的所有 Galgame 并不算系列, 请到 Galgame 会社页面中查看"
+    >
+      <template #endContent>
+        <span class="text-default-600 text-sm">
+          {{ `总计 ${data?.total || 0} 个系列` }}
+        </span>
+      </template>
+    </KunHeader>
+
+    <KunInfo
+      v-if="isSfwMode"
+      color="warning"
+      title="仅显示全年龄系列"
+      description="当前为 SFW 模式, 只列出全部作品均为全年龄的系列。本站收录的 Galgame 系列绝大多数含有 R18 作品, 如需查看, 请在设置面板开启 NSFW 开关。"
+    />
+
+    <div v-if="data" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <GalgameSeriesCard
+        v-for="(series, index) in data.series"
+        :key="series.id"
+        :style="{ animationDelay: `${index * 50}ms` }"
+        :series="series"
+      />
+    </div>
+
+    <KunPagination
+      v-if="data && data.total > limit"
+      v-model:current-page="page"
+      :total-page="Math.ceil(data.total / limit)"
+      :is-loading="status === 'pending'"
+    />
+  </div>
+</template>

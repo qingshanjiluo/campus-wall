@@ -1,0 +1,50 @@
+name: '🐞 Bug 報告'
+description: '創建一個錯誤報告來幫助我們改進'
+title: '[BUG]: '
+labels:
+  - 'bug'
+  - 'enhancement'
+assignees:
+  - 'KunMoe'
+
+body:
+  - type: textarea
+    id: describe-the-bug
+    attributes:
+      label: '描述錯誤'
+      description: '對錯誤進行清晰簡明的描述。'
+      placeholder: '請在此描述錯誤。'
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: '重現步驟'
+      description: '提供重現該錯誤的步驟。'
+      placeholder: "1. 進入 '...'\n2. 點擊 '....'\n3. 向下滾動到 '....'\n4. 查看錯誤"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: '預期行為'
+      description: '對預期發生的事情進行清晰簡明的描述。'
+      placeholder: '描述您期望發生的情況。'
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: '截圖'
+      description: '如果適用，請添加截圖以幫助解釋您的問題。'
+      placeholder: '如果可能，請上傳截圖。'
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: '附加信息'
+      description: '在此處添加有關問題的任何其他上下文信息。'
+      placeholder: '任何可以幫助理解問題的附加信息。'

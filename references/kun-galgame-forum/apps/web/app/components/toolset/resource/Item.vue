@@ -1,0 +1,342 @@
+<script setup lang="ts">
+import { updateToolsetResourceSchema } from '~/validations/toolset'
+import { KUN_GALGAME_TOOLSET_STORAGE_MAP } from '~/constants/toolset'
+
+const props = defineProps<{
+  toolsetId: number
+  resource: ToolsetResource
+}>()
+
+const emits = defineEmits<{
+  deleted: [number]
+  updated: [ToolsetResource]
+}>()
+
+const base = ref<ToolsetResource>(props.resource)
+watch(
+  () => props.resource,
+  (v) => {
+    base.value = v
+  }
+)
+
+const detail = ref<ToolsetResourceDetail | null>(null)
+const showing = ref(false)
+const fetching = ref(false)
+
+const isEditing = ref(false)
+const isDeleting = ref(false)
+const isSaving = ref(false)
+
+const { id: userId } = usePersistUserStore()
+const canEditAnyResource = useCan('toolset.resource.edit_any')
+const canDeleteAnyResource = useCan('toolset.resource.delete_any')
+// The resource owner manages their own row once its detail (author) is loaded;
+// toolset.resource.edit_any / delete_any extend that to anyone's.
+const isResourceOwner = computed(() =>
+  detail.value ? detail.value.user.id === userId : false
+)
+const canEditResource = computed(
+  () => canEditAnyResource.value || isResourceOwner.value
+)
+const canDeleteResource = computed(
+  () => canDeleteAnyResource.value || isResourceOwner.value
+)
+
+const s3DisplaySize = computed(() => {
+  if (base.value.type !== 's3') {
+    return base.value.size
+  } else {
+    return formatFileSize(Number(base.value.size))
+  }
+})
+
+const links = computed(() => {
+  if (!detail.value) {
+    return []
+  }
+
+  if (detail.value.type === 'user') {
+    return detail.value.content
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }
+
+  // s3: artifact-backed rows return a full download URL (dl.imoe.uk), resolved
+  // server-side from the artifact uuid; legacy rows store a raw key that needs
+  // the old OSS domain prefixed.
+  const content = detail.value.content
+  if (/^https?:\/\//.test(content)) {
+    return [content]
+  }
+  return [`${kungal.domain.oss}/${content}`]
+})
+
+// formData.size mirrors the wire format expected by
+// updateToolsetResourceSchema: s3 rows carry a byte-count string (the
+// API rejects formatted strings here, and ignores size changes for s3
+// anyway), user rows carry the kb/mb/gb-suffixed value typed by the
+// author. UI presentation goes through s3DisplaySize separately so the
+// user still sees "1.5 MB" rather than a raw byte count.
+const formData = reactive({
+  toolset_resource_id: base.value.id,
+  type: base.value.type,
+  size: base.value.size || '',
+  code: '',
+  password: '',
+  note: '',
+  content: ''
+})
+
+const fetchResourceDetail = async () => {
+  if (detail.value) {
+    return
+  }
+
+  fetching.value = true
+  const res = await kunFetch<ToolsetResourceDetail>(
+    `/toolset/${props.toolsetId}/resource/detail`,
+    {
+      method: 'GET',
+      query: { toolset_resource_id: base.value.id }
+    }
+  )
+  fetching.value = false
+  if (res) {
+    detail.value = res
+    formData.toolset_resource_id = res.id
+    formData.type = base.value.type
+    formData.size = base.value.size || ''
+    formData.code = res.code || ''
+    formData.password = res.password || ''
+    formData.note = res.note || ''
+    formData.content = base.value.type === 'user' ? res.content || '' : ''
+  }
+}
+
+const toggleShow = async () => {
+  if (!showing.value) {
+    await fetchResourceDetail()
+  }
+  showing.value = !showing.value
+}
+
+const handleDelete = async () => {
+  if (!canDeleteResource.value) {
+    useMessage('您没有权限删除该工具资源', 'warn')
+    return
+  }
+  const okConfirm = await useComponentMessageStore().alert(
+    '确定删除该工具资源吗？',
+    `删除资源将会消耗您 3 萌萌点, 资源将会永久删除, 不可恢复`
+  )
+  if (!okConfirm) {
+    return
+  }
+
+  isDeleting.value = true
+  const res = await kunFetch(`/toolset/${props.toolsetId}/resource`, {
+    method: 'DELETE',
+    query: { toolset_resource_id: base.value.id }
+  })
+  isDeleting.value = false
+  if (res) {
+    useMessage('删除成功', 'success')
+    emits('deleted', base.value.id)
+  }
+}
+
+const handleSave = async () => {
+  const body = {
+    toolset_resource_id: base.value.id,
+    type: base.value.type,
+    size: formData.size,
+    code: formData.code,
+    password: formData.password,
+    note: formData.note,
+    content: base.value.type === 'user' ? formData.content : ''
+  }
+  const valid = useKunSchemaValidator(updateToolsetResourceSchema, body)
+  if (!valid) {
+    return
+  }
+
+  isSaving.value = true
+  const res = await kunFetch<ToolsetResource>(
+    `/toolset/${props.toolsetId}/resource`,
+    {
+      method: 'PUT',
+      body
+    }
+  )
+  isSaving.value = false
+  if (res) {
+    base.value = res
+    emits('updated', res)
+    if (detail.value) {
+      detail.value.size = body.size
+      detail.value.code = body.code
+      detail.value.password = body.password
+      detail.value.note = body.note
+      if (base.value.type === 'user') {
+        detail.value.content = body.content
+      }
+    }
+    useMessage('更新成功', 'success')
+    isEditing.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <KunChip size="sm" color="secondary">
+          {{ KUN_GALGAME_TOOLSET_STORAGE_MAP[base.type] }}
+        </KunChip>
+        <KunChip size="sm" color="warning">
+          <KunIcon name="lucide:database" />
+          <template v-if="base.type === 's3'">
+            {{ s3DisplaySize }}
+          </template>
+          <template v-else>
+            {{ base.size }}
+          </template>
+        </KunChip>
+        <KunChip size="sm" color="primary">
+          <KunIcon name="lucide:download" />
+          <span>{{ `${base.download} 人下载` }}</span>
+        </KunChip>
+
+        <KunTooltip :text="base.status ? '资源已失效' : '资源有效'">
+          <div
+            :class="
+              cn(
+                'h-3 w-3 shrink-0 rounded-full',
+                base.status ? 'bg-danger' : 'bg-success'
+              )
+            "
+          />
+        </KunTooltip>
+      </div>
+
+      <div class="ml-auto flex items-center gap-1">
+        <KunButton
+          size="sm"
+          variant="flat"
+          :loading="fetching"
+          @click="toggleShow"
+        >
+          {{ showing ? '隐藏链接' : '获取链接' }}
+        </KunButton>
+
+        <KunButton
+          v-if="canEditResource"
+          :is-icon-only="true"
+          variant="light"
+          @click="isEditing = true"
+        >
+          <KunIcon name="lucide:pencil" />
+        </KunButton>
+        <KunButton
+          v-if="canDeleteResource"
+          :is-icon-only="true"
+          color="danger"
+          variant="light"
+          :loading="isDeleting"
+          @click="handleDelete"
+        >
+          <KunIcon name="lucide:trash-2" />
+        </KunButton>
+      </div>
+    </div>
+
+    <div v-if="showing && detail" class="space-y-2">
+      <div class="flex items-center gap-2">
+        <KunAvatar :user="detail.user" />
+        <span>{{ detail.user.name }}</span>
+        <span class="text-default-500 text-sm">
+          <KunTime :time="detail.created" />
+        </span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <KunCopy
+          v-if="detail.code"
+          variant="flat"
+          :name="`提取码 ${detail.code}`"
+          :text="detail.code"
+        />
+        <KunCopy
+          v-if="detail.password"
+          variant="flat"
+          :name="`解压码 ${detail.password}`"
+          :text="detail.password"
+        />
+      </div>
+
+      <KunInfo v-if="detail.note" color="info" title="下载备注信息">
+        <pre class="font-sans break-all whitespace-pre-line">
+          {{ detail.note }}
+        </pre>
+      </KunInfo>
+
+      <div v-if="links.length" class="space-y-2 space-x-2">
+        <p class="text-default-500 text-sm">点击下面的链接以下载</p>
+        <KunLink
+          v-for="(link, i) in links"
+          :key="i"
+          :to="link"
+          target="_blank"
+          rel="noopener noreferrer"
+          :is-show-anchor-icon="true"
+        >
+          {{ link }}
+        </KunLink>
+      </div>
+    </div>
+
+    <KunCard
+      :is-hoverable="false"
+      :is-transparent="true"
+      v-if="isEditing && detail"
+      content-class="space-y-3 rounded-lg"
+    >
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <KunInput
+          v-if="base.type === 'user'"
+          v-model="formData.size"
+          placeholder="资源大小 (如 1007MB, 0721GB)"
+        />
+        <KunInput
+          v-if="base.type === 'user'"
+          v-model="formData.code"
+          placeholder="资源提取码 (可选)"
+        />
+        <KunInput v-model="formData.password" placeholder="资源解压码 (可选)" />
+      </div>
+      <KunTextarea
+        v-model="formData.note"
+        placeholder="资源备注 (可选, 建议您写明资源的使用方法和注意事项)"
+      />
+      <KunTextarea
+        v-if="base.type === 'user'"
+        v-model="formData.content"
+        placeholder="资源链接, 如果有多个资源链接, 请使用英语逗号分割每一个链接"
+      />
+
+      <div class="flex justify-end gap-2">
+        <KunButton variant="light" color="danger" @click="isEditing = false">
+          取消
+        </KunButton>
+        <KunButton :loading="isSaving" :disabled="isSaving" @click="handleSave">
+          保存
+        </KunButton>
+      </div>
+    </KunCard>
+
+    <KunDivider margin="0 0 14px 0" />
+  </div>
+</template>

@@ -1,0 +1,19 @@
+@import './tailwindcss.css';
+/* Base editorial typography (.kun-prose article + .kun-prose-compact comment).
+   Imported BEFORE ./prose.css so the forum layer below overrides it where
+   needed (code blocks, full-width). */
+@import '@kungal/ui-vue/prose.css';
+/* overlayscrollbars styles: the .os-* structure plus the os-theme-dark /
+   os-theme-light handle themes that <KunOverlayScroll> selects between per
+   color mode (see its `theme` option). */
+@import 'overlayscrollbars/overlayscrollbars.css';
+@import './prose.css';
+@import './editor.css';
+/* Reference stylesheet for the headless @kungal/editor <KunEditor> — themes its
+   stable class hooks (.kun-editor__*, .kun-mention-dropdown*) with KunUI tokens.
+   Copied from the library's apps/docs reference; keep in sync on lib upgrades. */
+@import './editor/kun-editor.css';
+@import './code-theme.css';
+@import './editor/code-mirror.css';
+@import './editor/katex.css';
+@import './effect/snow.css';

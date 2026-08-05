@@ -1,0 +1,91 @@
+<script setup lang="ts">
+// Community-primitive website comment section (charter step 08) — the
+// unconditional website comment UI, rendered from pages/website/[domain].vue (the
+// legacy comment components were retired in charter step 06a).
+//
+// Paging / grouping / optimistic mutation come from useCommunityCommentList. The
+// addressing website_id rides the query; the :domain path segment is decorative
+// (read from the route — this section only ever renders on /website/[domain], so
+// the target is resolved once at setup like the paging URLs).
+const props = defineProps<{
+  websiteId: number
+}>()
+
+const route = useRoute()
+const domain = (route.params as { domain: string }).domain
+
+const target: CommunityCommentTarget = {
+  kind: 'website',
+  websiteId: props.websiteId,
+  domain
+}
+
+const {
+  status,
+  seeded,
+  groups,
+  isEmpty,
+  hasMore,
+  loadingMore,
+  loadMore,
+  handleNewComment,
+  handleUpdated,
+  handleTombstoned,
+  scrollToPost
+} = await useCommunityCommentList(target)
+
+// Scroll to + highlight a just-published root (parity with _scrollIntoComment).
+const onPublished = (post: GalgameCommunityComment) => {
+  handleNewComment(post)
+  if (post.root_comment_id == null) {
+    scrollToPost(post.id)
+  }
+}
+</script>
+
+<template>
+  <KunCard :is-transparent="false" :is-hoverable="false">
+    <KunHeader
+      name="用户评论"
+      description="说说你对这个网站的使用体验"
+      scale="h2"
+    />
+
+    <div class="space-y-5">
+      <CommentCommunityComposer :target="target" @submitted="onPublished" />
+
+      <KunLoading v-if="status === 'pending' && !seeded" />
+
+      <KunNull v-else-if="isEmpty" />
+
+      <div v-else-if="groups.length" class="space-y-8">
+        <CommentCommunityRow
+          v-for="group in groups"
+          :key="group.root.id"
+          :comment="group.root"
+          :replies="group.replies"
+          :target="target"
+          :depth="0"
+          @reply-added="handleNewComment"
+          @updated="handleUpdated"
+          @tombstoned="handleTombstoned"
+        />
+      </div>
+
+      <KunButton
+        v-if="hasMore"
+        variant="light"
+        color="primary"
+        full-width
+        :loading="loadingMore"
+        @click="loadMore"
+      >
+        <KunIcon name="lucide:chevron-down" />
+        加载更多评论
+      </KunButton>
+    </div>
+
+    <!-- Single community-comment flag modal (reused, region agnostic). -->
+    <CommentCommunityFlagModal />
+  </KunCard>
+</template>

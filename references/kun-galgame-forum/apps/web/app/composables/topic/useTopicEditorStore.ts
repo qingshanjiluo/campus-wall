@@ -1,0 +1,61 @@
+import type { TopicCategoryKey } from '~/constants/topic'
+
+export const useTopicEditorStore = () => {
+  const tempStore = useTempEditStore()
+  const persistStore = usePersistEditTopicStore()
+
+  const activeStore = computed(() =>
+    tempStore.isTopicRewriting ? tempStore : persistStore
+  )
+
+  const category = computed<TopicCategoryKey | ''>({
+    get: () => activeStore.value.category as TopicCategoryKey | '',
+    set: (value) => {
+      activeStore.value.category = value
+    }
+  })
+
+  const section = computed<string[]>({
+    get: () => activeStore.value.section,
+    set: (value) => {
+      activeStore.value.section = value
+    }
+  })
+
+  const title = computed<string>({
+    get: () => activeStore.value.title,
+    set: (value) => {
+      activeStore.value.title = value
+    }
+  })
+
+  const content = computed<string>({
+    get: () => activeStore.value.content,
+    set: (value) => {
+      activeStore.value.content = value
+    }
+  })
+
+  const isNSFW = computed<boolean>({
+    get: () => activeStore.value.isNSFW,
+    set: (value) => {
+      activeStore.value.isNSFW = value
+    }
+  })
+
+  const coverImages = computed<string[]>({
+    get: () => activeStore.value.coverImages,
+    set: (value) => {
+      activeStore.value.coverImages = value
+    }
+  })
+
+  return {
+    category,
+    section,
+    title,
+    content,
+    isNSFW,
+    coverImages
+  }
+}

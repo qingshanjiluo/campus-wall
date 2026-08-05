@@ -1,0 +1,96 @@
+<script setup lang="ts">
+// One unified word-level diff block: the text once, with only the changed runs
+// tinted. Shared by both revision viewers in the forum — the galgame editing
+// engine's field diff (EditkitFieldDiff) and the taxonomy snapshot diff
+// (GalgameSnapshotDiff), which previously each carried their own hand-rolled
+// LCS and their own before/after columns.
+//
+// Rendered as plain text nodes, never v-html: the old side-by-side renderer had
+// to escape every character by hand because it built an HTML string. There is
+// no markup here to escape.
+import { computed, ref } from 'vue'
+import {
+  diffTextSegments,
+  diffTextStats,
+  elideTextDiff,
+  isTextDiffElidable
+} from './utils'
+
+const props = withDefaults(
+  defineProps<{
+    from: string
+    to: string
+    // Multi-line text (wiki intros, markdown notes) keeps its own line
+    // structure. Collapsing newlines is half of why a prose diff turns
+    // unreadable.
+    preWrap?: boolean
+  }>(),
+  { preWrap: false }
+)
+
+const segments = computed(() => diffTextSegments(props.from, props.to))
+const stats = computed(() => diffTextStats(segments.value))
+const elidable = computed(() => isTextDiffElidable(segments.value))
+
+const expanded = ref(false)
+const pieces = computed(() => elideTextDiff(segments.value, expanded.value))
+</script>
+
+<template>
+  <div class="space-y-1">
+    <div
+      v-if="stats.added || stats.removed || elidable"
+      class="flex flex-wrap items-center gap-2"
+    >
+      <span
+        v-if="stats.added"
+        class="text-success-600 text-[10px] tabular-nums"
+      >
+        +{{ stats.added }}
+      </span>
+      <span
+        v-if="stats.removed"
+        class="text-danger-600 text-[10px] tabular-nums"
+      >
+        −{{ stats.removed }}
+      </span>
+      <button
+        v-if="elidable"
+        type="button"
+        class="text-primary text-[10px] hover:underline"
+        @click="expanded = !expanded"
+      >
+        {{ expanded ? '折叠未改动内容' : '显示全部' }}
+      </button>
+    </div>
+
+    <div
+      class="border-default-200 bg-content1 rounded-lg border px-2 py-1.5 text-sm leading-relaxed break-words"
+      :class="{ 'whitespace-pre-wrap': preWrap }"
+    >
+      <template v-for="(p, i) in pieces" :key="i">
+        <del
+          v-if="p.kind === 'text' && p.op === 'delete'"
+          class="bg-danger/15 text-danger-600 decoration-danger-600/50 rounded px-0.5"
+          >{{ p.text }}</del
+        >
+        <ins
+          v-else-if="p.kind === 'text' && p.op === 'insert'"
+          class="bg-success/15 text-success-600 rounded px-0.5 no-underline"
+          >{{ p.text }}</ins
+        >
+        <span v-else-if="p.kind === 'text'" class="text-default-500">{{
+          p.text
+        }}</span>
+        <span
+          v-else
+          class="text-default-400 bg-default-100 mx-1 rounded px-1 text-[10px] select-none"
+          >⋯ 省略 {{ p.count }} 字未改动 ⋯</span
+        >
+      </template>
+      <span v-if="!pieces.length" class="text-default-400 text-xs italic">
+        （空）
+      </span>
+    </div>
+  </div>
+</template>

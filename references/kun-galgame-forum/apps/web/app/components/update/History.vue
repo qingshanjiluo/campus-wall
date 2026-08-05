@@ -1,0 +1,114 @@
+<script setup lang="ts">
+import { KUN_UPDATE_LOG_TYPE_MAP } from '~/constants/update'
+import type { UpdateUpdateLogPayload } from './types'
+
+const pageData = ref({
+  page: 1,
+  limit: 30,
+  language: 'zh-cn'
+})
+
+const canCreateUpdateLog = useCan('update_log.create')
+const canEditUpdateLog = useCan('update_log.edit')
+
+const { data, status, refresh } = await useKunFetch<UpdateHistoryList>(
+  '/update/history',
+  { query: pageData }
+)
+
+const showUpdateLogModal = ref(false)
+const editingUpdateLog = ref<UpdateUpdateLogPayload>(
+  {} as UpdateUpdateLogPayload
+)
+
+const openEditUpdateLogModal = (log: UpdateLog) => {
+  if (!data.value) {
+    return
+  }
+  editingUpdateLog.value = {
+    version: log.version,
+    content_en_us: log.content_en_us,
+    content_ja_jp: log.content_ja_jp,
+    content_zh_cn: log.content_zh_cn,
+    content_zh_tw: log.content_zh_tw,
+    type: log.type,
+    update_log_id: log.id
+  } satisfies UpdateUpdateLogPayload
+  showUpdateLogModal.value = true
+}
+
+const handleUpdateLogAction = async (data: UpdateUpdateLogPayload) => {
+  const result = await kunFetch('/update/history', {
+    method: data.update_log_id ? 'PUT' : 'POST',
+    body: data
+  })
+
+  if (result) {
+    useMessage(data.update_log_id ? '更新成功' : '发布更新日志成功', 'success')
+    refresh()
+  }
+}
+</script>
+
+<template>
+  <div class="space-y-6" v-if="data">
+    <KunHeader
+      name="更新日志"
+      description="本页面记录了网站所有的更新日志, 新特性, BUG 修复, 功能更改, 性能优化等等"
+    >
+      <template #endContent>
+        <div v-if="canCreateUpdateLog" class="flex justify-end">
+          <KunButton @click="showUpdateLogModal = true">创建更新日志</KunButton>
+        </div>
+      </template>
+    </KunHeader>
+    <KunCard
+      :is-hoverable="false"
+      :is-transparent="false"
+      v-for="update in data.updates"
+      :key="update.id"
+    >
+      <div class="mb-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <KunChip color="primary">
+            {{ KUN_UPDATE_LOG_TYPE_MAP[update.type] }}
+          </KunChip>
+          <span class="text-default-500 text-sm">
+            <KunTime :time="update.created" type="date" show-year /> - Version
+            {{ update.version }}
+          </span>
+        </div>
+
+        <KunButton
+          variant="flat"
+          size="sm"
+          v-if="canEditUpdateLog"
+          @click="openEditUpdateLogModal(update)"
+        >
+          编辑
+        </KunButton>
+      </div>
+      <pre
+        class="bg-default-100 rounded-md p-4 font-mono text-sm break-all whitespace-pre-line"
+      >
+          {{ update.content_zh_cn }}
+        </pre
+      >
+    </KunCard>
+
+    <UpdateHistoryModal
+      v-model="showUpdateLogModal"
+      :initial-data="editingUpdateLog"
+      @submit="handleUpdateLogAction"
+    />
+
+    <KunCard :is-hoverable="false" :is-transparent="false">
+      <KunPagination
+        v-if="data"
+        v-model:current-page="pageData.page"
+        :total-page="Math.ceil(data.total / pageData.limit)"
+        :is-loading="status === 'pending'"
+      />
+    </KunCard>
+  </div>
+</template>

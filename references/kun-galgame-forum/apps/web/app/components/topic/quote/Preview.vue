@@ -1,0 +1,64 @@
+<script setup lang="ts">
+// Lazy preview card for a quote chip, driven entirely by the reactive state from
+// useQuoteContent (which fetches + positions it). Teleported to body so it
+// escapes the reply's overflow/stacking context, fixed-positioned at the chip.
+import type { QuotePreviewState } from '~/composables/topic/useQuoteContent'
+
+const props = defineProps<{
+  preview: QuotePreviewState
+}>()
+
+const emit = defineEmits<{
+  keep: []
+  leave: []
+}>()
+
+const excerpt = computed(() => {
+  const text = markdownToText(props.preview.reply?.content_markdown ?? '').trim()
+  return text.length > 120 ? `${text.slice(0, 120)}…` : text
+})
+</script>
+
+<template>
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition duration-150 ease-out"
+      enter-from-class="opacity-0 scale-95"
+      enter-to-class="opacity-100 scale-100"
+      leave-active-class="transition duration-100 ease-in"
+      leave-from-class="opacity-100 scale-100"
+      leave-to-class="opacity-0 scale-95"
+    >
+      <div
+        v-if="preview.visible"
+        class="kun-quote-preview border-default-200 bg-default-50/90 fixed z-50 max-h-48 w-72 origin-top-left overflow-y-auto rounded-xl border p-3 shadow-lg backdrop-blur-md"
+        :style="{ top: `${preview.top}px`, left: `${preview.left}px` }"
+        @mouseenter="emit('keep')"
+        @mouseleave="emit('leave')"
+      >
+        <KunLoading v-if="preview.loading" description="加载中..." />
+
+        <template v-else-if="preview.reply">
+          <div class="mb-1.5 flex items-center gap-2">
+            <KunAvatar
+              :user="preview.reply.user"
+              size="sm"
+              :disable-floating="true"
+            />
+            <span class="text-default-800 truncate text-sm font-medium">
+              {{ preview.reply.user.name }}
+            </span>
+            <span class="text-default-400 ml-auto shrink-0 text-xs">
+              #{{ preview.reply.floor }}
+            </span>
+          </div>
+          <p class="text-default-600 text-sm break-words whitespace-pre-wrap">
+            {{ excerpt || '(无文字内容)' }}
+          </p>
+        </template>
+
+        <div v-else class="text-default-500 text-sm">该回复不存在或已删除</div>
+      </div>
+    </Transition>
+  </Teleport>
+</template>
