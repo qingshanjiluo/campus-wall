@@ -55,30 +55,38 @@ function switchAdminTab(el, tab) {
         });
     } else if (tab === 'users') {
         api.get('/api/admin/users').then(users => {
-            content.innerHTML = `
-                <div style="overflow-x:auto;">
-                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
-                    <tr style="background:var(--pink-1);"><th style="padding:8px;text-align:left;">ID</th><th>用户名</th><th>角色</th><th>身份组</th><th>💰</th><th>⭐</th><th>注册时间</th><th>操作</th></tr>
-                    ${users.map(u => `
-                        <tr style="border-bottom:1px solid rgba(0,0,0,0.05);">
-                            <td style="padding:8px;">${u.id}</td>
-                            <td><a href="/profile/${u.id}">${escHtml(u.username)}</a></td>
-                            <td>${u.role}</td>
-                            <td>${escHtml(u.identity_group||'-')}</td>
-                            <td>${u.coins||0}</td>
-                            <td>${u.points||0}</td>
-                            <td style="font-size:0.7rem;">${formatTime(u.created_at)}</td>
-                            <td>
-                                <select class="input" style="width:auto;padding:2px 6px;font-size:0.75rem;" onchange="setUserRole(${u.id},this.value)">
-                                    <option value="user" ${u.role==='user'?'selected':''}>user</option>
-                                    <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
-                                </select>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </table>
-                </div>
-            `;
+            api.get('/api/admin/identity-groups').then(groups => {
+                content.innerHTML = `
+                    <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                        <tr style="background:var(--pink-1);"><th style="padding:8px;text-align:left;">ID</th><th>用户名</th><th>角色</th><th>身份组</th><th>💰金币</th><th>⭐积分</th><th>等级</th><th>注册时间</th><th>操作</th></tr>
+                        ${users.map(u => `
+                            <tr style="border-bottom:1px solid rgba(0,0,0,0.05);">
+                                <td style="padding:8px;">${u.id}</td>
+                                <td><a href="/profile/${u.id}">${escHtml(u.username)}</a></td>
+                                <td>
+                                    <select class="input" style="width:auto;padding:2px 6px;font-size:0.75rem;" onchange="setUserField(${u.id},'role',this.value)">
+                                        <option value="user" ${u.role==='user'?'selected':''}>user</option>
+                                        <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="input" style="width:auto;padding:2px 6px;font-size:0.75rem;" onchange="setUserField(${u.id},'identity_group',this.value)">
+                                        <option value="">无</option>
+                                        ${(groups||[]).map(g => '<option value="'+escHtml(g.name)+'" '+(u.identity_group===g.name?'selected':'')+'>'+escHtml(g.name)+'</option>').join('')}
+                                    </select>
+                                </td>
+                                <td><input class="input" style="width:60px;padding:2px 6px;font-size:0.75rem;" value="${u.coins||0}" onchange="setUserField(${u.id},'coins',this.value)"></td>
+                                <td><input class="input" style="width:60px;padding:2px 6px;font-size:0.75rem;" value="${u.points||0}" onchange="setUserField(${u.id},'points',this.value)"></td>
+                                <td><input class="input" style="width:50px;padding:2px 6px;font-size:0.75rem;" value="${u.level||1}" onchange="setUserField(${u.id},'level',this.value)"></td>
+                                <td style="font-size:0.7rem;">${formatTime(u.created_at)}</td>
+                                <td><a href="/profile/${u.id}" class="btn btn-ghost btn-sm" style="padding:2px 10px;font-size:0.7rem;">查看</a></td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                    </div>
+                `;
+            });
         });
     } else if (tab === 'stations') {
         api.get('/api/admin/stations').then(stations => {
@@ -86,8 +94,11 @@ function switchAdminTab(el, tab) {
                 <div class="station-card" style="padding:16px;cursor:default;">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:1.3rem;">${s.icon||'🏫'}</span>
-                        <strong>${escHtml(s.name)}</strong>
+                        <strong><a href="/station/${s.id}" style="color:var(--text-dark);text-decoration:none;">${escHtml(s.name)}</a></strong>
                         <span style="font-size:0.7rem;color:var(--text-muted);">👥${s.user_count||0} 📝${s.post_count||0}</span>
+                        <span style="flex:1;"></span>
+                        <a href="/station/${s.id}" class="btn btn-ghost btn-sm" style="padding:2px 10px;font-size:0.7rem;">管理</a>
+                        <button class="btn btn-ghost btn-sm" style="padding:2px 10px;font-size:0.7rem;color:var(--pink-4);" onclick="deleteStationAdmin(${s.id})">删除</button>
                     </div>
                 </div>
             `).join('');
@@ -133,6 +144,9 @@ function switchAdminTab(el, tab) {
     } else if (tab === 'shop') {
         api.get('/api/shop/items').then(items => {
             content.innerHTML = `
+                <div style="margin-bottom:20px;text-align:right;">
+                    <button class="btn btn-primary btn-sm" onclick="openCreateShopItem()">➕ 创建商品</button>
+                </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;">
                     ${items.map(i => `
                         <div class="station-card" style="cursor:default;text-align:center;">
@@ -140,7 +154,7 @@ function switchAdminTab(el, tab) {
                             <div style="font-family:'ZCOOL KuaiLe',cursive;">${escHtml(i.name)}</div>
                             <div style="font-size:0.8rem;color:var(--text-secondary);">${escHtml(i.description)}</div>
                             <div style="font-size:0.85rem;font-weight:700;margin-top:4px;">${i.price_coins?'💰'+i.price_coins:''} ${i.price_points?'⭐'+i.price_points:''}</div>
-                            <div style="font-size:0.7rem;color:var(--text-muted);">库存: ${i.stock<0?'无限':i.stock}</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">库存: ${i.stock<0?'无限':i.stock} · ${i.is_active?'上架中':'已下架'}</div>
                         </div>
                     `).join('')}
                 </div>
@@ -162,8 +176,17 @@ function switchAdminTab(el, tab) {
     }
 }
 
-function setUserRole(uid, role) {
-    api.put('/api/admin/users/' + uid, { role }).then(() => showToast('已更新', 'success')).catch(e => showToast(e.message, 'error'));
+function setUserField(uid, field, value) {
+    const body = {};
+    if (field === 'coins' || field === 'points' || field === 'level') value = parseInt(value) || 0;
+    body[field] = value;
+    api.put('/api/admin/users/' + uid, body).then(() => showToast('已更新', 'success')).catch(e => showToast(e.message, 'error'));
+}
+
+function deleteStationAdmin(sid) {
+    if (!confirm('确定删除该子站？')) return;
+    if (!confirm('再次确认：子站及成员关系将永久删除。')) return;
+    api.delete('/api/stations/' + sid).then(() => { showToast('已删除', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'stations'); }).catch(e => showToast(e.message, 'error'));
 }
 
 function pinPost(pid) {
@@ -173,6 +196,62 @@ function pinPost(pid) {
 function deletePostAdmin(pid) {
     if (!confirm('确定删除？')) return;
     api.delete('/api/admin/posts/' + pid).then(() => showToast('已删除', 'success')).catch(e => showToast(e.message, 'error'));
+}
+
+function openCreateShopItem() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay show';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:480px;position:relative;">
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+            <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:16px;">🎁 创建商城商品</h3>
+            <form onsubmit="createShopItem(event,this)">
+                <input class="input" name="name" placeholder="商品名称" required style="margin-bottom:10px;">
+                <input class="input" name="description" placeholder="商品描述" style="margin-bottom:10px;">
+                <input class="input" name="icon" placeholder="图标 emoji (如 🎖️)" value="🎁" style="margin-bottom:10px;">
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <input class="input" name="price_coins" type="number" placeholder="价格(金币)" value="0" style="flex:1;">
+                    <input class="input" name="price_points" type="number" placeholder="价格(积分)" value="0" style="flex:1;">
+                </div>
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <select class="input" name="item_type" style="flex:1;">
+                        <option value="badge">徽章</option>
+                        <option value="title">称号</option>
+                        <option value="rename_card">改名卡</option>
+                        <option value="pin_card">置顶卡</option>
+                        <option value="anonymity_card">匿名卡</option>
+                        <option value="rainbow_name">彩虹昵称</option>
+                    </select>
+                    <input class="input" name="stock" type="number" placeholder="库存(-1=无限)" value="-1" style="flex:1;">
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button type="button" class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                    <button type="submit" class="btn btn-primary">创建</button>
+                </div>
+            </form>
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+
+function createShopItem(e, form) {
+    e.preventDefault();
+    api.post('/api/admin/shop/items', {
+        name: form.name.value.trim(),
+        description: form.description.value.trim(),
+        icon: form.icon.value.trim() || '🎁',
+        price_coins: parseInt(form.price_coins.value) || 0,
+        price_points: parseInt(form.price_points.value) || 0,
+        item_type: form.item_type.value,
+        stock: parseInt(form.stock.value) || -1,
+        item_data: { type: form.item_type.value }
+    }).then(() => {
+        showToast('创建成功', 'success');
+        document.querySelector('.modal-overlay').remove();
+        switchAdminTab(document.querySelector('#adminTabs .tag'), 'shop');
+    }).catch(e => showToast(e.message || '创建失败', 'error'));
+    return false;
 }
 </script>
 {% endblock %}
