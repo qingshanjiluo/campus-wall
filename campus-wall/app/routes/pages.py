@@ -67,3 +67,7 @@ def waterfall_page():
 @pages_bp.route('/favorites')
 def favorites_page():
     return render_template('favorites.html')
+
+@pages_bp.route('/reset-password')
+def reset_password_page():
+    return render_template('reset_password.html')

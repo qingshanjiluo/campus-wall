@@ -297,6 +297,42 @@ function saveProfile(data, form) {
     }).catch(err => showToast(err.message || '更新失败', 'error'));
 }
 
+function openForgotPassword() {
+    closeModal('loginModal');
+    setTimeout(() => openModal('forgotPasswordModal'), 200);
+}
+
+function handleForgotPassword(e) {
+    e.preventDefault();
+    const form = e.target;
+    api.post('/api/auth/forgot-password', { email: form.email.value.trim() })
+        .then(res => {
+            closeModal('forgotPasswordModal');
+            if (res.reset_token) {
+                // 开发模式：显示重置链接
+                const resetUrl = window.location.origin + '/reset-password?token=' + res.reset_token;
+                showToast('已生成重置链接（开发模式）', 'success');
+                setTimeout(() => {
+                    const ok = confirm('重置链接已生成。\n\n开发模式下请复制此链接使用：\n' + resetUrl + '\n\n点击确定复制');
+                    if (ok) {
+                        const ta = document.createElement('textarea');
+                        ta.value = resetUrl;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        try { document.execCommand('copy'); } catch (e) {}
+                        document.body.removeChild(ta);
+                        showToast('已复制重置链接', 'success');
+                    }
+                }, 500);
+            } else {
+                showToast(res.message || '如果该邮箱已注册，重置链接已发送', 'success');
+            }
+            form.reset();
+        })
+        .catch(err => showToast(err.message || '发送失败', 'error'));
+    return false;
+}
+
 // ── 修改密码 ──
 function openChangePassword() {
     if (!requireAuth()) return;

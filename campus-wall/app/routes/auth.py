@@ -1,5 +1,7 @@
 import os
 import uuid
+from datetime import datetime, timedelta
+import jwt as pyjwt
 from flask import Blueprint, request, jsonify, current_app, g
 from app.models import create_user, get_user_by_username, get_user_by_email, verify_password, update_user, get_user_by_id, get_user_stats, change_password
 from app.utils.auth import generate_token, token_required
@@ -138,6 +140,85 @@ def change_pwd():
 
     change_password(g.current_user['id'], new_pw)
     return jsonify({'message': '密码修改成功'})
+
+
+# ── 忘记密码 / 重置密码 ──
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """请求重置密码：输入邮箱，返回重置token（开发模式）或发送邮件"""
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip()
+    if not email or '@' not in email:
+        return jsonify({'error': '请输入有效的邮箱'}), 400
+
+    user = get_user_by_email(email)
+    # 不泄露邮箱是否存在
+    if not user:
+        return jsonify({'message': '如果该邮箱已注册，重置链接已发送'})
+
+    reset_token = pyjwt.encode({
+        'user_id': user['id'],
+        'purpose': 'password_reset',
+        'exp': datetime.utcnow() + timedelta(minutes=30)
+    }, current_app.config['JWT_SECRET'], algorithm='HS256')
+
+    # 邮件发送：可配置 SMTP；开发模式返回 token 便于联调
+    smtp_host = os.environ.get('SMTP_HOST', '')
+    if smtp_host:
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            msg = MIMEText(f'你的重置链接（30分钟内有效）：\n{cwd_base_url()}/reset-password?token={reset_token}\n\n如果你没有请求重置密码，请忽略此邮件。', 'plain', 'utf-8')
+            msg['Subject'] = '校园墙 · 密码重置'
+            msg['From'] = os.environ.get('SMTP_USER', '')
+            msg['To'] = email
+            with smtplib.SMTP(smtp_host, int(os.environ.get('SMTP_PORT', 587))) as server:
+                if os.environ.get('SMTP_TLS', '1') == '1':
+                    server.starttls()
+                server.login(os.environ.get('SMTP_USER', ''), os.environ.get('SMTP_PASSWORD', ''))
+                server.send_message(msg)
+        except Exception as e:
+            current_app.logger.warning(f'邮件发送失败: {e}')
+            return jsonify({'message': '邮件发送失败，请稍后再试'}), 500
+    else:
+        # 开发模式：直接返回 token
+        current_app.logger.info(f'重置密码 token: {reset_token}')
+        return jsonify({'message': '（开发模式）重置token已生成', 'reset_token': reset_token})
+
+    return jsonify({'message': '如果该邮箱已注册，重置链接已发送'})
+
+
+def cwd_base_url():
+    return os.environ.get('SITE_BASE_URL', 'http://localhost:5000')
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """使用重置token设置新密码"""
+    data = request.get_json(silent=True) or {}
+    token = (data.get('token') or '').strip()
+    new_password = data.get('new_password', '')
+
+    if not token:
+        return jsonify({'error': '缺少重置令牌'}), 400
+    if not new_password or len(new_password) < 6:
+        return jsonify({'error': '新密码至少6个字符'}), 400
+    if len(new_password) > 128:
+        return jsonify({'error': '密码过长'}), 400
+
+    try:
+        payload = pyjwt.decode(token, current_app.config['JWT_SECRET'], algorithms=['HS256'])
+        if payload.get('purpose') != 'password_reset':
+            return jsonify({'error': '无效的重置令牌'}), 400
+        user_id = payload['user_id']
+    except pyjwt.ExpiredSignatureError:
+        return jsonify({'error': '重置令牌已过期'}), 400
+    except pyjwt.InvalidTokenError:
+        return jsonify({'error': '无效的重置令牌'}), 400
+
+    change_password(user_id, new_password)
+    return jsonify({'message': '密码已重置，请使用新密码登录'})
 
 
 def _user_dict(user):

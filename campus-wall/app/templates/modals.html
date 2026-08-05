@@ -16,6 +16,25 @@
         </form>
         <p style="text-align:center;margin-top:16px;font-size:0.85rem;color:var(--text-muted);">
             还没有账号？<a href="#" onclick="switchModal('loginModal','registerModal')">注册</a>
+            · <a href="#" onclick="openForgotPassword()">忘记密码</a>
+        </p>
+    </div>
+</div>
+
+<!-- 忘记密码模态框 -->
+<div class="modal-overlay" id="forgotPasswordModal">
+    <div class="modal" style="position:relative;">
+        <button class="modal-close" onclick="closeModal('forgotPasswordModal')">&times;</button>
+        <div class="modal-title">🔑 重置密码</div>
+        <form id="forgotPasswordForm" onsubmit="return handleForgotPassword(event)">
+            <div class="form-group">
+                <label class="form-label">注册邮箱</label>
+                <input class="input" type="email" name="email" placeholder="your@email.com" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">发送重置链接</button>
+        </form>
+        <p style="text-align:center;margin-top:16px;font-size:0.85rem;color:var(--text-muted);">
+            输入邮箱后，系统会生成重置链接。开发模式下直接显示 token。
         </p>
     </div>
 </div>
