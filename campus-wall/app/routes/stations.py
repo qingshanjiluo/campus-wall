@@ -2,11 +2,25 @@ import json
 from flask import Blueprint, request, jsonify, g
 from app.models import (
     create_station, get_stations, get_station_by_id, search_stations,
-    join_station, leave_station, is_station_member, get_posts, get_post_count
+    join_station, leave_station, is_station_member, get_station_member_role,
+    get_station_members, remove_station_member, transfer_station_ownership,
+    update_station, delete_station,
+    get_posts, get_post_count
 )
 from app.utils.auth import token_required, optional_auth
 
 stations_bp = Blueprint('stations', __name__)
+
+
+def _require_owner(sid):
+    """校验当前用户是否为子站 owner，返回 (error_response, None) 或 (None, station)"""
+    station = get_station_by_id(sid)
+    if not station:
+        return (jsonify({'error': '子站不存在'}), 404), None
+    role = get_station_member_role(g.current_user['id'], sid)
+    if role != 'owner' and g.current_user['role'] != 'admin':
+        return (jsonify({'error': '仅子站长可操作'}), 403), None
+    return None, station
 
 
 @stations_bp.route('', methods=['GET'])
@@ -22,8 +36,10 @@ def list_stations():
         s['tags'] = json.loads(s['tags']) if s['tags'] else []
         if g.current_user:
             s['is_member'] = is_station_member(g.current_user['id'], s['id'])
+            s['is_owner'] = get_station_member_role(g.current_user['id'], s['id']) == 'owner'
         else:
             s['is_member'] = False
+            s['is_owner'] = False
     return jsonify(stations)
 
 
@@ -36,8 +52,10 @@ def get_station(sid):
     station['tags'] = json.loads(station['tags']) if station['tags'] else []
     if g.current_user:
         station['is_member'] = is_station_member(g.current_user['id'], sid)
+        station['is_owner'] = get_station_member_role(g.current_user['id'], sid) == 'owner'
     else:
         station['is_member'] = False
+        station['is_owner'] = False
     return jsonify(station)
 
 
@@ -107,3 +125,68 @@ def search():
     for s in stations:
         s['tags'] = json.loads(s['tags']) if s['tags'] else []
     return jsonify(stations)
+
+
+@stations_bp.route('/<int:sid>/members', methods=['GET'])
+@optional_auth
+def members(sid):
+    station = get_station_by_id(sid)
+    if not station:
+        return jsonify({'error': '子站不存在'}), 404
+    if g.current_user:
+        station['my_role'] = get_station_member_role(g.current_user['id'], sid)
+    return jsonify({'members': get_station_members(sid), 'my_role': station.get('my_role')})
+
+
+@stations_bp.route('/<int:sid>', methods=['PUT'])
+@token_required
+def edit(sid):
+    err, station = _require_owner(sid)
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    if 'tags' in data and isinstance(data['tags'], list):
+        data['tags'] = json.dumps(data['tags'], ensure_ascii=False)
+    if not data:
+        return jsonify({'error': '没有可更新的字段'}), 400
+    update_station(sid, **data)
+    return jsonify({'message': '更新成功'})
+
+
+@stations_bp.route('/<int:sid>', methods=['DELETE'])
+@token_required
+def delete(sid):
+    err, station = _require_owner(sid)
+    if err:
+        return err
+    delete_station(sid)
+    return jsonify({'message': '已删除'})
+
+
+@stations_bp.route('/<int:sid>/members/<int:uid>', methods=['DELETE'])
+@token_required
+def remove_member(sid, uid):
+    err, station = _require_owner(sid)
+    if err:
+        return err
+    if uid == g.current_user['id']:
+        return jsonify({'error': '不能移除自己'}), 400
+    if not remove_station_member(uid, sid):
+        return jsonify({'error': '成员不存在或为子站长'}), 400
+    return jsonify({'message': '已移除'})
+
+
+@stations_bp.route('/<int:sid>/transfer', methods=['POST'])
+@token_required
+def transfer(sid):
+    err, station = _require_owner(sid)
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    new_owner_id = data.get('new_owner_id')
+    if not new_owner_id:
+        return jsonify({'error': '缺少新子站长ID'}), 400
+    if not is_station_member(int(new_owner_id), sid):
+        return jsonify({'error': '新子站长必须是子站成员'}), 400
+    transfer_station_ownership(sid, int(new_owner_id))
+    return jsonify({'message': '转让成功'})

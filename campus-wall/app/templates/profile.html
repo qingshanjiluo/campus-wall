@@ -56,13 +56,24 @@ function renderProfileCard(u) {
         followBtn = `<button class="btn btn-primary btn-sm" id="followBtn" onclick="toggleFollow(${u.id})" style="margin-top:12px;">关注</button>`;
         checkFollowing(u.id);
     }
+    const badges = [];
+    if (u.identity_group) badges.push('<span class="profile-badge" style="background:var(--lavender);">🎖️ '+escHtml(u.identity_group)+'</span>');
+    if (u.title) badges.push('<span class="profile-badge" style="background:var(--yellow);">🏷️ '+escHtml(u.title)+'</span>');
+    if (u.mood) badges.push('<span class="profile-badge" style="background:var(--mint);">💬 '+escHtml(u.mood)+'</span>');
     document.getElementById('profileCard').innerHTML = `
         <div class="avatar-container">
             <div class="avatar-ring"></div>
             <img class="avatar" src="${u.avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
         </div>
         <div class="profile-name">${escHtml(u.username)}</div>
+        ${badges.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:6px;">'+badges.join('')+'</div>' : ''}
         ${u.bio ? '<div class="profile-bio">'+escHtml(u.bio)+'</div>' : ''}
+        <div class="profile-assets" style="display:flex;justify-content:center;gap:18px;margin:12px 0;">
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--orange);font-size:1.05rem;">💰 ${u.coins||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">金币</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--mint);font-size:1.05rem;">⭐ ${u.points||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">积分</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--pink-4);font-size:1.05rem;">Lv.${u.level||1}</div><div style="font-size:0.7rem;color:var(--text-muted);">等级</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--blue);font-size:1.05rem;">🔥 ${u.checkin_streak||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">连续签到</div></div>
+        </div>
         <div class="profile-stats">
             <div class="stat-item"><div class="stat-num">${stats.posts||0}</div><div class="stat-label">帖子</div></div>
             <div class="stat-item"><div class="stat-num">${stats.followers||0}</div><div class="stat-label">粉丝</div></div>

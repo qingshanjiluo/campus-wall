@@ -452,8 +452,24 @@ def get_gossip(station_id=None, limit=50, offset=0, sort='newest'):
 def get_gossip_by_id(gid):
     return query_db('SELECT * FROM gossip WHERE id = ? AND is_deleted = 0', (gid,), one=True)
 
-def toggle_gossip_like(gid):
+def toggle_gossip_like(gid, user_id=None):
+    """树洞点赞（幂等）：有 user_id 时按用户去重，无则退化为计数+1"""
+    if not user_id:
+        execute_db('UPDATE gossip SET likes_count = likes_count + 1 WHERE id = ?', (gid,))
+        return {'liked': True}
+    # 复用 likes 多态点赞表，target_type='gossip'
+    row = query_db(
+        'SELECT id FROM likes WHERE user_id = ? AND target_type = ? AND target_id = ?',
+        (user_id, 'gossip', gid), one=True)
+    if row:
+        execute_db('DELETE FROM likes WHERE id = ?', (row['id'],))
+        execute_db('UPDATE gossip SET likes_count = MAX(0, likes_count - 1) WHERE id = ?', (gid,))
+        return {'liked': False}
+    execute_db(
+        'INSERT INTO likes (user_id, target_type, target_id) VALUES (?, ?, ?)',
+        (user_id, 'gossip', gid))
     execute_db('UPDATE gossip SET likes_count = likes_count + 1 WHERE id = ?', (gid,))
+    return {'liked': True}
 
 def create_gossip_comment(gid, content, author_name='匿名'):
     cid = execute_db(

@@ -148,5 +148,14 @@ def _user_dict(user):
         'avatar': user['avatar'],
         'bio': user['bio'],
         'role': user['role'],
-        'created_at': user.get('created_at', '')
+        'created_at': user.get('created_at', ''),
+        # 扩展字段（虚拟资产 / 身份组）
+        'coins': user.get('coins', 0),
+        'points': user.get('points', 0),
+        'level': user.get('level', 1),
+        'exp': user.get('exp', 0),
+        'checkin_streak': user.get('checkin_streak', 0),
+        'identity_group': user.get('identity_group', ''),
+        'title': user.get('title', ''),
+        'mood': user.get('mood', '')
     }

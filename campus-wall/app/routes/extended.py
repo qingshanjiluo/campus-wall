@@ -4,6 +4,7 @@
 import json
 from flask import Blueprint, request, jsonify, g
 from app.utils.auth import token_required, optional_auth
+from app.models import is_liked
 from app.models_ext import (
     get_identity_groups, create_identity_group, assign_user_group, get_user_group,
     do_checkin, get_checkin_history, get_checkin_today,
@@ -235,12 +236,17 @@ def list_tasks():
 gossip_bp = Blueprint('gossip', __name__)
 
 @gossip_bp.route('', methods=['GET'])
+@optional_auth
 def list_gossip():
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
     station_id = request.args.get('station_id', type=int)
     sort = request.args.get('sort', 'newest')
-    return jsonify(get_gossip(station_id, limit, offset, sort))
+    items = get_gossip(station_id, limit, offset, sort)
+    if g.current_user:
+        for item in items:
+            item['is_liked'] = is_liked(g.current_user['id'], 'gossip', item['id'])
+    return jsonify(items)
 
 @gossip_bp.route('', methods=['POST'])
 @token_required
@@ -257,18 +263,21 @@ def post_gossip():
     return jsonify({'message': '发布成功', 'id': gid}), 201
 
 @gossip_bp.route('/<int:gid>', methods=['GET'])
+@optional_auth
 def get_one_gossip(gid):
     g_item = get_gossip_by_id(gid)
     if not g_item:
         return jsonify({'error': '不存在'}), 404
     g_item['comments'] = get_gossip_comments(gid)
+    if g.current_user:
+        g_item['is_liked'] = is_liked(g.current_user['id'], 'gossip', gid)
     return jsonify(g_item)
 
 @gossip_bp.route('/<int:gid>/like', methods=['POST'])
 @token_required
 def like_gossip(gid):
-    toggle_gossip_like(gid)
-    return jsonify({'message': '已点赞'})
+    result = toggle_gossip_like(gid, g.current_user['id'])
+    return jsonify(result)
 
 @gossip_bp.route('/<int:gid>/comment', methods=['POST'])
 @token_required

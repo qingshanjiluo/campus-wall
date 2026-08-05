@@ -264,6 +264,79 @@ def is_station_member(user_id, station_id):
     ) is not None
 
 
+def get_station_member_role(user_id, station_id):
+    """获取用户在子站中的角色（owner/member/None）"""
+    row = query_db(
+        'SELECT role FROM station_members WHERE user_id = ? AND station_id = ?',
+        (user_id, station_id), one=True)
+    return row['role'] if row else None
+
+
+def get_station_members(station_id):
+    """子站成员列表（含用户信息）"""
+    return query_db(
+        '''SELECT sm.role, sm.joined_at, u.id as user_id, u.username, u.avatar, u.bio
+           FROM station_members sm JOIN users u ON sm.user_id = u.id
+           WHERE sm.station_id = ?
+           ORDER BY (sm.role = 'owner') DESC, sm.joined_at ASC''',
+        (station_id,))
+
+
+def remove_station_member(user_id, station_id):
+    """从子站移除成员（不能移owner）"""
+    conn = get_db()
+    cur = conn.execute(
+        'DELETE FROM station_members WHERE user_id = ? AND station_id = ? AND role != ?',
+        (user_id, station_id, 'owner'))
+    deleted = cur.rowcount
+    conn.commit()
+    if deleted > 0:
+        conn.execute('UPDATE stations SET user_count = MAX(0, user_count - 1) WHERE id = ?', (station_id,))
+        conn.commit()
+    conn.close()
+    return deleted > 0
+
+
+def transfer_station_ownership(sid, new_owner_id):
+    """转让子站所有权：新owner的role升为owner，旧owner降为member"""
+    conn = get_db()
+    # 旧 owner 降为 member
+    conn.execute(
+        'UPDATE station_members SET role = ? WHERE station_id = ? AND role = ?',
+        ('member', sid, 'owner'))
+    # 新 owner 若不在成员表则加入，否则升级
+    conn.execute(
+        'INSERT OR IGNORE INTO station_members (user_id, station_id, role) VALUES (?, ?, ?)',
+        (new_owner_id, sid, 'member'))
+    conn.execute(
+        'UPDATE station_members SET role = ? WHERE user_id = ? AND station_id = ?',
+        ('owner', new_owner_id, sid))
+    conn.execute('UPDATE stations SET owner_id = ? WHERE id = ?', (new_owner_id, sid))
+    conn.commit()
+    conn.close()
+
+
+def update_station(sid, **fields):
+    """更新子站信息"""
+    allowed = ('name', 'description', 'icon', 'tags', 'is_public')
+    pairs = [(k, fields[k]) for k in allowed if k in fields]
+    if not pairs:
+        return False
+    sql = 'UPDATE stations SET ' + ', '.join(f'{k} = ?' for k, _ in pairs) + ', updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    execute_db(sql, [v for _, v in pairs] + [sid])
+    return True
+
+
+def delete_station(sid):
+    """删除子站（级联软处理：置空帖子子站归属，删除成员关系）"""
+    conn = get_db()
+    conn.execute('UPDATE posts SET station_id = NULL WHERE station_id = ?', (sid,))
+    conn.execute('DELETE FROM station_members WHERE station_id = ?', (sid,))
+    conn.execute('DELETE FROM stations WHERE id = ?', (sid,))
+    conn.commit()
+    conn.close()
+
+
 # ── Post helpers ──
 
 def create_post(title, content, author_id, station_id, image=''):

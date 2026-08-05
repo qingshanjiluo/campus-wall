@@ -61,6 +61,15 @@ function renderStationHeader(s) {
     const joinBtn = s.is_member
         ? '<button class="btn btn-sm" onclick="leaveStation()">🚪 退出</button>'
         : '<button class="btn btn-primary btn-sm" onclick="joinStation()">➕ 加入</button>';
+    // 站长管理按钮（owner 或全局 admin）
+    const canManage = (currentUser && (s.is_owner || (currentUser.role === 'admin'))) ||
+                      (currentUser && currentUser.role === 'admin');
+    const manageBtns = canManage ? `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <button class="btn btn-sm" onclick="openStationSettings()">⚙️ 管理子站</button>
+            <button class="btn btn-sm" onclick="showStationMembers()">👥 成员</button>
+        </div>
+    ` : '';
     document.getElementById('stationHeader').innerHTML = `
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
             <div class="station-icon" style="width:56px;height:56px;font-size:1.8rem;border-radius:16px;">${s.icon||'🏫'}</div>
@@ -71,10 +80,102 @@ function renderStationHeader(s) {
                 <div style="font-size:0.8rem;color:var(--text-muted);">
                     👥 ${s.user_count||0} 成员 · 📝 ${s.post_count||0} 帖子
                 </div>
+                ${manageBtns}
             </div>
             <div>${joinBtn}</div>
         </div>
     `;
+}
+
+function openStationSettings() {
+    if (!requireAuth()) return;
+    const s = stationData;
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay show';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:520px;position:relative;">
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+            <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:16px;">⚙️ 管理子站</h3>
+            <form onsubmit="updateStationSettings(event,this)">
+                <input class="input" name="name" placeholder="子站名称" value="${escHtml(s.name||'')}" style="margin-bottom:10px;">
+                <textarea class="input" name="description" placeholder="子站简介" rows="3" style="margin-bottom:10px;">${escHtml(s.description||'')}</textarea>
+                <input class="input" name="icon" placeholder="图标 emoji" value="${escHtml(s.icon||'🏫')}" style="margin-bottom:10px;">
+                <input class="input" name="tags" placeholder="标签，用逗号分隔（最多5个）" value="${escHtml((s.tags||[]).join(','))}" style="margin-bottom:16px;">
+                <div style="display:flex;gap:8px;">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn btn-outline" onclick="transferStation(this)">转让子站</button>
+                    <button type="button" class="btn btn-outline" style="color:var(--danger);" onclick="deleteStationConfirm(this)">删除子站</button>
+                </div>
+            </form>
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+
+function updateStationSettings(e, form) {
+    e.preventDefault();
+    const data = {
+        name: form.name.value.trim(),
+        description: form.description.value.trim(),
+        icon: form.icon.value.trim() || '🏫',
+        tags: form.tags.value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5)
+    };
+    api.put('/api/stations/' + STATION_ID, data)
+        .then(() => { showToast('更新成功', 'success'); loadStation(); document.querySelector('.modal-overlay').remove(); })
+        .catch(err => showToast(err.message || '更新失败', 'error'));
+    return false;
+}
+
+function transferStation(btn) {
+    const uid = prompt('输入新子站长（用户ID）:');
+    if (!uid) return;
+    if (!confirm('确定将子站转让给用户 #' + uid + '？')) return;
+    api.post('/api/stations/' + STATION_ID + '/transfer', { new_owner_id: parseInt(uid) })
+        .then(data => { showToast(data.message, 'success'); document.querySelector('.modal-overlay').remove(); loadStation(); })
+        .catch(e => showToast(e.message || '转让失败', 'error'));
+}
+
+function deleteStationConfirm(btn) {
+    if (!confirm('⚠️ 确定要永久删除这个子站吗？此操作不可恢复！')) return;
+    if (!confirm('再次确认：子站及所有成员关系将被删除。')) return;
+    api.delete('/api/stations/' + STATION_ID)
+        .then(() => { showToast('子站已删除', 'success'); setTimeout(() => window.location.href = '/', 1000); })
+        .catch(e => showToast(e.message || '删除失败', 'error'));
+}
+
+function showStationMembers() {
+    if (!requireAuth()) return;
+    api.get('/api/stations/' + STATION_ID + '/members').then(data => {
+        const canManage = stationData && (stationData.is_owner || (currentUser && currentUser.role === 'admin'));
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay show';
+        modal.innerHTML = `
+            <div class="modal" style="max-width:520px;position:relative;max-height:80vh;overflow-y:auto;">
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:16px;">👥 成员 (${(data.members||[]).length})</h3>
+                <div>
+                    ${(data.members||[]).map(m => `
+                        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
+                            <img src="${m.avatar||'/static/images/default-avatar.svg'}" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--glass-border);" onerror="this.src='/static/images/default-avatar.svg'">
+                            <a href="/profile/${m.user_id}" style="flex:1;font-weight:600;font-size:0.9rem;color:var(--text-dark);text-decoration:none;">${escHtml(m.username)}</a>
+                            <span style="font-size:0.7rem;${m.role==='owner'?'background:var(--yellow);':'background:var(--lavender);'}padding:2px 8px;border-radius:8px;">${m.role==='owner'?'👑 子站长':'成员'}</span>
+                            ${canManage && m.role !== 'owner' ? '<button class="btn btn-sm" style="padding:4px 10px;font-size:0.7rem;" onclick="removeMemberConfirm('+m.user_id+',this)">移除</button>' : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+    }).catch(() => showToast('加载成员失败', 'error'));
+}
+
+function removeMemberConfirm(uid, btn) {
+    if (!confirm('确定移除该成员？')) return;
+    api.delete('/api/stations/' + STATION_ID + '/members/' + uid)
+        .then(data => { showToast(data.message, 'success'); showStationMembers(); })
+        .catch(e => showToast(e.message || '操作失败', 'error'));
 }
 
 function joinStation() {
