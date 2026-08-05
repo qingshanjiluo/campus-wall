@@ -206,7 +206,8 @@ function handleCreatePost(e) {
     const data = {
         station_id: parseInt(form.station_id.value),
         title: form.title.value.trim(),
-        content: form.content.value.trim()
+        content: form.content.value.trim(),
+        is_anonymous: form.is_anonymous && form.is_anonymous.checked ? 1 : 0
     };
     if (!data.station_id || !data.title || !data.content) {
         showToast('请填写完整信息', 'error');

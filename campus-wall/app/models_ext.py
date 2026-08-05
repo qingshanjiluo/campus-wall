@@ -26,7 +26,7 @@ def init_extended_db():
             pass
 
     # ── 帖子扩展字段 ──
-    for col, default in [('post_type', "'text'"), ('images', "'[]'"), ('extra', "'{}'")]:
+    for col, default in [('post_type', "'text'"), ('images', "'[]'"), ('extra', "'{}'"), ('is_anonymous', "'0'")]:
         try:
             c.execute(f"ALTER TABLE posts ADD COLUMN {col} TEXT DEFAULT {default}")
         except sqlite3.OperationalError:

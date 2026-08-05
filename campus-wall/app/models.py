@@ -339,10 +339,10 @@ def delete_station(sid):
 
 # ── Post helpers ──
 
-def create_post(title, content, author_id, station_id, image=''):
+def create_post(title, content, author_id, station_id, image='', is_anonymous=0):
     pid = execute_db(
-        'INSERT INTO posts (title, content, author_id, station_id, image) VALUES (?, ?, ?, ?, ?)',
-        (title, content, author_id, station_id, image)
+        'INSERT INTO posts (title, content, author_id, station_id, image, is_anonymous) VALUES (?, ?, ?, ?, ?, ?)',
+        (title, content, author_id, station_id, image, 1 if is_anonymous else 0)
     )
     if pid:
         execute_db('UPDATE stations SET post_count = post_count + 1 WHERE id = ?', (station_id,))

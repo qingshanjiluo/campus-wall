@@ -12,6 +12,19 @@ from app.utils.auth import token_required, optional_auth
 posts_bp = Blueprint('posts', __name__)
 
 
+def _anonymize_post(post, viewer=None):
+    """匿名帖：向普通观众隐藏作者真实身份"""
+    if not post:
+        return post
+    if post.get('is_anonymous'):
+        is_owner = viewer and post.get('author_id') == viewer['id']
+        is_admin = viewer and viewer.get('role') == 'admin'
+        if not is_owner and not is_admin:
+            post['author_name'] = '匿名用户'
+            post['author_avatar'] = '/static/images/default-avatar.svg'
+    return post
+
+
 @posts_bp.route('', methods=['GET'])
 @optional_auth
 def list_posts():
@@ -27,6 +40,10 @@ def list_posts():
     if g.current_user:
         for p in posts:
             p['is_liked'] = is_liked(g.current_user['id'], 'post', p['id'])
+            _anonymize_post(p, g.current_user)
+    else:
+        for p in posts:
+            _anonymize_post(p)
     return jsonify({'posts': posts, 'total': total})
 
 
@@ -42,6 +59,7 @@ def get_post(pid):
         post['is_liked'] = is_liked(g.current_user['id'], 'post', pid)
     else:
         post['is_liked'] = False
+    _anonymize_post(post, g.current_user)
     return jsonify(post)
 
 
@@ -58,6 +76,7 @@ def create():
         except (ValueError, TypeError):
             station_id = None
     image = data.get('image', '')
+    is_anonymous = data.get('is_anonymous', 0)
 
     if not title:
         return jsonify({'error': '标题不能为空'}), 400
@@ -74,11 +93,13 @@ def create():
     if not station:
         return jsonify({'error': '子站不存在'}), 404
 
-    pid = create_post(title, content, g.current_user['id'], station_id, image)
+    pid = create_post(title, content, g.current_user['id'], station_id, image,
+                      is_anonymous=1 if is_anonymous else 0)
     if not pid:
         return jsonify({'error': '发帖失败'}), 500
 
     post = get_post_by_id(pid)
+    _anonymize_post(post, g.current_user)
     return jsonify({'message': '发帖成功', 'post': post}), 201
 
 
