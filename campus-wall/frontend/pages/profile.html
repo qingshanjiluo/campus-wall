@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+    
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:1100px;">
+        <div style="display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start;" id="profileLayout">
+            <!-- 左侧个人信息 -->
+            <aside>
+                <div class="profile-card reveal" id="profileCard">
+                    <div class="loading">加载中</div>
+                </div>
+            </aside>
+
+            <!-- 右侧内容 -->
+            <div>
+                <!-- 标签切换 -->
+                <div class="tag-bar reveal" id="profileTabs">
+                    <span class="tag active" onclick="switchProfileTab(this,'posts')">📝 帖子</span>
+                    <span class="tag" onclick="switchProfileTab(this,'followers')">👥 粉丝</span>
+                    <span class="tag" onclick="switchProfileTab(this,'following')">➡️ 关注</span>
+                </div>
+                <div id="profileContent"><div class="loading">加载中</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+const PROFILE_UID = parseInt(window.location.pathname.split("/")[2], 10) || 1;
+let profileData = null;
+let currentProfileTab = 'posts';
+
+onUserReady(function() {
+    loadProfile();
+    loadProfileTab('posts');
+});
+
+function loadProfile() {
+    api.get('/api/auth/user/' + PROFILE_UID).then(data => {
+        profileData = data;
+        renderProfileCard(data);
+        document.title = data.username + ' · 校园墙';
+    }).catch(() => {
+        document.getElementById('profileCard').innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">用户不存在</div></div>';
+    });
+}
+
+function renderProfileCard(u) {
+    const isMe = currentUser && currentUser.id === u.id;
+    const stats = u.stats || {};
+    let followBtn = '';
+    if (!isMe && currentUser) {
+        followBtn = `<button class="btn btn-primary btn-sm" id="followBtn" onclick="toggleFollow(${u.id})" style="margin-top:12px;">关注</button>`;
+        checkFollowing(u.id);
+    }
+    const badges = [];
+    if (u.identity_group) badges.push('<span class="profile-badge" style="background:var(--lavender);">🎖️ '+escHtml(u.identity_group)+'</span>');
+    if (u.title) badges.push('<span class="profile-badge" style="background:var(--yellow);">🏷️ '+escHtml(u.title)+'</span>');
+    if (u.mood) badges.push('<span class="profile-badge" style="background:var(--mint);">💬 '+escHtml(u.mood)+'</span>');
+    document.getElementById('profileCard').innerHTML = `
+        <div class="avatar-container">
+            <div class="avatar-ring"></div>
+            <img class="avatar" src="${u.avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
+        </div>
+        <div class="profile-name">${escHtml(u.username)}</div>
+        ${badges.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:6px;">'+badges.join('')+'</div>' : ''}
+        ${u.bio ? '<div class="profile-bio">'+escHtml(u.bio)+'</div>' : ''}
+        <div class="profile-assets" style="display:flex;justify-content:center;gap:18px;margin:12px 0;">
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--orange);font-size:1.05rem;">💰 ${u.coins||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">金币</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--mint);font-size:1.05rem;">⭐ ${u.points||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">积分</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--pink-4);font-size:1.05rem;">Lv.${u.level||1}</div><div style="font-size:0.7rem;color:var(--text-muted);">等级</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--blue);font-size:1.05rem;">🔥 ${u.checkin_streak||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">连续签到</div></div>
+        </div>
+        <div class="profile-stats">
+            <div class="stat-item"><div class="stat-num">${stats.posts||0}</div><div class="stat-label">帖子</div></div>
+            <div class="stat-item"><div class="stat-num">${stats.followers||0}</div><div class="stat-label">粉丝</div></div>
+            <div class="stat-item"><div class="stat-num">${stats.following||0}</div><div class="stat-label">关注</div></div>
+        </div>
+        ${isMe ? '<button class="btn btn-sm" onclick="openEditProfile()" style="margin-top:12px;">✏️ 编辑资料</button>' : ''}
+        ${followBtn}
+    `;
+}
+
+function checkFollowing(uid) {
+    if (!currentUser) return;
+    api.get('/api/social/is-following/' + uid).then(data => {
+        const btn = document.getElementById('followBtn');
+        if (btn) {
+            btn.textContent = data.following ? '已关注' : '关注';
+            btn.className = data.following ? 'btn btn-sm' : 'btn btn-primary btn-sm';
+        }
+    }).catch(() => {});
+}
+
+function toggleFollow(uid) {
+    if (!requireAuth()) return;
+    api.post('/api/social/follow/' + uid).then(data => {
+        showToast(data.message, data.following ? 'success' : '');
+        const btn = document.getElementById('followBtn');
+        if (btn) {
+            btn.textContent = data.following ? '已关注' : '关注';
+            btn.className = data.following ? 'btn btn-sm' : 'btn btn-primary btn-sm';
+        }
+        loadProfile();
+    }).catch(e => showToast(e.message || '操作失败', 'error'));
+}
+
+function switchProfileTab(el, tab) {
+    document.querySelectorAll('#profileTabs .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentProfileTab = tab;
+    loadProfileTab(tab);
+}
+
+function loadProfileTab(tab) {
+    const content = document.getElementById('profileContent');
+    content.innerHTML = '<div class="loading">加载中</div>';
+    if (tab === 'posts') {
+        api.get('/api/posts?author_id=' + PROFILE_UID + '&limit=50').then(data => {
+            if (!data.posts || data.posts.length === 0) {
+                content.innerHTML = '<div class="empty-state"><div class="icon">📝</div><div class="text">还没有发过帖子</div></div>';
+                return;
+            }
+            content.innerHTML = data.posts.map(p => renderPostCard(p)).join('');
+            initReveal();
+        });
+    } else if (tab === 'followers') {
+        api.get('/api/social/followers/' + PROFILE_UID).then(data => renderUserList(content, data));
+    } else if (tab === 'following') {
+        api.get('/api/social/following/' + PROFILE_UID).then(data => renderUserList(content, data));
+    }
+}
+
+function renderUserList(container, users) {
+    if (!users || users.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">👥</div><div class="text">暂无</div></div>';
+        return;
+    }
+    container.innerHTML = users.map(u => `
+        <div class="post-card reveal" onclick="window.location.href='/profile/${u.id}'" style="padding:16px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <img src="${u.avatar||'/static/images/default-avatar.svg'}" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--glass-border);" onerror="this.src='/static/images/default-avatar.svg'">
+                <div>
+                    <div style="font-weight:600;font-size:0.9rem;">${escHtml(u.username)}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">${escHtml(u.bio||'')}</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    initReveal();
+}
+</script>
+
+<style>
+@media (max-width: 768px) {
+    #profileLayout { grid-template-columns: 1fr !important; }
+}
+</style>
+</script>
+</body>
+</html>

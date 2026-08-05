@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>树洞 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+    
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:800px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">🌳 爆料树洞</h2>
+            <p class="chapter-sub">匿名爆料，说出你看到的一切</p>
+        </div>
+
+        <!-- 发布区 -->
+        <div class="speech-bubble reveal" style="margin-bottom:24px;">
+            <textarea class="input" id="gossipContent" placeholder="匿名爆料... 说出你看到的、听到的、想到的 👀" rows="3" maxlength="1000"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+                <button class="btn btn-primary btn-sm" onclick="postGossip()">🔮 匿名发布</button>
+                <label style="font-size:0.8rem;color:var(--text-muted);cursor:pointer;">
+                    <input type="checkbox" id="gossipAnon" checked> 匿名
+                </label>
+            </div>
+        </div>
+
+        <!-- 排序 -->
+        <div class="tag-bar reveal" id="gossipSort">
+            <span class="tag active" onclick="sortGossip(this,'newest')">✨ 最新</span>
+            <span class="tag" onclick="sortGossip(this,'hot')">🔥 热门</span>
+        </div>
+
+        <!-- 列表 -->
+        <div id="gossipList"><div class="loading">加载中</div></div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+let gossipSort = 'newest';
+let gossipOffset = 0;
+
+onUserReady(function() {
+    loadGossip();
+});
+
+function sortGossip(el, sort) {
+    document.querySelectorAll('#gossipSort .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    gossipSort = sort;
+    gossipOffset = 0;
+    loadGossip();
+}
+
+function loadGossip(append) {
+    if (!append) gossipOffset = 0;
+    api.get(`/api/gossip?limit=30&offset=${gossipOffset}&sort=${gossipSort}`).then(data => {
+        const list = document.getElementById('gossipList');
+        if (!data.length && !append) {
+            list.innerHTML = '<div class="empty-state"><div class="icon">🌳</div><div class="text">还没有爆料，来发第一条吧</div></div>';
+            return;
+        }
+        const html = data.map(g => `
+            <div class="post-card reveal" style="padding:20px;" onclick="viewGossip(${g.id})">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:1.2rem;">🔮</span>
+                    <span style="font-weight:600;font-size:0.9rem;">匿名</span>
+                    ${g.is_hot ? '<span style="font-size:0.7rem;background:var(--yellow);padding:2px 6px;border-radius:8px;">🔥 热门</span>' : ''}
+                </div>
+                <div style="font-size:0.95rem;line-height:1.7;margin-bottom:10px;">${escHtml(g.content)}</div>
+                <div style="display:flex;gap:16px;font-size:0.8rem;color:var(--text-muted);">
+                    <span class="${g.is_liked ? 'liked' : ''}" style="cursor:pointer;" onclick="event.stopPropagation();likeGossip(${g.id},this)">${g.is_liked ? '❤️' : '🤍'} ${g.likes_count || 0}</span>
+                    <span>💬 ${g.comments_count || 0}</span>
+                </div>
+            </div>
+        `).join('');
+        if (append) list.insertAdjacentHTML('beforeend', html);
+        else list.innerHTML = html;
+        initReveal();
+    });
+}
+
+function postGossip() {
+    if (!requireAuth()) return;
+    const content = document.getElementById('gossipContent').value.trim();
+    if (!content) { showToast('内容不能为空', 'error'); return; }
+    const isAnon = document.getElementById('gossipAnon').checked ? 1 : 0;
+    api.post('/api/gossip', { content, is_anonymous: isAnon }).then(() => {
+        showToast('发布成功！🔮', 'success');
+        document.getElementById('gossipContent').value = '';
+        loadGossip();
+    }).catch(e => showToast(e.message || '发布失败', 'error'));
+}
+
+function viewGossip(id) {
+    api.get('/api/gossip/' + id).then(g => {
+        const comments = (g.comments || []).map(c => `
+            <div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
+                <span style="font-weight:600;font-size:0.8rem;">${escHtml(c.author_name)}</span>
+                <span style="font-size:0.7rem;color:var(--text-muted);margin-left:8px;">${formatTime(c.created_at)}</span>
+                <div style="font-size:0.85rem;margin-top:4px;">${escHtml(c.content)}</div>
+            </div>
+        `).join('');
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay show';
+        modal.innerHTML = `
+            <div class="modal" style="max-width:560px;position:relative;max-height:80vh;overflow-y:auto;">
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                <div style="font-size:0.95rem;line-height:1.7;margin-bottom:16px;">${escHtml(g.content)}</div>
+                <div style="display:flex;gap:12px;margin-bottom:16px;">
+                    <button class="btn btn-sm ${g.is_liked ? 'liked' : ''}" onclick="likeGossip(${g.id},this)">${g.is_liked ? '❤️' : '🤍'} ${g.likes_count}</button>
+                </div>
+                <h4 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;">💬 评论 (${g.comments_count})</h4>
+                ${comments || '<div style="color:var(--text-muted);">暂无评论</div>'}
+                <div style="margin-top:12px;">
+                    <input class="input" id="gossipCommentInput" placeholder="发表评论..." style="margin-bottom:8px;">
+                    <button class="btn btn-primary btn-sm" onclick="commentGossip(${g.id})">发送</button>
+                </div>
+            </div>
+        `;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+    });
+}
+
+function likeGossip(id, el) {
+    if (!requireAuth()) return;
+    api.post('/api/gossip/' + id + '/like').then(res => {
+        const num = parseInt((el.textContent.match(/\d+/g) || ['0'])[0]) || 0;
+        el.innerHTML = (res.liked ? '❤️' : '🤍') + ' ' + (res.liked ? num + 1 : Math.max(0, num - 1));
+        el.classList.toggle('liked', res.liked);
+        if (res.liked) showToast('已点赞', 'success');
+    }).catch(e => showToast(e.message || '操作失败', 'error'));
+}
+
+function commentGossip(id) {
+    const input = document.getElementById('gossipCommentInput');
+    const content = input.value.trim();
+    if (!content) return;
+    api.post('/api/gossip/' + id + '/comment', { content, is_anonymous: true }).then(() => {
+        showToast('评论成功', 'success');
+        input.value = '';
+        document.querySelector('.modal-overlay').remove();
+        loadGossip();
+    }).catch(e => showToast(e.message || '评论失败', 'error'));
+}
+</script>
+</body>
+</html>

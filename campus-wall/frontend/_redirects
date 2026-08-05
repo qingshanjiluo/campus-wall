@@ -1,0 +1,26 @@
+# Cloudflare Pages 重定向配置
+# 根路径 → 首页
+/    /pages/index.html   200
+
+# 动态路由 → 静态页面（页面内 JS 从 URL 解析参数）
+/post/*    /pages/post.html   200
+/station/* /pages/station.html  200
+/profile/* /pages/profile.html  200
+
+# 各页面路径
+/waterfall    /pages/waterfall.html   200
+/trade        /pages/trade.html   200
+/romance      /pages/romance.html   200
+/gossip       /pages/gossip.html   200
+/shop         /pages/shop.html   200
+/search       /pages/search.html   200
+/checkin      /pages/checkin.html   200
+/favorites    /pages/favorites.html   200
+/notifications /pages/notifications.html   200
+/create       /pages/create.html   200
+/create-station /pages/create_station.html   200
+/admin        /pages/admin.html   200
+/reset-password /pages/reset_password.html   200
+
+# 兜底：不存在的路径回首页（避免 404 白屏）
+/*    /pages/404.html   404

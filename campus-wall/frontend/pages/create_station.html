@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建子站 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+    
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:500px;">
+        <div class="speech-bubble reveal" style="position:relative;">
+            <h2 class="chapter-title" style="font-size:1.5rem;margin-bottom:20px;">🏗️ 创建子站</h2>
+            <form id="createStationPageForm" onsubmit="return handleCreateStationPage(event)">
+                <div class="form-group">
+                    <label class="form-label">子站名称</label>
+                    <input class="input" type="text" name="name" placeholder="给子站起个名字" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">图标 (emoji)</label>
+                    <input class="input" type="text" name="icon" placeholder="🏫" maxlength="4" value="🏫">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">简介</label>
+                    <textarea class="input" name="description" placeholder="这个子站是做什么的？" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">标签 (逗号分隔)</label>
+                    <input class="input" type="text" name="tags" placeholder="学习,互助,考研">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">创建子站</button>
+            </form>
+        </div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+onUserReady(function() {
+    if (!requireAuth()) return;
+});
+
+function handleCreateStationPage(e) {
+    e.preventDefault();
+    const form = e.target;
+    const tags = form.tags.value.split(',').map(t => t.trim()).filter(Boolean);
+    const data = {
+        name: form.name.value.trim(),
+        icon: form.icon.value.trim() || '🏫',
+        description: form.description.value.trim(),
+        tags: tags
+    };
+    if (!data.name) {
+        showToast('请输入子站名称');
+        return false;
+    }
+    api.post('/api/stations', data)
+        .then(res => {
+            showToast('创建成功！');
+            window.location.href = '/station/' + res.station.id;
+        })
+        .catch(err => showToast(err.message || '创建失败'));
+    return false;
+}
+</script>
+</body>
+</html>

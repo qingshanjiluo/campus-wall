@@ -1,0 +1,9 @@
+# 安全与缓存头
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# 静态资源缓存（hash 文件名除外，这里保守缓存）
+/static/*
+  Cache-Control: public, max-age=86400

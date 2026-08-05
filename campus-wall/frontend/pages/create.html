@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发帖 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+    
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:600px;">
+        <div class="speech-bubble reveal" style="position:relative;">
+            <h2 class="chapter-title" style="font-size:1.5rem;margin-bottom:20px;">✍️ 发帖</h2>
+            <form id="createPostPageForm" onsubmit="return handleCreatePostPage(event)">
+                <div class="form-group">
+                    <label class="form-label">选择子站</label>
+                    <select class="input" name="station_id" id="pagePostStation" required>
+                        <option value="">请选择子站...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">标题</label>
+                    <input class="input" type="text" name="title" placeholder="给帖子起个标题" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">内容</label>
+                    <textarea class="input" name="content" placeholder="说说你想分享的..." required rows="8" maxlength="10000"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="cursor:pointer;">📎 上传图片（可选）
+                        <input type="file" accept="image/*" onchange="uploadPostImage(this)" style="display:none;">
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-secondary);cursor:pointer;">
+                        <input type="checkbox" name="is_anonymous" value="1"> 🎭 匿名发布（显示为"匿名用户"）
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">发布帖子</button>
+            </form>
+        </div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+onUserReady(function() {
+    if (!requireAuth()) return;
+    loadStationOptions('pagePostStation');
+});
+
+function handleCreatePostPage(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+        station_id: parseInt(form.station_id.value),
+        title: form.title.value.trim(),
+        content: form.content.value.trim(),
+        is_anonymous: form.is_anonymous && form.is_anonymous.checked ? 1 : 0
+    };
+    if (!data.station_id || !data.title || !data.content) {
+        showToast('请填写完整信息');
+        return false;
+    }
+    api.post('/api/posts', data)
+        .then(res => {
+            showToast('发帖成功！');
+            window.location.href = '/post/' + res.post.id;
+        })
+        .catch(err => showToast(err.message || '发帖失败'));
+    return false;
+}
+</script>
+</body>
+</html>
