@@ -26,7 +26,7 @@
 <script>
 let currentRomanceTab = 'profiles';
 
-document.addEventListener('DOMContentLoaded', function() {
+onUserReady(function() {
     loadRomanceTab('profiles');
 });
 
@@ -62,7 +62,7 @@ function loadRomanceTab(tab) {
                             ${JSON.parse(p.hobbies||'[]').map(h => '<span class="tag" style="padding:2px 8px;font-size:0.7rem;">'+escHtml(h)+'</span>').join('')}
                         </div>
                         <div style="text-align:center;">
-                            <button class="btn btn-primary btn-sm" onclick="sendRomanceLink(${p.user_id},'${escHtml(p.nickname||p.username)}')">💌 发送情报</button>
+                            <button class="btn btn-primary btn-sm" data-uid="${p.user_id}" data-name="${escHtml(p.nickname||p.username)}" onclick="sendRomanceLinkFrom(this)">💌 发送情报</button>
                         </div>
                     </div>
                 `).join('') + '</div>';
@@ -157,6 +157,12 @@ function loadRomanceTab(tab) {
             list.innerHTML = links.map(l => `<div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.05);">💌 ${l.is_anonymous?'匿名':escHtml(l.from_name)}: ${escHtml(l.description||'...')}</div>`).join('');
         });
     }
+}
+
+function sendRomanceLinkFrom(el) {
+    const uid = parseInt(el.dataset.uid, 10);
+    const name = el.dataset.name || '';
+    sendRomanceLink(uid, name);
 }
 
 function sendRomanceLink(uid, name) {

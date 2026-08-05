@@ -18,7 +18,7 @@
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+onUserReady(function() {
     if (!requireAuth()) return;
     loadNotifications();
 });
@@ -38,7 +38,7 @@ function renderNotifications(notifs) {
     list.innerHTML = notifs.map(n => {
         const icon = n.type === 'like' ? '❤️' : n.type === 'comment' ? '💬' : n.type === 'follow' ? '👤' : '🔔';
         return `
-            <div class="post-card" style="padding:16px;${n.is_read?'':'border-left:3px solid var(--pink-4);'}" onclick="${n.link?'window.location.href=\''+escHtml(n.link)+'\'':''}">
+            <div class="post-card" style="padding:16px;${n.is_read?'':'border-left:3px solid var(--pink-4);'}${n.link?'cursor:pointer;':''}" data-link="${n.link?escHtml(n.link):''}" onclick="openNotifLink(this)">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <span style="font-size:1.3rem;">${icon}</span>
                     <div style="flex:1;">
@@ -49,6 +49,11 @@ function renderNotifications(notifs) {
             </div>
         `;
     }).join('');
+}
+
+function openNotifLink(el) {
+    const link = el.dataset.link;
+    if (link) window.location.href = link;
 }
 
 function markAllRead() {

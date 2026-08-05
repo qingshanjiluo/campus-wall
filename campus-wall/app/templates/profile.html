@@ -33,7 +33,7 @@ const PROFILE_UID = {{ user_id }};
 let profileData = null;
 let currentProfileTab = 'posts';
 
-document.addEventListener('DOMContentLoaded', function() {
+onUserReady(function() {
     loadProfile();
     loadProfileTab('posts');
 });

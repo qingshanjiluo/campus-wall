@@ -38,7 +38,7 @@ let stationPostSort = 'newest';
 let stationPostOffset = 0;
 const stationPostLimit = 15;
 
-document.addEventListener('DOMContentLoaded', function() {
+onUserReady(function() {
     loadStation();
     loadStationPosts();
     document.addEventListener('postCreated', () => loadStationPosts());

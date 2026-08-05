@@ -79,7 +79,7 @@ let currentPostSort = 'newest';
 let postOffset = 0;
 const postLimit = 10;
 
-document.addEventListener('DOMContentLoaded', function() {
+onUserReady(function() {
     loadStations();
     loadPosts();
     debouncedSearch('searchInput', function(q) {
@@ -161,31 +161,6 @@ function renderPosts(posts, append) {
         list.innerHTML = html;
     }
     initReveal();
-}
-
-function renderPostCard(p) {
-    const time = formatTime(p.created_at);
-    return `
-        <article class="post-card reveal" onclick="window.location.href='/post/${p.id}'">
-            <div class="post-header">
-                <img class="post-avatar" src="${p.author_avatar || '/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
-                <div class="post-meta">
-                    <div class="post-author">${escHtml(p.author_name)}</div>
-                    <div class="post-time">${time}</div>
-                </div>
-                <span class="post-station">${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
-            </div>
-            <div class="post-title">${escHtml(p.title)}</div>
-            <div class="post-content">${escHtml(p.content || '')}</div>
-            <div class="post-actions">
-                <button class="post-action ${p.is_liked?'liked':''}" onclick="event.stopPropagation();toggleLike(${p.id},this)">
-                    <span class="icon">${p.is_liked?'❤️':'🤍'}</span> ${p.likes_count||0}
-                </button>
-                <span class="post-action"><span class="icon">💬</span> ${p.comments_count||0}</span>
-                <span class="post-action"><span class="icon">👁️</span> ${p.views||0}</span>
-            </div>
-        </article>
-    `;
 }
 
 function sortPosts(el, sort) {

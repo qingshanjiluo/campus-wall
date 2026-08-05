@@ -3,11 +3,22 @@
  */
 
 let currentUser = null;
+let _userReady = false;
+const _userReadyCbs = [];
+
+// 用户状态就绪后回调（解决 DOMContentLoaded 异步加载竞态）
+function onUserReady(cb) {
+    if (_userReady) { cb(); return; }
+    _userReadyCbs.push(cb);
+}
 
 // ── 初始化 ──
 document.addEventListener('DOMContentLoaded', async function() {
     await initAnimations();
     await loadCurrentUser();
+    _userReady = true;
+    _userReadyCbs.forEach(cb => { try { cb(); } catch (e) {} });
+    _userReadyCbs.length = 0;
     updateNavRight();
     updateNotifBadge();
     initMouseParallax();
@@ -389,6 +400,10 @@ function toggleCommentLike(commentId, btn) {
 }
 
 // ── 评论回复 ──
+function replyToCommentById(el) {
+    replyToComment(parseInt(el.dataset.cid, 10), el.dataset.author || '');
+}
+
 function replyToComment(commentId, authorName) {
     const textarea = document.getElementById('commentContent');
     if (!textarea) return;
@@ -500,6 +515,53 @@ function closeUserMenu() {
 function escHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// 渲染帖子内容：转义 HTML，并将 Markdown 图片 ![alt](url) 转为安全的 <img>
+function renderContent(content, full) {
+    if (!content) return '';
+    let html = escHtml(content);
+    // 将 ![alt](url) 转为 <img>
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(m, alt, url) {
+        const u = String(url).replace(/&amp;/g, '&').trim();
+        // 只允许站内静态图片路径
+        if (!/^\/static\//.test(u)) return m;
+        return '<img src="' + escHtml(u) + '" alt="' + escHtml(alt) + '" loading="lazy" class="post-image" style="max-height:400px;border-radius:14px;margin:8px 0;display:block;">';
+    });
+    if (full) {
+        return html;
+    }
+    // 摘要模式：转成纯文本（去掉图片语法）
+    return html.replace(/<img[^>]*>/g, '');
+}
+
+// 帖子卡片（全局复用：首页 / 子站页 / 个人主页等）
+function renderPostCard(p) {
+    const time = formatTime(p.created_at);
+    const imgMatch = String(p.content || '').match(/!\[[^\]]*\]\(([^)]+)\)/);
+    const coverImg = imgMatch && /^\/static\//.test(imgMatch[1]) ? imgMatch[1] : '';
+    return `
+        <article class="post-card reveal" onclick="window.location.href='/post/${p.id}'">
+            <div class="post-header">
+                <img class="post-avatar" src="${p.author_avatar || '/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
+                <div class="post-meta">
+                    <div class="post-author">${escHtml(p.author_name)}</div>
+                    <div class="post-time">${time}</div>
+                </div>
+                <span class="post-station">${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
+            </div>
+            <div class="post-title">${escHtml(p.title)}</div>
+            ${coverImg ? '<img class="post-image" src="'+escHtml(coverImg)+'" alt="" loading="lazy" style="max-height:260px;width:100%;object-fit:cover;border-radius:14px;margin:8px 0;">' : ''}
+            <div class="post-content">${renderContent(p.content, false)}</div>
+            <div class="post-actions">
+                <button class="post-action ${p.is_liked?'liked':''}" onclick="event.stopPropagation();toggleLike(${p.id},this)">
+                    <span class="icon">${p.is_liked?'❤️':'🤍'}</span> ${p.likes_count||0}
+                </button>
+                <span class="post-action"><span class="icon">💬</span> ${p.comments_count||0}</span>
+                <span class="post-action"><span class="icon">👁️</span> ${p.views||0}</span>
+            </div>
+        </article>
+    `;
 }
 
 function formatTime(timestamp) {

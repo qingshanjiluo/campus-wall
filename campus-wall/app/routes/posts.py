@@ -92,7 +92,15 @@ def update(pid):
         return jsonify({'error': '无权编辑'}), 403
 
     data = request.get_json(silent=True) or {}
-    update_post(pid, **{k: data[k] for k in ('title', 'content', 'image', 'is_pinned') if k in data})
+    update_fields = {k: data[k] for k in ('title', 'content', 'image') if k in data}
+    # 置顶/加精仅管理员可操作，防止普通用户越权
+    if 'is_pinned' in data:
+        if g.current_user['role'] != 'admin':
+            return jsonify({'error': '无权置顶帖子'}), 403
+        update_fields['is_pinned'] = data['is_pinned']
+    if not update_fields:
+        return jsonify({'error': '没有可更新的字段'}), 400
+    update_post(pid, **update_fields)
     return jsonify({'message': '更新成功'})
 
 

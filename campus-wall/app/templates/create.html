@@ -35,7 +35,7 @@
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+onUserReady(function() {
     if (!requireAuth()) return;
     loadStationOptions('pagePostStation');
 });

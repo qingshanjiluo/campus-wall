@@ -59,6 +59,7 @@
 {% block extra_scripts %}
 <script>
 let tradeCategory = '';
+let tradeCache = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     loadTrades();
@@ -77,6 +78,7 @@ function loadTrades() {
     let url = '/api/trade?limit=50';
     if (tradeCategory) url += '&category=' + encodeURIComponent(tradeCategory);
     api.get(url).then(trades => {
+        tradeCache = trades || [];
         if (!trades.length) {
             grid.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><div class="text">暂无商品</div></div>';
             return;
@@ -85,7 +87,7 @@ function loadTrades() {
             const discount = t.original_price > 0 ? Math.round((1 - t.price / t.original_price) * 100) : 0;
             const condMap = { new: '全新', like_new: '几乎全新', good: '良好', fair: '一般' };
             return `
-                <div class="station-card reveal" style="break-inside:avoid;margin-bottom:16px;padding:16px;cursor:default;" onclick="viewTrade(${t.id},'${escHtml(t.title)}',${t.price},'${escHtml(t.contact||'')}','${escHtml(t.content||'')}')">
+                <div class="station-card reveal" style="break-inside:avoid;margin-bottom:16px;padding:16px;cursor:default;" data-trade-id="${t.id}" onclick="viewTradeById(this)">
                     <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1rem;margin-bottom:6px;">${escHtml(t.title)}</div>
                     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
                         <span style="font-size:1.3rem;font-weight:800;color:var(--pink-4);">¥${t.price}</span>
@@ -132,18 +134,30 @@ function createTrade(e) {
     return false;
 }
 
-function viewTrade(id, title, price, contact, content) {
+function viewTradeById(el) {
+    const id = parseInt(el.dataset.tradeId, 10);
+    const t = (tradeCache || []).find(x => x.id === id);
+    if (!t) return;
     const modal = document.createElement('div');
     modal.className = 'modal-overlay show';
     modal.innerHTML = `
         <div class="modal" style="position:relative;max-width:480px;">
             <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
-            <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.3rem;margin-bottom:8px;">${title}</div>
-            <div style="font-size:1.5rem;font-weight:800;color:var(--pink-4);margin-bottom:12px;">¥${price}</div>
-            <div style="font-size:0.9rem;line-height:1.6;margin-bottom:16px;white-space:pre-wrap;">${content}</div>
-            ${contact ? '<div class="speech-bubble pink" style="font-size:0.9rem;">📱 联系方式: <strong>'+contact+'</strong></div>' : ''}
+            <div id="viewTradeTitle"></div>
+            <div style="font-size:1.5rem;font-weight:800;color:var(--pink-4);margin-bottom:12px;">¥${t.price}</div>
+            <div id="viewTradeContent"></div>
+            <div id="viewTradeContact"></div>
         </div>
     `;
+    modal.querySelector('#viewTradeTitle').textContent = t.title || '';
+    modal.querySelector('#viewTradeTitle').style.cssText = "font-family:'ZCOOL KuaiLe',cursive;font-size:1.3rem;margin-bottom:8px;";
+    modal.querySelector('#viewTradeContent').textContent = t.content || '';
+    modal.querySelector('#viewTradeContent').style.cssText = "font-size:0.9rem;line-height:1.6;margin-bottom:16px;white-space:pre-wrap;";
+    if (t.contact) {
+        const c = modal.querySelector('#viewTradeContact');
+        c.innerHTML = '<div class="speech-bubble pink" style="font-size:0.9rem;">📱 联系方式: <strong></strong></div>';
+        c.querySelector('strong').textContent = t.contact;
+    }
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     document.body.appendChild(modal);
 }

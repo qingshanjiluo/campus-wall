@@ -27,7 +27,7 @@
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+onUserReady(function() {
     if (!currentUser || currentUser.role !== 'admin') {
         document.getElementById('adminContent').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="text">需要管理员权限</div></div>';
         return;

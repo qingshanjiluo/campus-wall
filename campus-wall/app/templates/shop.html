@@ -32,7 +32,7 @@
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+onUserReady(function() {
     loadBalance();
     loadShopItems();
     if (currentUser) loadOrders();
@@ -48,6 +48,7 @@ function loadBalance() {
 
 function loadShopItems() {
     api.get('/api/shop/items').then(items => {
+        window._shopItemsCache = items || [];
         const grid = document.getElementById('shopGrid');
         if (!items.length) { grid.innerHTML = '<div class="empty-state">暂无商品</div>'; return; }
         grid.innerHTML = items.map(item => `
@@ -61,13 +62,20 @@ function loadShopItems() {
                     ${item.price_points ? '<span style="color:var(--mint);font-weight:700;">⭐ '+item.price_points+'</span>' : ''}
                 </div>
                 <div style="text-align:center;">
-                    <button class="btn btn-primary btn-sm" onclick="buyItem(${item.id},'${escHtml(item.name)}')">兑换</button>
+                    <button class="btn btn-primary btn-sm" data-item-id="${item.id}" onclick="buyItemById(this)">兑换</button>
                 </div>
                 ${item.stock >= 0 ? '<div style="text-align:center;font-size:0.7rem;color:var(--text-muted);margin-top:8px;">库存: '+item.stock+'</div>' : ''}
             </div>
         `).join('');
         initReveal();
     });
+}
+
+function buyItemById(el) {
+    const id = parseInt(el.dataset.itemId, 10);
+    const items = window._shopItemsCache || [];
+    const item = items.find(x => x.id === id);
+    buyItem(id, item ? item.name : '该商品');
 }
 
 function buyItem(id, name) {
