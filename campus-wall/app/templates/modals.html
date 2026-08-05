@@ -1,0 +1,173 @@
+<!-- 登录模态框 -->
+<div class="modal-overlay" id="loginModal">
+    <div class="modal" style="position:relative;">
+        <button class="modal-close" onclick="closeModal('loginModal')">&times;</button>
+        <div class="modal-title">✨ 登录</div>
+        <form id="loginForm" onsubmit="return handleLogin(event)">
+            <div class="form-group">
+                <label class="form-label">用户名 / 邮箱</label>
+                <input class="input" type="text" name="username" placeholder="请输入用户名或邮箱" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">密码</label>
+                <input class="input" type="password" name="password" placeholder="请输入密码" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">登录</button>
+        </form>
+        <p style="text-align:center;margin-top:16px;font-size:0.85rem;color:var(--text-muted);">
+            还没有账号？<a href="#" onclick="switchModal('loginModal','registerModal')">注册</a>
+        </p>
+    </div>
+</div>
+
+<!-- 注册模态框 -->
+<div class="modal-overlay" id="registerModal">
+    <div class="modal" style="position:relative;">
+        <button class="modal-close" onclick="closeModal('registerModal')">&times;</button>
+        <div class="modal-title">🌸 注册</div>
+        <form id="registerForm" onsubmit="return handleRegister(event)">
+            <div class="form-group">
+                <label class="form-label">用户名</label>
+                <input class="input" type="text" name="username" placeholder="至少2个字符" required minlength="2">
+            </div>
+            <div class="form-group">
+                <label class="form-label">邮箱</label>
+                <input class="input" type="email" name="email" placeholder="your@email.com" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">密码</label>
+                <input class="input" type="password" name="password" placeholder="至少6个字符" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">注册</button>
+        </form>
+        <p style="text-align:center;margin-top:16px;font-size:0.85rem;color:var(--text-muted);">
+            已有账号？<a href="#" onclick="switchModal('registerModal','loginModal')">登录</a>
+        </p>
+    </div>
+</div>
+
+<!-- 创建帖子模态框 -->
+<div class="modal-overlay" id="createPostModal">
+    <div class="modal" style="position:relative;max-width:560px;">
+        <button class="modal-close" onclick="closeModal('createPostModal')">&times;</button>
+        <div class="modal-title">✍️ 发帖</div>
+        <form id="createPostForm" onsubmit="return handleCreatePost(event)">
+            <div class="form-group">
+                <label class="form-label">选择子站</label>
+                <select class="input" name="station_id" id="postStationSelect" required>
+                    <option value="">请选择子站...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">标题</label>
+                <input class="input" type="text" name="title" placeholder="给帖子起个标题" required maxlength="100">
+            </div>
+            <div class="form-group">
+                <label class="form-label">内容</label>
+                <textarea class="input" name="content" placeholder="说说你想分享的..." required rows="5" maxlength="10000"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="cursor:pointer;">📎 上传图片（可选）
+                    <input type="file" accept="image/*" onchange="uploadPostImage(this)" style="display:none;">
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">发布</button>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑帖子模态框 -->
+<div class="modal-overlay" id="editPostModal">
+    <div class="modal" style="position:relative;max-width:560px;">
+        <button class="modal-close" onclick="closeModal('editPostModal')">&times;</button>
+        <div class="modal-title">✏️ 编辑帖子</div>
+        <form id="editPostForm" onsubmit="return handleEditPost(event)">
+            <input type="hidden" name="post_id">
+            <div class="form-group">
+                <label class="form-label">标题</label>
+                <input class="input" type="text" name="title" placeholder="标题" required maxlength="100">
+            </div>
+            <div class="form-group">
+                <label class="form-label">内容</label>
+                <textarea class="input" name="content" placeholder="内容" required rows="6" maxlength="10000"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">保存修改</button>
+        </form>
+    </div>
+</div>
+
+<!-- 创建子站模态框 -->
+<div class="modal-overlay" id="createStationModal">
+    <div class="modal" style="position:relative;max-width:500px;">
+        <button class="modal-close" onclick="closeModal('createStationModal')">&times;</button>
+        <div class="modal-title">🏗️ 创建子站</div>
+        <form id="createStationForm" onsubmit="return handleCreateStation(event)">
+            <div class="form-group">
+                <label class="form-label">子站名称</label>
+                <input class="input" type="text" name="name" placeholder="给子站起个名字" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">图标 (emoji)</label>
+                <input class="input" type="text" name="icon" placeholder="🏫" maxlength="4" value="🏫">
+            </div>
+            <div class="form-group">
+                <label class="form-label">简介</label>
+                <textarea class="input" name="description" placeholder="这个子站是做什么的？" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">标签 (逗号分隔)</label>
+                <input class="input" type="text" name="tags" placeholder="学习,互助,考研">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">创建</button>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑资料模态框 -->
+<div class="modal-overlay" id="editProfileModal">
+    <div class="modal" style="position:relative;max-width:480px;">
+        <button class="modal-close" onclick="closeModal('editProfileModal')">&times;</button>
+        <div class="modal-title">✏️ 编辑资料</div>
+        <form id="editProfileForm" onsubmit="return handleEditProfile(event)">
+            <div style="text-align:center;margin-bottom:16px;">
+                <img id="editAvatarPreview" src="/static/images/default-avatar.svg" style="width:80px;height:80px;border-radius:50%;border:3px solid var(--glass-border);object-fit:cover;">
+            </div>
+            <div class="form-group">
+                <label class="form-label">头像</label>
+                <input class="input" type="file" name="avatar" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label class="form-label">用户名</label>
+                <input class="input" type="text" name="username" required minlength="2" maxlength="30">
+            </div>
+            <div class="form-group">
+                <label class="form-label">个人简介</label>
+                <textarea class="input" name="bio" rows="3" placeholder="介绍一下自己..." maxlength="200"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">保存</button>
+        </form>
+    </div>
+</div>
+
+<!-- 修改密码模态框 -->
+<div class="modal-overlay" id="changePasswordModal">
+    <div class="modal" style="position:relative;max-width:420px;">
+        <button class="modal-close" onclick="closeModal('changePasswordModal')">&times;</button>
+        <div class="modal-title">🔑 修改密码</div>
+        <form id="changePasswordForm" onsubmit="return handleChangePassword(event)">
+            <div class="form-group">
+                <label class="form-label">原密码</label>
+                <input class="input" type="password" name="old_password" placeholder="请输入原密码" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">新密码</label>
+                <input class="input" type="password" name="new_password" placeholder="至少6个字符" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label class="form-label">确认新密码</label>
+                <input class="input" type="password" name="confirm_password" placeholder="再输入一次" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">确认修改</button>
+        </form>
+    </div>
+</div>

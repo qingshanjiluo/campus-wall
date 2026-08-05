@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#fff1f2" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- SEO Meta Tags -->
+  <title>Paper2Galgame | Turn Papers into Visual Novels</title>
+  <meta name="description" content="Paper2Galgame turns academic papers into interactive visual novels with AI. Upload PDFs, chat with anime partners, and study research in a more engaging way." />
+  <meta name="keywords" content="AI paper reader, visual novel learning, PDF to visual novel, paper study tool, anime tutor" />
+  <meta name="author" content="Paper2Gal" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://paper2gal.com/" />
+  <link rel="author" href="https://paper2gal.com/official/" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://paper2gal.com/" />
+  <meta property="og:site_name" content="Paper2Galgame" />
+  <meta property="og:title" content="Paper2Galgame | Turn Papers into Visual Novels" />
+  <meta property="og:description" content="Paper2Galgame turns academic papers into interactive visual novels with AI. Upload PDFs, chat with anime partners, and study research in a more engaging way." />
+  <meta property="og:image" content="https://assert.paper2gal.com/character/BG000a%20(1).png" />
+  <meta property="og:image:alt" content="Paper2Galgame anime study partner preview" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://paper2gal.com/" />
+  <meta property="twitter:title" content="Paper2Galgame | Turn Papers into Visual Novels" />
+  <meta property="twitter:description" content="Paper2Galgame turns academic papers into interactive visual novels with AI. Upload PDFs, chat with anime partners, and study research in a more engaging way." />
+  <meta property="twitter:image" content="https://assert.paper2gal.com/character/BG000a%20(1).png" />
+  <meta property="twitter:image:alt" content="Paper2Galgame anime study partner preview" />
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://paper2gal.com/#organization",
+      "name": "Paper2Gal",
+      "alternateName": "Paper2Galgame",
+      "url": "https://paper2gal.com/",
+      "logo": "https://paper2gal.com/logo.png",
+      "publishingPrinciples": "https://paper2gal.com/official/"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://paper2gal.com/#website",
+      "name": "Paper2Gal",
+      "alternateName": "Paper2Galgame",
+      "url": "https://paper2gal.com/",
+      "publisher": {
+        "@id": "https://paper2gal.com/#organization"
+      },
+      "inLanguage": [
+        "zh-CN",
+        "en"
+      ]
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://paper2gal.com/#application",
+      "name": "Paper2Gal",
+      "alternateName": "Paper2Galgame",
+      "url": "https://paper2gal.com/",
+      "description": "Paper2Gal turns academic papers into interactive visual novels with AI. The service is proprietary and its source code is not publicly available.",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Web",
+      "isPartOf": {
+        "@id": "https://paper2gal.com/#website"
+      },
+      "author": {
+        "@id": "https://paper2gal.com/#organization"
+      },
+      "copyrightHolder": {
+        "@id": "https://paper2gal.com/#organization"
+      },
+      "license": "Proprietary software; source code is not publicly available.",
+      "featureList": [
+        "Upload PDFs and research papers",
+        "Turn papers into interactive visual novels",
+        "Study with anime partners",
+        "Use intensive reading and note-taking modes"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+  ]
+}
+  </script>
+
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=LXGW+WenKai&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;700;900&family=Quicksand:wght@400;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=LXGW+WenKai&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;700;900&family=Quicksand:wght@400;600;700&display=swap"></noscript>
+
+  <!-- Favicons -->
+  <link rel="icon" href="./favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+  <link rel="manifest" href="./site.webmanifest">
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script defer src="https://cloud.umami.is/script.js" data-website-id="8fec9425-d202-4559-a079-72682a74a998"></script>
+
+
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "@vercel/analytics/react": "https://esm.sh/@vercel/analytics@1.4.1/react?external=react",
+    "@vercel/analytics/": "https://esm.sh/@vercel/analytics@^1.6.1/",
+    "@fingerprintjs/fingerprintjs": "https://esm.sh/@fingerprintjs/fingerprintjs@4.5.1"
+  }
+}
+</script>
+  <script type="module" crossorigin src="./assets/main-9nDDeAID.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/react-vendor-DtQwZp3C.js">
+  <link rel="modulepreload" crossorigin href="./assets/lucide-B_SZd_DJ.js">
+  <link rel="stylesheet" crossorigin href="./assets/main-CLgGkUG-.css">
+</head>
+
+<body class="overflow-hidden selection:bg-brand-pink selection:text-white">
+  <main
+    data-seo-prerendered="true"
+    aria-label="Paper2Galgame server rendered overview"
+    style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:normal;border:0;"
+  >
+    <h1>Paper2Galgame</h1>
+    <p>Turn academic papers into interactive visual novels with AI-powered dialogue and study companions.</p>
+    <p>Paper2Gal is proprietary software. Its only official website is paper2gal.com, and its source code is not publicly available.</p>
+    <h2>Upload PDFs and understand research faster</h2>
+    <p>Import academic papers, generate story-driven explanations, and break down complex ideas into readable scenes.</p>
+    <h2>Study with anime partners and custom characters</h2>
+    <p>Choose built-in partners or create custom characters for a more engaging and personalized reading experience.</p>
+    <h3>Smart parsing, intensive reading, and notes</h3>
+    <p>Use document parsing, chapter-by-chapter reading, voice, and blackboard notes to study dense material more effectively.</p>
+  </main>
+  <noscript data-seo-prerendered="true">
+    <section style="max-width:960px;margin:0 auto;padding:24px;font-family:Arial,sans-serif;color:#1f2937;">
+      <h1>Paper2Galgame</h1>
+      <p>Paper2Galgame turns academic papers into interactive visual novels with AI. Upload PDFs, pick anime partners, and study research in a more engaging way.</p>
+      <p>Official source notice: paper2gal.com is the only official Paper2Gal website. Paper2Gal is not open source.</p>
+      <h2>What you can do</h2>
+      <h3>Upload papers and generate interactive explanations</h3>
+      <p>Convert research papers into story-like scenes that are easier to follow and remember.</p>
+    </section>
+  </noscript>
+
+  <div id="root"></div>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1cf27ad893a5bfa',t:'MTc4NDM1MzI2MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"dcfe557c40944111bf13d0c8f9d6791b","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+
+</html>

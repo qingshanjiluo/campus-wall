@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}校园墙 · CampusWall{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- 背景层 -->
+    <div class="doodle-layer" id="doodleLayer"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+    <div class="paper-texture"></div>
+
+    <!-- 加载动画 -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-logo" id="loadingLogo">🏫 校园墙</div>
+        <div class="loading-text" id="loadingText"></div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav class="navbar" id="navbar">
+        <a href="/" class="nav-logo">
+            <div class="nav-logo-icon">🏫</div>
+            <span>校园墙</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="/" class="{% if request.path == '/' %}active{% endif %}">首页</a></li>
+            <li><a href="/waterfall" class="{% if request.path == '/waterfall' %}active{% endif %}">瀑布流</a></li>
+            <li><a href="/trade" class="{% if request.path == '/trade' %}active{% endif %}">交易</a></li>
+            <li><a href="/romance" class="{% if request.path == '/romance' %}active{% endif %}">💕</a></li>
+            <li><a href="/gossip" class="{% if request.path == '/gossip' %}active{% endif %}">树洞</a></li>
+            <li><a href="/shop" class="{% if request.path == '/shop' %}active{% endif %}">商城</a></li>
+            <li><a href="/search" class="{% if request.path == '/search' %}active{% endif %}">🔍</a></li>
+        </ul>
+        <div class="nav-right" id="navRight">
+            <!-- JS 动态渲染 -->
+        </div>
+    </nav>
+
+    <!-- 主内容 -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <p>Made with <span class="footer-heart">❤</span> for every student · 校园墙 CampusWall</p>
+        <div class="footer-links">
+            <a href="#">关于我们</a>
+            <a href="#">用户协议</a>
+            <a href="#">隐私政策</a>
+        </div>
+    </footer>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- 模态框容器 -->
+    <div id="modalContainer">
+        {% include 'modals.html' ignore missing %}
+    </div>
+
+    <!-- 看板娘 -->
+    <div id="kanbanGirl" style="position:fixed;bottom:20px;right:20px;z-index:90;cursor:pointer;" onclick="toggleKanban()">
+        <div id="kanbanBubble" style="display:none;background:white;border:2px solid var(--pink-3);border-radius:16px;padding:10px 14px;max-width:220px;font-size:0.8rem;line-height:1.5;box-shadow:0 4px 16px rgba(251,111,146,0.2);margin-bottom:8px;position:relative;">
+            <div id="kanbanText"></div>
+            <div style="position:absolute;bottom:-8px;right:20px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid white;"></div>
+        </div>
+        <div style="width:48px;height:48px;background:linear-gradient(135deg,var(--pink-2),var(--orange));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 4px 12px rgba(251,111,146,0.3);border:2px solid white;">🌸</div>
+    </div>
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/animations.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

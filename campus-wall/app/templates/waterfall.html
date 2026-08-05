@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}瀑布流 · 校园墙{% endblock %}
+
+{% block extra_head %}
+<style>
+.masonry {
+    columns: 3;
+    column-gap: 16px;
+}
+.masonry-item {
+    break-inside: avoid;
+    margin-bottom: 16px;
+}
+@media (max-width: 900px) { .masonry { columns: 2; } }
+@media (max-width: 500px) { .masonry { columns: 1; } }
+
+.masonry-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow-soft);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+.masonry-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+}
+.masonry-card .img-placeholder {
+    width: 100%;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--pink-1), var(--orange));
+}
+.masonry-card .title {
+    font-family: 'ZCOOL KuaiLe', cursive;
+    font-size: 1rem;
+    margin-bottom: 6px;
+}
+.masonry-card .content {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.masonry-card .meta {
+    display: flex;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:1200px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">🌊 瀑布流</h2>
+            <p class="chapter-sub">刷不完的校园动态</p>
+        </div>
+
+        <!-- 排序 -->
+        <div class="tag-bar reveal" id="waterfallSort">
+            <span class="tag active" onclick="sortWaterfall(this,'newest')">✨ 最新</span>
+            <span class="tag" onclick="sortWaterfall(this,'hot')">🔥 热门推荐</span>
+        </div>
+
+        <div id="waterfallGrid" class="masonry">
+            <div class="loading">加载中</div>
+        </div>
+
+        <div style="text-align:center;margin-top:32px;">
+            <button class="btn" id="loadMoreWaterfall" onclick="loadMoreWaterfall()" style="display:none;">加载更多 ↓</button>
+            <div id="waterfallEnd" style="display:none;color:var(--text-muted);font-family:'Ma Shan Zheng',cursive;">已到底啦~ ✨</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let wfSort = 'newest';
+let wfOffset = 0;
+const wfLimit = 20;
+
+const wfColors = [
+    'linear-gradient(135deg, #FFB5BA, #FFD6A5)',
+    'linear-gradient(135deg, #C9E4F5, #E2D5F5)',
+    'linear-gradient(135deg, #B5EAD7, #C9E4F5)',
+    'linear-gradient(135deg, #FDFFB6, #FFD6A5)',
+    'linear-gradient(135deg, #E2D5F5, #FFB5BA)',
+    'linear-gradient(135deg, #FFD6A5, #B5EAD7)',
+];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadWaterfall();
+});
+
+function sortWaterfall(el, sort) {
+    document.querySelectorAll('#waterfallSort .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    wfSort = sort;
+    wfOffset = 0;
+    document.getElementById('waterfallGrid').innerHTML = '';
+    document.getElementById('waterfallEnd').style.display = 'none';
+    loadWaterfall();
+}
+
+function loadWaterfall(append) {
+    if (!append) wfOffset = 0;
+    const url = wfSort === 'hot'
+        ? `/api/recommend/posts?limit=${wfLimit}&offset=${wfOffset}`
+        : `/api/posts?limit=${wfLimit}&offset=${wfOffset}&sort=newest`;
+
+    api.get(url).then(posts => {
+        const grid = document.getElementById('waterfallGrid');
+        if (!posts.length && !append) {
+            grid.innerHTML = '<div class="empty-state"><div class="icon">🌊</div><div class="text">暂无动态</div></div>';
+            return;
+        }
+
+        const html = posts.map((p, i) => {
+            const hasImage = p.image || (p.images && JSON.parse(p.images||'[]').length > 0);
+            const imgHeight = [120, 160, 200, 140, 180][Math.floor(Math.random() * 5)];
+            return `
+                <div class="masonry-item reveal">
+                    <div class="masonry-card" onclick="window.location.href='/post/${p.id}'">
+                        ${hasImage ? '<div class="img-placeholder" style="height:'+imgHeight+'px;background:'+wfColors[i%wfColors.length]+';"></div>' : ''}
+                        <div class="title">${escHtml(p.title)}</div>
+                        <div class="content">${escHtml(p.content)}</div>
+                        <div class="meta">
+                            <span>${escHtml(p.author_name)}</span>
+                            <span>${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
+                            <span>❤️ ${p.likes_count||0}</span>
+                            <span>💬 ${p.comments_count||0}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (append) grid.insertAdjacentHTML('beforeend', html);
+        else grid.innerHTML = html;
+
+        wfOffset += posts.length;
+        const btn = document.getElementById('loadMoreWaterfall');
+        const end = document.getElementById('waterfallEnd');
+        if (posts.length >= wfLimit) {
+            btn.style.display = '';
+            end.style.display = 'none';
+        } else {
+            btn.style.display = 'none';
+            end.style.display = '';
+        }
+        initReveal();
+    });
+}
+
+function loadMoreWaterfall() {
+    loadWaterfall(true);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}子站 · 校园墙{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:900px;">
+        <!-- 子站信息头部 -->
+        <div id="stationHeader" class="speech-bubble reveal" style="margin-bottom:32px;">
+            <div class="loading">加载中</div>
+        </div>
+
+        <!-- 发帖按钮 -->
+        <div style="text-align:center;margin-bottom:24px;">
+            <button class="btn btn-primary" onclick="openCreatePostForStation()">✍️ 在此子站发帖</button>
+        </div>
+
+        <!-- 排序 -->
+        <div class="tag-bar reveal" id="stationPostSort">
+            <span class="tag active" onclick="sortStationPosts(this,'newest')">✨ 最新</span>
+            <span class="tag" onclick="sortStationPosts(this,'popular')">🔥 热门</span>
+            <span class="tag" onclick="sortStationPosts(this,'comments')">💬 最多评论</span>
+        </div>
+
+        <!-- 帖子列表 -->
+        <div id="stationPosts"><div class="loading">加载中</div></div>
+        <div style="text-align:center;margin-top:24px;">
+            <button class="btn" id="loadMoreStationPosts" onclick="loadMoreStationPosts()" style="display:none;">加载更多 ↓</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const STATION_ID = {{ station_id }};
+let stationData = null;
+let stationPostSort = 'newest';
+let stationPostOffset = 0;
+const stationPostLimit = 15;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadStation();
+    loadStationPosts();
+    document.addEventListener('postCreated', () => loadStationPosts());
+});
+
+function loadStation() {
+    api.get('/api/stations/' + STATION_ID)
+        .then(data => {
+            stationData = data;
+            renderStationHeader(data);
+            document.title = data.name + ' · 校园墙';
+        })
+        .catch(() => {
+            document.getElementById('stationHeader').innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">子站不存在</div></div>';
+        });
+}
+
+function renderStationHeader(s) {
+    const tags = (s.tags||[]).map(t => '<span class="tag" style="display:inline-block;">#'+escHtml(t)+'</span>').join('');
+    const joinBtn = s.is_member
+        ? '<button class="btn btn-sm" onclick="leaveStation()">🚪 退出</button>'
+        : '<button class="btn btn-primary btn-sm" onclick="joinStation()">➕ 加入</button>';
+    document.getElementById('stationHeader').innerHTML = `
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div class="station-icon" style="width:56px;height:56px;font-size:1.8rem;border-radius:16px;">${s.icon||'🏫'}</div>
+            <div style="flex:1;min-width:200px;">
+                <h2 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.5rem;margin-bottom:4px;">${escHtml(s.name)}</h2>
+                <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:8px;">${escHtml(s.description||'')}</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${tags}</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);">
+                    👥 ${s.user_count||0} 成员 · 📝 ${s.post_count||0} 帖子
+                </div>
+            </div>
+            <div>${joinBtn}</div>
+        </div>
+    `;
+}
+
+function joinStation() {
+    if (!requireAuth()) return;
+    api.post('/api/stations/' + STATION_ID + '/join')
+        .then(data => { showToast(data.message); loadStation(); })
+        .catch(e => showToast(e.message || '操作失败'));
+}
+
+function leaveStation() {
+    api.post('/api/stations/' + STATION_ID + '/leave')
+        .then(data => { showToast(data.message); loadStation(); })
+        .catch(e => showToast(e.message || '操作失败'));
+}
+
+function loadStationPosts(append) {
+    if (!append) stationPostOffset = 0;
+    const list = document.getElementById('stationPosts');
+    if (!append) list.innerHTML = '<div class="loading">加载中</div>';
+    api.get(`/api/stations/${STATION_ID}/posts?limit=${stationPostLimit}&offset=${stationPostOffset}&sort=${stationPostSort}`)
+        .then(data => {
+            renderStationPosts(data.posts, append);
+            const btn = document.getElementById('loadMoreStationPosts');
+            if (data.posts.length >= stationPostLimit) {
+                btn.style.display = '';
+                stationPostOffset += stationPostLimit;
+            } else {
+                btn.style.display = 'none';
+            }
+        })
+        .catch(() => { if (!append) list.innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">加载失败</div></div>'; });
+}
+
+function renderStationPosts(posts, append) {
+    const list = document.getElementById('stationPosts');
+    if (!posts || posts.length === 0) {
+        if (!append) list.innerHTML = '<div class="empty-state"><div class="icon">📝</div><div class="text">还没有帖子，来发第一帖吧！</div></div>';
+        return;
+    }
+    const html = posts.map(p => renderPostCard(p)).join('');
+    if (append) list.insertAdjacentHTML('beforeend', html);
+    else list.innerHTML = html;
+    initReveal();
+}
+
+function sortStationPosts(el, sort) {
+    document.querySelectorAll('#stationPostSort .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    stationPostSort = sort;
+    loadStationPosts();
+}
+
+function loadMoreStationPosts() {
+    loadStationPosts(true);
+}
+
+function openCreatePostForStation() {
+    if (!requireAuth()) return;
+    openModal('createPostModal');
+    setTimeout(() => {
+        const sel = document.getElementById('postStationSelect');
+        if (sel) sel.value = STATION_ID;
+    }, 100);
+}
+</script>
+{% endblock %}

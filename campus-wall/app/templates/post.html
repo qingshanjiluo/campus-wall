@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}帖子详情 · 校园墙{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:800px;">
+        <div id="postDetail"><div class="loading">加载中</div></div>
+
+        <!-- 评论区 -->
+        <div style="margin-top:40px;" id="commentSection">
+            <h3 class="chapter-title" style="font-size:1.5rem;margin-bottom:16px;">💬 评论</h3>
+            <div id="commentForm" style="display:none;margin-bottom:24px;">
+                <form onsubmit="return submitComment(event)">
+                    <textarea class="input" id="commentContent" placeholder="说说你的想法..." rows="3" required maxlength="2000"></textarea>
+                    <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+                        <button type="submit" class="btn btn-primary btn-sm">发表评论</button>
+                        <span style="font-size:0.75rem;color:var(--text-muted);" id="replyHint"></span>
+                    </div>
+                </form>
+            </div>
+            <div id="commentList"><div class="loading">加载中</div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const POST_ID = {{ post_id }};
+let postData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadPost();
+    loadComments();
+});
+
+function loadPost() {
+    api.get('/api/posts/' + POST_ID).then(data => {
+        postData = data;
+        renderPostDetail(data);
+        document.title = data.title + ' · 校园墙';
+    }).catch(() => {
+        document.getElementById('postDetail').innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">帖子不存在或已被删除</div></div>';
+    });
+}
+
+function renderPostDetail(p) {
+    const time = formatTime(p.created_at);
+    const isAuthor = currentUser && currentUser.id === p.author_id;
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    let actionBtns = '';
+    if (isAuthor || isAdmin) {
+        actionBtns = `
+            <button class="btn btn-sm btn-ghost" onclick="openEditPost(${p.id})" title="编辑">✏️</button>
+            <button class="btn btn-sm btn-ghost" onclick="deletePost(${p.id})" title="删除" style="color:var(--text-muted);">🗑️</button>
+        `;
+    }
+    if (p.is_pinned) {
+        actionBtns = `<span class="post-station" style="background:var(--yellow);color:var(--text-dark);">📌 置顶</span>` + actionBtns;
+    }
+    document.getElementById('postDetail').innerHTML = `
+        <article class="speech-bubble reveal" style="position:relative;">
+            <div class="post-header" style="margin-bottom:16px;">
+                <img class="post-avatar" src="${p.author_avatar||'/static/images/default-avatar.svg'}" alt="" onclick="window.location.href='/profile/${p.author_id}'" style="cursor:pointer;" onerror="this.src='/static/images/default-avatar.svg'">
+                <div class="post-meta">
+                    <div class="post-author" style="cursor:pointer;" onclick="window.location.href='/profile/${p.author_id}'">${escHtml(p.author_name)}</div>
+                    <div class="post-time">${time}</div>
+                </div>
+                <span class="post-station" onclick="window.location.href='/station/${p.station_id}'" style="cursor:pointer;">${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
+                ${actionBtns}
+            </div>
+            <h1 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.5rem;margin-bottom:12px;line-height:1.4;">${escHtml(p.title)}</h1>
+            <div class="post-content full" style="margin-bottom:16px;white-space:pre-wrap;">${escHtml(p.content)}</div>
+            ${p.image ? '<img class="post-image" src="'+escHtml(p.image)+'" alt="" style="max-height:400px;">' : ''}
+            <div class="post-actions">
+                <button class="post-action ${p.is_liked?'liked':''}" onclick="toggleLike(${p.id},this)" data-likes="${p.likes_count||0}">
+                    <span class="icon">${p.is_liked?'❤️':'🤍'}</span> ${p.likes_count||0}
+                </button>
+                <span class="post-action"><span class="icon">💬</span> ${p.comments_count||0}</span>
+                <span class="post-action"><span class="icon">👁️</span> ${p.views||0}</span>
+            </div>
+        </article>
+    `;
+    document.getElementById('commentForm').style.display = currentUser ? '' : 'none';
+    initReveal();
+}
+
+function loadComments() {
+    api.get('/api/posts/' + POST_ID + '/comments').then(data => renderComments(data)).catch(() => {
+        document.getElementById('commentList').innerHTML = '<div class="loading">加载失败</div>';
+    });
+}
+
+function renderComments(comments) {
+    const list = document.getElementById('commentList');
+    if (!comments || comments.length === 0) {
+        list.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="icon">💬</div><div class="text">还没有评论，来说两句吧</div></div>';
+        return;
+    }
+    list.innerHTML = comments.map(c => `
+        <div class="comment-item">
+            <img class="comment-avatar" src="${c.author_avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'" onclick="window.location.href='/profile/${c.author_id}'" style="cursor:pointer;">
+            <div class="comment-body">
+                <div class="comment-author">
+                    <span onclick="window.location.href='/profile/${c.author_id}'" style="cursor:pointer;">${escHtml(c.author_name)}</span>
+                    <span class="comment-time">${formatTime(c.created_at)}</span>
+                </div>
+                <div class="comment-content">${escHtml(c.content)}</div>
+                <div class="comment-actions">
+                    <button class="post-action btn-ghost ${c.is_liked?'liked':''}" onclick="toggleCommentLike(${c.id},this)" data-likes="${c.likes_count||0}" style="padding:0;">
+                        <span class="icon">${c.is_liked?'❤️':'🤍'}</span> ${c.likes_count||0}
+                    </button>
+                    ${currentUser ? `<button class="post-action btn-ghost" onclick="replyToComment(${c.id},'${escHtml(c.author_name)}')" style="padding:0;font-size:0.75rem;">↩️ 回复</button>` : ''}
+                    ${currentUser && (currentUser.id === c.author_id || currentUser.role === 'admin') ? `<button class="post-action btn-ghost" onclick="deleteComment(${c.id})" style="padding:0;font-size:0.75rem;color:var(--text-muted);">🗑️</button>` : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function deletePost(pid) {
+    if (!confirm('确定要删除这篇帖子吗？')) return;
+    api.delete('/api/posts/' + pid).then(() => {
+        showToast('已删除', 'success');
+        window.location.href = '/';
+    }).catch(e => showToast(e.message || '删除失败', 'error'));
+}
+
+function deleteComment(cid) {
+    if (!confirm('确定要删除这条评论吗？')) return;
+    api.delete('/api/posts/comments/' + cid).then(() => {
+        showToast('已删除', 'success');
+        loadComments();
+    }).catch(e => showToast(e.message || '删除失败', 'error'));
+}
+</script>
+{% endblock %}

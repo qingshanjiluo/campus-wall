@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}恋爱情报专区 · 校园墙{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:1100px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">💕 恋爱情报专区</h2>
+            <p class="chapter-sub">缘分从这里开始，勇敢说出你的心意</p>
+        </div>
+
+        <!-- 标签栏 -->
+        <div class="tag-bar reveal" id="romanceTabs">
+            <span class="tag active" onclick="switchRomanceTab(this,'profiles')">👤 人物墙</span>
+            <span class="tag" onclick="switchRomanceTab(this,'links')">💌 情报链接</span>
+            <span class="tag" onclick="switchRomanceTab(this,'tasks')">🎯 任务板</span>
+            <span class="tag" onclick="switchRomanceTab(this,'my')">💝 我的</span>
+        </div>
+
+        <div id="romanceContent"><div class="loading">加载中</div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentRomanceTab = 'profiles';
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadRomanceTab('profiles');
+});
+
+function switchRomanceTab(el, tab) {
+    document.querySelectorAll('#romanceTabs .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentRomanceTab = tab;
+    loadRomanceTab(tab);
+}
+
+function loadRomanceTab(tab) {
+    const content = document.getElementById('romanceContent');
+    content.innerHTML = '<div class="loading">加载中</div>';
+
+    if (tab === 'profiles') {
+        api.get('/api/romance/profiles').then(profiles => {
+            if (!profiles.length) {
+                content.innerHTML = '<div class="empty-state"><div class="icon">💕</div><div class="text">还没有人发布恋爱档案，来做第一个吧！</div></div>';
+                return;
+            }
+            content.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;">' +
+                profiles.map(p => `
+                    <div class="station-card reveal">
+                        <div style="text-align:center;">
+                            <img src="${p.avatar || '/static/images/default-avatar.svg'}" style="width:64px;height:64px;border-radius:50%;border:3px solid ${p.gender==='female'?'var(--pink-3)':'var(--blue)'};object-fit:cover;" onerror="this.src='/static/images/default-avatar.svg'">
+                            <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.1rem;margin-top:8px;">${escHtml(p.nickname || p.username)}</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);">${p.gender==='female'?'👩':'👨'} ${p.age ? p.age+'岁' : ''} · ${escHtml(p.department||'')}</div>
+                        </div>
+                        <div style="font-size:0.85rem;color:var(--text-secondary);margin:10px 0;text-align:center;">
+                            ${escHtml(p.looking_for || '暂无期望')}
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:10px;">
+                            ${JSON.parse(p.hobbies||'[]').map(h => '<span class="tag" style="padding:2px 8px;font-size:0.7rem;">'+escHtml(h)+'</span>').join('')}
+                        </div>
+                        <div style="text-align:center;">
+                            <button class="btn btn-primary btn-sm" onclick="sendRomanceLink(${p.user_id},'${escHtml(p.nickname||p.username)}')">💌 发送情报</button>
+                        </div>
+                    </div>
+                `).join('') + '</div>';
+            initReveal();
+        });
+    } else if (tab === 'links') {
+        content.innerHTML = `
+            <div style="text-align:center;margin-bottom:20px;">
+                <button class="btn btn-primary" onclick="openSendLink()">💌 发送新情报链接</button>
+            </div>
+            <div id="linksList"><div class="loading">加载中</div></div>
+        `;
+        if (currentUser) {
+            api.get('/api/romance/links?direction=to').then(links => {
+                const list = document.getElementById('linksList');
+                if (!links.length) { list.innerHTML = '<div class="empty-state">暂无收到的情报</div>'; return; }
+                list.innerHTML = links.map(l => `
+                    <div class="post-card reveal" style="padding:16px;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span style="font-size:1.5rem;">${l.link_type==='crush'?'💕':'💌'}</span>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;">${l.is_anonymous ? '匿名' : escHtml(l.from_name || '未知')}</div>
+                                <div style="font-size:0.85rem;color:var(--text-secondary);">${escHtml(l.description || '无留言')}</div>
+                                <div style="font-size:0.7rem;color:var(--text-muted);">${formatTime(l.created_at)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                initReveal();
+            });
+        }
+    } else if (tab === 'tasks') {
+        content.innerHTML = `
+            <div style="text-align:center;margin-bottom:20px;">
+                <button class="btn btn-primary" onclick="openCreateTask()">🎯 发布任务</button>
+            </div>
+            <div id="tasksList"><div class="loading">加载中</div></div>
+        `;
+        api.get('/api/romance/tasks').then(tasks => {
+            const list = document.getElementById('tasksList');
+            if (!tasks.length) { list.innerHTML = '<div class="empty-state">暂无任务</div>'; return; }
+            list.innerHTML = tasks.map(t => `
+                <div class="post-card reveal" style="padding:16px;">
+                    <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1rem;margin-bottom:4px;">${escHtml(t.title)}</div>
+                    <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px;">${escHtml(t.description || '')}</div>
+                    <div style="display:flex;gap:12px;font-size:0.75rem;color:var(--text-muted);">
+                        <span>发布者: ${escHtml(t.creator_name)}</span>
+                        <span>类型: ${t.task_type}</span>
+                        ${t.reward_coins ? '<span>赏金: '+t.reward_coins+'💰</span>' : ''}
+                    </div>
+                </div>
+            `).join('');
+            initReveal();
+        });
+    } else if (tab === 'my') {
+        if (!requireAuth()) return;
+        content.innerHTML = `
+            <div class="speech-bubble reveal" style="margin-bottom:20px;">
+                <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;">📝 我的恋爱档案</h3>
+                <form id="romanceForm" onsubmit="return saveRomanceProfile(event)">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div class="form-group"><label class="form-label">昵称</label><input class="input" name="nickname" placeholder="你的昵称"></div>
+                        <div class="form-group"><label class="form-label">性别</label><select class="input" name="gender"><option value="">不设置</option><option value="male">男</option><option value="female">女</option></select></div>
+                        <div class="form-group"><label class="form-label">年龄</label><input class="input" name="age" type="number" min="16" max="100"></div>
+                        <div class="form-group"><label class="form-label">院系</label><input class="input" name="department" placeholder="你的院系"></div>
+                    </div>
+                    <div class="form-group"><label class="form-label">爱好 (逗号分隔)</label><input class="input" name="hobbies" placeholder="读书,摄影,音乐"></div>
+                    <div class="form-group"><label class="form-label">期望对象</label><textarea class="input" name="looking_for" rows="2" placeholder="描述你期望的另一半..."></textarea></div>
+                    <button type="submit" class="btn btn-primary">保存档案</button>
+                </form>
+            </div>
+            <div class="speech-bubble reveal">
+                <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;">💌 收到的情报</h3>
+                <div id="myLinksList"><div class="loading">加载中</div></div>
+            </div>
+        `;
+        // Load existing profile
+        api.get('/api/romance/profile').then(p => {
+            if (p && p.nickname) {
+                const form = document.getElementById('romanceForm');
+                form.nickname.value = p.nickname || '';
+                form.gender.value = p.gender || '';
+                form.age.value = p.age || '';
+                form.department.value = p.department || '';
+                form.hobbies.value = JSON.parse(p.hobbies||'[]').join(',');
+                form.looking_for.value = p.looking_for || '';
+            }
+        });
+        api.get('/api/romance/links?direction=to').then(links => {
+            const list = document.getElementById('myLinksList');
+            if (!links.length) { list.innerHTML = '<div style="color:var(--text-muted);">暂无</div>'; return; }
+            list.innerHTML = links.map(l => `<div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.05);">💌 ${l.is_anonymous?'匿名':escHtml(l.from_name)}: ${escHtml(l.description||'...')}</div>`).join('');
+        });
+    }
+}
+
+function sendRomanceLink(uid, name) {
+    if (!requireAuth()) return;
+    const desc = prompt('给 ' + name + ' 留言（可选）:');
+    if (desc === null) return;
+    const anonymous = confirm('是否匿名发送？\n确定=匿名，取消=实名');
+    api.post('/api/romance/link', {
+        to_user_id: uid, link_type: 'crush', description: desc || '', is_anonymous: anonymous ? 1 : 0
+    }).then(() => showToast('情报发送成功！💌', 'success')).catch(e => showToast(e.message || '发送失败', 'error'));
+}
+
+function openSendLink() {
+    if (!requireAuth()) return;
+    const uid = prompt('输入对方用户ID:');
+    if (!uid) return;
+    const desc = prompt('留言:');
+    sendRomanceLink(parseInt(uid), '用户' + uid);
+}
+
+function openCreateTask() {
+    if (!requireAuth()) return;
+    const title = prompt('任务标题:');
+    if (!title) return;
+    const desc = prompt('任务描述（可选）:');
+    api.post('/api/romance/task', { title, description: desc || '', task_type: 'matchmake' })
+        .then(() => { showToast('任务发布成功！', 'success'); loadRomanceTab('tasks'); })
+        .catch(e => showToast(e.message || '发布失败', 'error'));
+}
+
+function saveRomanceProfile(e) {
+    e.preventDefault();
+    const form = e.target;
+    const hobbies = form.hobbies.value.split(',').map(h => h.trim()).filter(Boolean);
+    api.post('/api/romance/profile', {
+        nickname: form.nickname.value.trim(),
+        gender: form.gender.value,
+        age: parseInt(form.age.value) || 0,
+        department: form.department.value.trim(),
+        hobbies: hobbies,
+        looking_for: form.looking_for.value.trim()
+    }).then(() => showToast('档案保存成功！', 'success')).catch(e => showToast(e.message || '保存失败', 'error'));
+    return false;
+}
+</script>
+{% endblock %}

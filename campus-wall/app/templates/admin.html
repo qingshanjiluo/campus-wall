@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}系统后台 · 校园墙{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:1100px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">⚙️ 系统后台</h2>
+            <p class="chapter-sub">数据总览与管理</p>
+        </div>
+
+        <!-- 标签 -->
+        <div class="tag-bar reveal" id="adminTabs">
+            <span class="tag active" onclick="switchAdminTab(this,'dashboard')">📊 仪表盘</span>
+            <span class="tag" onclick="switchAdminTab(this,'users')">👥 用户管理</span>
+            <span class="tag" onclick="switchAdminTab(this,'stations')">🏫 子站管理</span>
+            <span class="tag" onclick="switchAdminTab(this,'posts')">📝 帖子管理</span>
+            <span class="tag" onclick="switchAdminTab(this,'groups')">🏷️ 身份组</span>
+            <span class="tag" onclick="switchAdminTab(this,'shop')">🎁 商城管理</span>
+            <span class="tag" onclick="switchAdminTab(this,'logs')">📋 操作日志</span>
+        </div>
+
+        <div id="adminContent"><div class="loading">加载中</div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (!currentUser || currentUser.role !== 'admin') {
+        document.getElementById('adminContent').innerHTML = '<div class="empty-state"><div class="icon">🔒</div><div class="text">需要管理员权限</div></div>';
+        return;
+    }
+    switchAdminTab(document.querySelector('#adminTabs .tag'), 'dashboard');
+});
+
+function switchAdminTab(el, tab) {
+    document.querySelectorAll('#adminTabs .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    const content = document.getElementById('adminContent');
+    content.innerHTML = '<div class="loading">加载中</div>';
+
+    if (tab === 'dashboard') {
+        api.get('/api/admin/stats').then(s => {
+            content.innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;" class="reveal">
+                    ${['users|👤 用户|'+s.users, 'stations|🏫 子站|'+s.stations, 'posts|📝 帖子|'+s.posts, 'comments|💬 评论|'+s.comments, 'today_posts|📝 今日帖子|'+s.today_posts, 'today_users|👤 今日注册|'+s.today_users].map(item => {
+                        const [key, label, val] = item.split('|');
+                        return '<div class="station-card" style="text-align:center;padding:20px;cursor:default;"><div style="font-size:1.8rem;font-weight:800;">'+val+'</div><div style="font-size:0.8rem;color:var(--text-muted);">'+label+'</div></div>';
+                    }).join('')}
+                </div>
+            `;
+            initReveal();
+        });
+    } else if (tab === 'users') {
+        api.get('/api/admin/users').then(users => {
+            content.innerHTML = `
+                <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                    <tr style="background:var(--pink-1);"><th style="padding:8px;text-align:left;">ID</th><th>用户名</th><th>角色</th><th>身份组</th><th>💰</th><th>⭐</th><th>注册时间</th><th>操作</th></tr>
+                    ${users.map(u => `
+                        <tr style="border-bottom:1px solid rgba(0,0,0,0.05);">
+                            <td style="padding:8px;">${u.id}</td>
+                            <td><a href="/profile/${u.id}">${escHtml(u.username)}</a></td>
+                            <td>${u.role}</td>
+                            <td>${escHtml(u.identity_group||'-')}</td>
+                            <td>${u.coins||0}</td>
+                            <td>${u.points||0}</td>
+                            <td style="font-size:0.7rem;">${formatTime(u.created_at)}</td>
+                            <td>
+                                <select class="input" style="width:auto;padding:2px 6px;font-size:0.75rem;" onchange="setUserRole(${u.id},this.value)">
+                                    <option value="user" ${u.role==='user'?'selected':''}>user</option>
+                                    <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+                                </select>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </table>
+                </div>
+            `;
+        });
+    } else if (tab === 'stations') {
+        api.get('/api/admin/stations').then(stations => {
+            content.innerHTML = stations.map(s => `
+                <div class="station-card" style="padding:16px;cursor:default;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:1.3rem;">${s.icon||'🏫'}</span>
+                        <strong>${escHtml(s.name)}</strong>
+                        <span style="font-size:0.7rem;color:var(--text-muted);">👥${s.user_count||0} 📝${s.post_count||0}</span>
+                    </div>
+                </div>
+            `).join('');
+        });
+    } else if (tab === 'posts') {
+        api.get('/api/admin/posts').then(posts => {
+            content.innerHTML = `
+                <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                    <tr style="background:var(--pink-1);"><th style="padding:8px;text-align:left;">ID</th><th>标题</th><th>作者</th><th>子站</th><th>置顶</th><th>操作</th></tr>
+                    ${posts.map(p => `
+                        <tr style="border-bottom:1px solid rgba(0,0,0,0.05);">
+                            <td style="padding:8px;">${p.id}</td>
+                            <td><a href="/post/${p.id}" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;">${escHtml(p.title)}</a></td>
+                            <td>${escHtml(p.author_name)}</td>
+                            <td>${escHtml(p.station_name)}</td>
+                            <td>${p.is_pinned?'📌':''}</td>
+                            <td>
+                                <button class="btn btn-ghost btn-sm" onclick="pinPost(${p.id})">${p.is_pinned?'取消置顶':'置顶'}</button>
+                                <button class="btn btn-ghost btn-sm" onclick="deletePostAdmin(${p.id})" style="color:var(--pink-4);">删除</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </table>
+                </div>
+            `;
+        });
+    } else if (tab === 'groups') {
+        api.get('/api/admin/identity-groups').then(groups => {
+            content.innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;">
+                    ${groups.map(g => `
+                        <div class="station-card" style="cursor:default;">
+                            <div style="font-size:1.5rem;text-align:center;">${g.icon}</div>
+                            <div style="font-family:'ZCOOL KuaiLe',cursive;text-align:center;">${escHtml(g.name)}</div>
+                            <div style="font-size:0.8rem;color:var(--text-secondary);text-align:center;">${escHtml(g.description)}</div>
+                            <div style="text-align:center;font-size:0.7rem;color:var(--text-muted);">最低等级: ${g.min_level}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        });
+    } else if (tab === 'shop') {
+        api.get('/api/shop/items').then(items => {
+            content.innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;">
+                    ${items.map(i => `
+                        <div class="station-card" style="cursor:default;text-align:center;">
+                            <div style="font-size:2rem;">${i.icon}</div>
+                            <div style="font-family:'ZCOOL KuaiLe',cursive;">${escHtml(i.name)}</div>
+                            <div style="font-size:0.8rem;color:var(--text-secondary);">${escHtml(i.description)}</div>
+                            <div style="font-size:0.85rem;font-weight:700;margin-top:4px;">${i.price_coins?'💰'+i.price_coins:''} ${i.price_points?'⭐'+i.price_points:''}</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);">库存: ${i.stock<0?'无限':i.stock}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        });
+    } else if (tab === 'logs') {
+        api.get('/api/admin/logs').then(logs => {
+            if (!logs.length) { content.innerHTML = '<div class="empty-state">暂无日志</div>'; return; }
+            content.innerHTML = logs.map(l => `
+                <div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.05);font-size:0.85rem;">
+                    <span style="font-weight:600;">${escHtml(l.admin_name||'系统')}</span>
+                    <span style="color:var(--pink-4);"> ${escHtml(l.action)} </span>
+                    <span style="color:var(--text-secondary);">${escHtml(l.target_type)} #${l.target_id}</span>
+                    <span style="font-size:0.7rem;color:var(--text-muted);margin-left:8px;">${formatTime(l.created_at)}</span>
+                    ${l.detail ? '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">'+escHtml(l.detail)+'</div>' : ''}
+                </div>
+            `).join('');
+        });
+    }
+}
+
+function setUserRole(uid, role) {
+    api.put('/api/admin/users/' + uid, { role }).then(() => showToast('已更新', 'success')).catch(e => showToast(e.message, 'error'));
+}
+
+function pinPost(pid) {
+    api.post('/api/admin/posts/' + pid + '/pin').then(d => showToast(d.message, 'success')).catch(e => showToast(e.message, 'error'));
+}
+
+function deletePostAdmin(pid) {
+    if (!confirm('确定删除？')) return;
+    api.delete('/api/admin/posts/' + pid).then(() => showToast('已删除', 'success')).catch(e => showToast(e.message, 'error'));
+}
+</script>
+{% endblock %}

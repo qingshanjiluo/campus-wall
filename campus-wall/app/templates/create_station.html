@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}创建子站 · 校园墙{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:500px;">
+        <div class="speech-bubble reveal" style="position:relative;">
+            <h2 class="chapter-title" style="font-size:1.5rem;margin-bottom:20px;">🏗️ 创建子站</h2>
+            <form id="createStationPageForm" onsubmit="return handleCreateStationPage(event)">
+                <div class="form-group">
+                    <label class="form-label">子站名称</label>
+                    <input class="input" type="text" name="name" placeholder="给子站起个名字" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">图标 (emoji)</label>
+                    <input class="input" type="text" name="icon" placeholder="🏫" maxlength="4" value="🏫">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">简介</label>
+                    <textarea class="input" name="description" placeholder="这个子站是做什么的？" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">标签 (逗号分隔)</label>
+                    <input class="input" type="text" name="tags" placeholder="学习,互助,考研">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">创建子站</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (!requireAuth()) return;
+});
+
+function handleCreateStationPage(e) {
+    e.preventDefault();
+    const form = e.target;
+    const tags = form.tags.value.split(',').map(t => t.trim()).filter(Boolean);
+    const data = {
+        name: form.name.value.trim(),
+        icon: form.icon.value.trim() || '🏫',
+        description: form.description.value.trim(),
+        tags: tags
+    };
+    if (!data.name) {
+        showToast('请输入子站名称');
+        return false;
+    }
+    api.post('/api/stations', data)
+        .then(res => {
+            showToast('创建成功！');
+            window.location.href = '/station/' + res.station.id;
+        })
+        .catch(err => showToast(err.message || '创建失败'));
+    return false;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}校园墙 · 连接校园 分享青春{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<section class="hero-section" id="hero">
+    <div class="giant-deco" style="top:8%;left:-8%;">★</div>
+    <div class="giant-deco" style="bottom:5%;right:-5%;color:var(--pink-2);font-size:15vw;">✦</div>
+    <h1>连接校园<br>分享青春</h1>
+    <p>创建属于你的校园墙，让每一个声音都被听见 ✨</p>
+    <div class="hero-btns">
+        <button class="btn btn-primary btn-lg" onclick="requireAuth() && openModal('createPostModal')">✍️ 发帖</button>
+        <button class="btn btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">浏览子站 ↓</button>
+    </div>
+    <div class="scroll-hint">
+        <span class="scroll-hint-text">向下滚动探索</span>
+        <div class="scroll-hint-arrow">↓</div>
+    </div>
+</section>
+
+<!-- 过渡 -->
+<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament">🌸</div></div>
+
+<!-- 子站市场 -->
+<section class="section" id="stations">
+    <div class="container" style="max-width:1100px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">子站市场</h2>
+            <p class="chapter-sub">发现更多有趣的角落，找到属于你的同好圈子</p>
+        </div>
+        <div class="search-box reveal" style="margin-bottom:24px;">
+            <span class="search-icon">🔍</span>
+            <input class="input" type="text" id="searchInput" placeholder="搜索感兴趣的子站...">
+        </div>
+        <div class="tag-bar reveal" id="tagBar">
+            <span class="tag active" onclick="filterByTag(this, '')">🔥 全部</span>
+            <span class="tag" onclick="filterByTag(this, '情感')">💌 情感</span>
+            <span class="tag" onclick="filterByTag(this, '学习')">📚 学习</span>
+            <span class="tag" onclick="filterByTag(this, '美食')">🍜 美食</span>
+            <span class="tag" onclick="filterByTag(this, '摄影')">📸 摄影</span>
+            <span class="tag" onclick="filterByTag(this, '运动')">🏃 运动</span>
+            <span class="tag" onclick="filterByTag(this, '音乐')">🎵 音乐</span>
+            <span class="tag" onclick="filterByTag(this, '社团')">🎉 社团</span>
+        </div>
+        <div id="stationGrid" class="station-grid">
+            <div class="loading">加载中</div>
+        </div>
+    </div>
+</section>
+
+<!-- 过渡 -->
+<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament" style="animation-delay:-1.5s;">🍃</div></div>
+
+<!-- 最新动态 -->
+<section class="section" id="posts" style="padding-bottom:100px;">
+    <div class="container" style="max-width:800px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">最新动态</h2>
+            <p class="chapter-sub">看看大家都在聊些什么</p>
+        </div>
+        <div class="tag-bar reveal" id="postSortBar">
+            <span class="tag active" onclick="sortPosts(this, 'newest')">✨ 最新</span>
+            <span class="tag" onclick="sortPosts(this, 'popular')">🔥 热门</span>
+            <span class="tag" onclick="sortPosts(this, 'comments')">💬 最多评论</span>
+        </div>
+        <div id="postList">
+            <div class="loading">加载中</div>
+        </div>
+        <div style="text-align:center;margin-top:32px;">
+            <button class="btn" id="loadMoreBtn" onclick="loadMorePosts()" style="display:none;">加载更多 ↓</button>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentPostSort = 'newest';
+let postOffset = 0;
+const postLimit = 10;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadStations();
+    loadPosts();
+    debouncedSearch('searchInput', function(q) {
+        if (!q) { loadStations(); return; }
+        api.get('/api/stations/search?q=' + encodeURIComponent(q)).then(data => renderStations(data)).catch(() => showToast('搜索失败','error'));
+    });
+    document.addEventListener('postCreated', () => loadPosts());
+});
+
+function loadStations(tag) {
+    const grid = document.getElementById('stationGrid');
+    grid.innerHTML = '<div class="loading">加载中</div>';
+    let url = '/api/stations?limit=20';
+    if (tag) url += '&tag=' + encodeURIComponent(tag);
+    api.get(url)
+        .then(data => renderStations(data))
+        .catch(() => grid.innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">加载失败，刷新试试</div></div>');
+}
+
+function renderStations(stations) {
+    const grid = document.getElementById('stationGrid');
+    if (!stations || stations.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><div class="icon">🏗️</div><div class="text">还没有子站，来创建第一个吧！</div></div>';
+        return;
+    }
+    grid.innerHTML = stations.map(s => `
+        <div class="station-card reveal" onclick="window.location.href='/station/${s.id}'">
+            <div class="station-card-header">
+                <div class="station-icon">${s.icon || '🏫'}</div>
+                <div class="name">${escHtml(s.name)}</div>
+            </div>
+            <div class="desc">${escHtml(s.description || '暂无简介')}</div>
+            <div class="tags">${(s.tags||[]).map(t => '<span class="tag">#'+escHtml(t)+'</span>').join('')}</div>
+            <div class="meta">
+                <span>👥 ${s.user_count||0}</span>
+                <span>📝 ${s.post_count||0}</span>
+            </div>
+        </div>
+    `).join('');
+    initReveal();
+}
+
+function filterByTag(el, tag) {
+    document.querySelectorAll('#tagBar .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    loadStations(tag);
+}
+
+
+
+function loadPosts(append) {
+    if (!append) postOffset = 0;
+    const list = document.getElementById('postList');
+    if (!append) list.innerHTML = '<div class="loading">加载中</div>';
+    api.get(`/api/posts?limit=${postLimit}&offset=${postOffset}&sort=${currentPostSort}`)
+        .then(data => {
+            renderPosts(data.posts, append);
+            const btn = document.getElementById('loadMoreBtn');
+            if (data.posts.length >= postLimit) {
+                btn.style.display = '';
+                postOffset += postLimit;
+            } else {
+                btn.style.display = 'none';
+            }
+        })
+        .catch(() => { if (!append) list.innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">加载失败</div></div>'; });
+}
+
+function renderPosts(posts, append) {
+    const list = document.getElementById('postList');
+    if (!posts || posts.length === 0) {
+        if (!append) list.innerHTML = '<div class="empty-state"><div class="icon">📝</div><div class="text">还没有帖子，来发第一帖吧！</div></div>';
+        return;
+    }
+    const html = posts.map(p => renderPostCard(p)).join('');
+    if (append) {
+        list.insertAdjacentHTML('beforeend', html);
+    } else {
+        list.innerHTML = html;
+    }
+    initReveal();
+}
+
+function renderPostCard(p) {
+    const time = formatTime(p.created_at);
+    return `
+        <article class="post-card reveal" onclick="window.location.href='/post/${p.id}'">
+            <div class="post-header">
+                <img class="post-avatar" src="${p.author_avatar || '/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
+                <div class="post-meta">
+                    <div class="post-author">${escHtml(p.author_name)}</div>
+                    <div class="post-time">${time}</div>
+                </div>
+                <span class="post-station">${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
+            </div>
+            <div class="post-title">${escHtml(p.title)}</div>
+            <div class="post-content">${escHtml(p.content || '')}</div>
+            <div class="post-actions">
+                <button class="post-action ${p.is_liked?'liked':''}" onclick="event.stopPropagation();toggleLike(${p.id},this)">
+                    <span class="icon">${p.is_liked?'❤️':'🤍'}</span> ${p.likes_count||0}
+                </button>
+                <span class="post-action"><span class="icon">💬</span> ${p.comments_count||0}</span>
+                <span class="post-action"><span class="icon">👁️</span> ${p.views||0}</span>
+            </div>
+        </article>
+    `;
+}
+
+function sortPosts(el, sort) {
+    document.querySelectorAll('#postSortBar .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentPostSort = sort;
+    loadPosts();
+}
+
+function loadMorePosts() {
+    loadPosts(true);
+}
+</script>
+{% endblock %}

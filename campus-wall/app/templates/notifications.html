@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}通知 · 校园墙{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:700px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">🔔 通知</h2>
+            <p class="chapter-sub">看看谁给你发来了消息</p>
+        </div>
+        <div style="margin-bottom:16px;text-align:right;">
+            <button class="btn btn-sm" onclick="markAllRead()">全部标为已读</button>
+        </div>
+        <div id="notifList"><div class="loading">加载中</div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (!requireAuth()) return;
+    loadNotifications();
+});
+
+function loadNotifications() {
+    api.get('/api/social/notifications?limit=50')
+        .then(data => renderNotifications(data.notifications))
+        .catch(() => document.getElementById('notifList').innerHTML = '<div class="loading">加载失败</div>');
+}
+
+function renderNotifications(notifs) {
+    const list = document.getElementById('notifList');
+    if (!notifs || notifs.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="icon">🔔</div><div class="text">暂无通知</div></div>';
+        return;
+    }
+    list.innerHTML = notifs.map(n => {
+        const icon = n.type === 'like' ? '❤️' : n.type === 'comment' ? '💬' : n.type === 'follow' ? '👤' : '🔔';
+        return `
+            <div class="post-card" style="padding:16px;${n.is_read?'':'border-left:3px solid var(--pink-4);'}" onclick="${n.link?'window.location.href=\''+escHtml(n.link)+'\'':''}">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="font-size:1.3rem;">${icon}</span>
+                    <div style="flex:1;">
+                        <div style="font-size:0.9rem;">${escHtml(n.content)}</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${formatTime(n.created_at)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function markAllRead() {
+    api.post('/api/social/notifications/read')
+        .then(() => { showToast('已全部标记已读'); loadNotifications(); updateNotifBadge(); })
+        .catch(() => showToast('操作失败'));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校园墙 · CampusWall</title>
+    <!-- Google Fonts: 圆润可爱的圆体 + 手写感字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@300;400;500;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- GSAP for smooth scroll animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    
+    <style>
+        :root {
+            /* 色彩系统：温暖、柔和、有"被阳光晒过的纸张"质感 */
+            --cream: #FFF8F0;
+            --warm-white: #FFFBF5;
+            --sunset-pink: #FFB5BA;
+            --sunset-orange: #FFD6A5;
+            --sunset-yellow: #FDFFB6;
+            --soft-lavender: #E2D5F5;
+            --soft-blue: #C9E4F5;
+            --soft-mint: #B5EAD7;
+            --text-primary: #4A3F35;
+            --text-secondary: #8B7D6B;
+            --text-muted: #B8A99A;
+            --glass-bg: rgba(255, 251, 245, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.8);
+            --shadow-soft: 0 8px 32px rgba(139, 125, 107, 0.12);
+            --shadow-hover: 0 12px 40px rgba(139, 125, 107, 0.18);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', 'Nunito', sans-serif;
+            background: var(--cream);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* ============================================
+           背景层：多层视差 + 手绘斑点装饰
+           营造"阳光透过百叶窗洒在桌面上"的空间感
+           ============================================ */
+        .bg-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 最底层：柔和的渐变光晕，缓慢浮动 */
+        .bg-glow {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float-glow 20s ease-in-out infinite;
+        }
+
+        .bg-glow-1 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--sunset-pink) 0%, transparent 70%);
+            top: -10%;
+            left: -5%;
+            animation-delay: 0s;
+        }
+
+        .bg-glow-2 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--soft-lavender) 0%, transparent 70%);
+            top: 30%;
+            right: -10%;
+            animation-delay: -7s;
+        }
+
+        .bg-glow-3 {
+            width: 450px;
+            height: 450px;
+            background: radial-gradient(circle, var(--sunset-orange) 0%, transparent 70%);
+            bottom: 10%;
+            left: 20%;
+            animation-delay: -14s;
+        }
+
+        @keyframes float-glow {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -20px) scale(1.1); }
+            66% { transform: translate(-20px, 30px) scale(0.95); }
+        }
+
+        /* 中景：手绘水彩斑点，使用SVG实现"手作温度" */
+        .bg-splatter {
+            position: absolute;
+            opacity: 0.15;
+            animation: drift 30s ease-in-out infinite;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(20px, -15px) rotate(5deg); }
+        }
+
+        /* 前景：微妙的纸张纹理 */
+        .paper-texture {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.6;
+        }
+
+        /* ============================================
+           加载动画：序列式"进入感"
+           模拟Galgame开场文本逐字浮现
+           ============================================ */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--cream);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1s ease, visibility 1s ease;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-logo {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 3rem;
+            color: var(--text-primary);
+            margin-bottom: 2rem;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .loading-text {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            opacity: 0;
+        }
+
+        .loading-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background: var(--sunset-pink);
+            margin-left: 4px;
+            animation: blink 0.8s step-end infinite;
+            vertical-align: text-bottom;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* ============================================
+           导航栏：毛玻璃 + 手绘圆角
+           ============================================ */
+        .navbar {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(1.2);
+            -webkit-backdrop-filter: blur(20px) saturate(1.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 12px 32px;
+            box-shadow: var(--shadow-soft);
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            opacity: 0;
+            transform: translateX(-50%) translateY(-20px);
+        }
+
+        .nav-logo {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 1.4rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--sunset-pink), var(--sunset-orange));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            transform: rotate(-3deg);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--sunset-pink), var(--sunset-orange));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        /* ============================================
+           主内容区
+           ============================================ */
+        .main-content {
+            position: relative;
+            z-index: 2;
+            padding-top: 100px;
+        }
+
+        .section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            position: relative;
+        }
+
+        /* ============================================
+           场景一：个人中心概览
+           Galgame式章节布局 + 毛玻璃卡片
+           ============================================ */
+        .profile-section {
+            background: transparent;
+        }
+
+        .profile-container {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 220px 1fr 320px;
+            gap: 32px;
+            align-items: start;
+        }
+
+        /* 侧边导航：手绘质感 + 像素装饰 */
+        .side-nav {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px 16px;
+            box-shadow: var(--shadow-soft);
+            position: sticky;
+            top: 100px;
+        }
+
+        .side-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .side-nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 0;
+            background: linear-gradient(180deg, var(--sunset-pink), var(--sunset-orange));
+            border-radius: 2px;
+            transition: height 0.3s ease;
+        }
+
+        .side-nav-item:hover, .side-nav-item.active {
+            background: rgba(255, 181, 186, 0.15);
+            color: var(--text-primary);
+        }
+
+        .side-nav-item:hover::before, .side-nav-item.active::before {
+            height: 60%;
+        }
+
+        .side-nav-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        /* 中间内容区：章节式布局 */
+        .profile-main {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .chapter-header {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 2rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chapter-header::before {
+            content: '✦';
+            color: var(--sunset-pink);
+            font-size: 1.2rem;
+        }
+
+        .chapter-sub {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* 子站卡片：不规则边框 + 悬浮效果 */
+        .subsite-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .subsite-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: var(--shadow-soft);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .subsite-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 181, 186, 0.2) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .subsite-card:hover {
+            transform: translateY(-8px) rotate(-1deg);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .subsite-card:hover::after {
+            opacity: 1;
+        }
+
+        .subsite-card:nth-child(2):hover {
+            transform: translateY(-8px) rotate(1deg);
+        }
+
+        .subsite-card:nth-child(3):hover {
+            transform: translateY(-8px) rotate(-0.5deg);
+        }
+
+        .subsite-cover {
+            width: 100%;
+            height: 120px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--soft-lavender), var(--soft-blue));
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .subsite-cover::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='rgba(255,255,255,0.3)'/%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+
+        .subsite-name {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+
+        .subsite-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* 右侧个人信息：头像 + 对话气泡式简介 */
+        .profile-sidebar {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 32px 24px;
+            box-shadow: var(--shadow-soft);
+            text-align: center;
+            position: sticky;
+            top: 100px;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+        }
+
+        .avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 20px rgba(139, 125, 107, 0.2);
+        }
+
+        .avatar-ring {
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+            border: 2px dashed var(--sunset-pink);
+            border-radius: 50%;
+            animation: spin-slow 20s linear infinite;
+            opacity: 0.6;
+        }
+
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .profile-name {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .profile-bio {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 16px;
+            margin-top: 16px;
+            position: relative;
+        }
+
+        .profile-bio::before {
+            content: '"';
+            position: absolute;
+            top: -8px;
+            left: 12px;
+            font-size: 2rem;
+            color: var(--sunset-pink);
+            opacity: 0.5;
+            font-family: serif;
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-num {
+            font-family: 'Nunito', sans-serif;
+            font-weight: 800;
+            font-size: 1.3rem;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* ============================================
+           场景二：子站市场
+           搜索框 + 分类标签 + 卡片网格
+           ============================================ */
+        .market-section {
+            background: transparent;
+        }
+
+        .market-container {
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        .market-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .market-title {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 2.5rem;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .market-subtitle {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+
+        /* 搜索框：手绘风格 */
+        .search-box {
+            max-width: 500px;
+            margin: 0 auto 32px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 24px 16px 52px;
+            border: 2px solid rgba(255, 181, 186, 0.3);
+            border-radius: 24px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            font-family: 'Noto Sans SC', sans-serif;
+            font-size: 1rem;
+            color: var(--text-primary);
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .search-input:focus {
+            border-color: var(--sunset-pink);
+            box-shadow: 0 0 0 4px rgba(255, 181, 186, 0.15), var(--shadow-soft);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        /* 分类标签：胶囊式 + 手绘感 */
+        .tag-bar {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 10px 24px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 2px solid transparent;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .tag:hover {
+            background: rgba(255, 181, 186, 0.2);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        .tag.active {
+            background: linear-gradient(135deg, var(--sunset-pink), var(--sunset-orange));
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 16px rgba(255, 181, 186, 0.4);
+        }
+
+        /* 市场卡片：更大的封面 + 标签 */
+        .market-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+        }
+
+        .market-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: var(--shadow-soft);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+        }
+
+        .market-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .market-cover {
+            width: 100%;
+            height: 180px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .market-cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+        }
+
+        .market-card:hover .market-cover-img {
+            transform: scale(1.1);
+        }
+
+        .market-cover-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60%;
+            background: linear-gradient(to top, rgba(74, 63, 53, 0.6), transparent);
+        }
+
+        .market-card-body {
+            padding: 20px;
+        }
+
+        .market-card-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .market-card-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .market-card-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .market-card-tag {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            background: rgba(255, 181, 186, 0.2);
+            color: var(--sunset-pink);
+            font-weight: 500;
+        }
+
+        /* ============================================
+           场景三：帖子列表
+           对话气泡式布局 + 手绘装饰线
+           ============================================ */
+        .feed-section {
+            background: transparent;
+            padding-bottom: 120px;
+        }
+
+        .feed-container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .feed-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .feed-title {
+            font-family: 'ZCOOL KuaiLe', cursive;
+            font-size: 2.2rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .feed-subtitle {
+            font-family: 'Ma Shan Zheng', cursive;
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+        }
+
+        /* 子站信息头 */
+        .feed-community {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px 32px;
+            margin-bottom: 32px;
+            box-shadow: var(--shadow-soft);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .feed-community-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--soft-mint), var(--soft-blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .feed-community-info h3 {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+        }
+
+        .feed-community-info p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* 帖子卡片：对话气泡式设计 */
+        .post-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 28px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-soft);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .post-card:hover {
+            transform: translateX(4px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        /* 手绘对话气泡引线——最满意的细节 */
+        .post-bubble-line {
+            position: absolute;
+            left: -20px;
+            top: 40px;
+            width: 20px;
+            height: 30px;
+        }
+
+        .post-bubble-line svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .post-bubble-line path {
+            fill: none;
+            stroke: var(--sunset-pink);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-dasharray: 60;
+            stroke-dashoffset: 60;
+            animation: draw-line 1s ease forwards;
+        }
+
+        @keyframes draw-line {
+            to { stroke-dashoffset: 0; }
+        }
+
+        .post-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .post-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .post-meta {
+            flex: 1;
+        }
+
+        .post-author {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+
+        .post-time {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .post-title {
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .post-preview {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 16px;
+        }
+
+        .post-image {
+            width: 100%;
+            height: 200px;
+            border-radius: 16px;
+            object-fit: cover;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--soft-lavender), var(--soft-blue));
+        }
+
+        .post-actions {
+            display: flex;
+            gap: 24px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(139, 125, 107, 0.1);
+        }
+
+        .post-action {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .post-action:hover {
+            color: var(--sunset-pink);
+        }
+
+        .post-action-icon {
+            font-size: 1.1rem;
+        }
+
+        /* ============================================
+           页脚
+           ============================================ */
+        .footer {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .footer-heart {
+            color: var(--sunset-pink);
+            animation: heartbeat 1.5s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        /* ============================================
+           过渡装饰元素
+           ============================================ */
+        .section-divider {
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .divider-line {
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, var(--sunset-pink), var(--sunset-orange), transparent);
+            opacity: 0.3;
+        }
+
+        .divider-ornament {
+            position: absolute;
+            font-size: 2rem;
+            color: var(--sunset-pink);
+            opacity: 0.4;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* ============================================
+           滚动指示器
+           ============================================ */
+        .scroll-hint {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.6;
+            animation: fade-out 1s ease 4s forwards;
+            pointer-events: none;
+        }
+
+        .scroll-hint-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+
+        .scroll-hint-arrow {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--sunset-pink);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-8px); }
+            60% { transform: translateY(-4px); }
+        }
+
+        @keyframes fade-out {
+            to { opacity: 0; }
+        }
+
+        /* ============================================
+           响应式适配
+           ============================================ */
+        @media (max-width: 1024px) {
+            .profile-container {
+                grid-template-columns: 1fr;
+            }
+
+            .side-nav, .profile-sidebar {
+                position: static;
+            }
+
+            .subsite-grid, .market-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .navbar {
+                padding: 10px 20px;
+                gap: 16px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .subsite-grid, .market-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .market-title, .feed-title {
+                font-size: 1.8rem;
+            }
+
+            .section {
+                padding: 40px 16px;
+            }
+
+            .post-bubble-line {
+                display: none;
+            }
+        }
+
+        /* 隐藏类，用于JS控制 */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载动画 -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-logo">校园墙</div>
+        <div class="loading-text" id="loadingText"></div>
+    </div>
+
+    <!-- 背景层 -->
+    <div class="bg-layer">
+        <div class="bg-glow bg-glow-1"></div>
+        <div class="bg-glow bg-glow-2"></div>
+        <div class="bg-glow bg-glow-3"></div>
+        <!-- 手绘水彩斑点 SVG -->
+        <svg class="bg-splatter" style="top: 15%; left: 8%; width: 120px;" viewBox="0 0 100 100">
+            <path d="M50 10 C30 10, 10 30, 10 50 C10 75, 30 90, 50 90 C75 90, 90 70, 90 50 C90 25, 70 10, 50 10" fill="var(--sunset-pink)" opacity="0.3"/>
+        </svg>
+        <svg class="bg-splatter" style="top: 60%; right: 12%; width: 100px; animation-delay: -10s;" viewBox="0 0 100 100">
+            <path d="M50 5 C25 5, 5 25, 5 50 C5 80, 25 95, 50 95 C80 95, 95 75, 95 50 C95 20, 75 5, 50 5" fill="var(--soft-lavender)" opacity="0.25"/>
+        </svg>
+        <svg class="bg-splatter" style="bottom: 20%; left: 15%; width: 80px; animation-delay: -5s;" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="40" fill="var(--sunset-orange)" opacity="0.2"/>
+        </svg>
+    </div>
+
+    <!-- 纸张纹理 -->
+    <div class="paper-texture"></div>
+
+    <!-- 导航栏 -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-logo">
+            <div class="nav-logo-icon">🏫</div>
+            <span>校园墙</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#profile">个人中心</a></li>
+            <li><a href="#market">子站市场</a></li>
+            <li><a href="#feed">帖子列表</a></li>
+        </ul>
+    </nav>
+
+    <!-- 滚动提示 -->
+    <div class="scroll-hint" id="scrollHint">
+        <span class="scroll-hint-text">向下滚动探索</span>
+        <div class="scroll-hint-arrow">↓</div>
+    </div>
+
+    <!-- 主内容 -->
+    <main class="main-content">
+        <!-- 场景一：个人中心概览 -->
+        <section class="section profile-section" id="profile">
+            <div class="profile-container">
+                <!-- 侧边导航 -->
+                <aside class="side-nav reveal">
+                    <div class="side-nav-item active">
+                        <div class="side-nav-icon" style="background: rgba(255,181,186,0.3);">👤</div>
+                        <span>我的子站</span>
+                    </div>
+                    <div class="side-nav-item">
+                        <div class="side-nav-icon" style="background: rgba(201,228,245,0.3);">🔍</div>
+                        <span>探索发现</span>
+                    </div>
+                    <div class="side-nav-item">
+                        <div class="side-nav-icon" style="background: rgba(226,213,245,0.3);">💬</div>
+                        <span>消息通知</span>
+                    </div>
+                    <div class="side-nav-item">
+                        <div class="side-nav-icon" style="background: rgba(255,214,165,0.3);">⭐</div>
+                        <span>收藏</span>
+                    </div>
+                    <div class="side-nav-item">
+                        <div class="side-nav-icon" style="background: rgba(181,234,215,0.3);">⚙️</div>
+                        <span>设置</span>
+                    </div>
+                </aside>
+
+                <!-- 中间内容 -->
+                <div class="profile-main">
+                    <div class="reveal">
+                        <h2 class="chapter-header">第一章 · 我的空间</h2>
+                        <p class="chapter-sub">这里是属于你的小天地，记录下每一个发光的瞬间 ✨</p>
+                    </div>
+                    
+                    <div class="subsite-grid">
+                        <div class="subsite-card reveal">
+                            <div class="subsite-cover" style="background: linear-gradient(135deg, #FFB5BA, #FFD6A5);"></div>
+                            <div class="subsite-name">📚 自习室打卡</div>
+                            <div class="subsite-desc">每天进步一点点，和小伙伴们一起监督学习</div>
+                        </div>
+                        <div class="subsite-card reveal">
+                            <div class="subsite-cover" style="background: linear-gradient(135deg, #C9E4F5, #E2D5F5);"></div>
+                            <div class="subsite-name">🎨 随手拍</div>
+                            <div class="subsite-desc">校园里的每一帧风景，都值得被记录</div>
+                        </div>
+                        <div class="subsite-card reveal">
+                            <div class="subsite-cover" style="background: linear-gradient(135deg, #B5EAD7, #C9E4F5);"></div>
+                            <div class="subsite-name">🍜 食堂测评</div>
+                            <div class="subsite-desc">干饭人的日常，今天吃什么好呢？</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧个人信息 -->
+                <aside class="profile-sidebar reveal">
+                    <div class="avatar-container">
+                        <div class="avatar-ring"></div>
+                        <img src="https://picsum.photos/seed/avatar1/200/200" alt="头像" class="avatar">
+                    </div>
+                    <div class="profile-name">小橘子 🍊</div>
+                    <div class="profile-bio">
+                        大二中文系 / 喜欢拍照和写随笔<br>
+                        相信每一天都值得被温柔对待
+                    </div>
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <div class="stat-num">128</div>
+                            <div class="stat-label">帖子</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-num">342</div>
+                            <div class="stat-label">关注</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-num">89</div>
+                            <div class="stat-label">粉丝</div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <!-- 过渡装饰 -->
+        <div class="section-divider">
+            <div class="divider-line"></div>
+            <div class="divider-ornament">🌸</div>
+        </div>
+
+        <!-- 场景二：子站市场 -->
+        <section class="section market-section" id="market">
+            <div class="market-container">
+                <div class="market-header reveal">
+                    <h2 class="market-title">子站市场</h2>
+                    <p class="market-subtitle">发现更多有趣的角落，找到属于你的同好圈子</p>
+                </div>
+
+                <div class="search-box reveal">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="搜索感兴趣的子站...">
+                </div>
+
+                <div class="tag-bar reveal">
+                    <div class="tag active">🔥 热门</div>
+                    <div class="tag">✨ 最新</div>
+                    <div class="tag">💎 推荐</div>
+                    <div class="tag">📚 学习</div>
+                    <div class="tag">🎮 游戏</div>
+                    <div class="tag">🎵 音乐</div>
+                </div>
+
+                <div class="market-grid">
+                    <div class="market-card reveal">
+                        <div class="market-cover">
+                            <img src="https://picsum.photos/seed/market1/400/300" alt="" class="market-cover-img">
+                            <div class="market-cover-overlay"></div>
+                        </div>
+                        <div class="market-card-body">
+                            <div class="market-card-title">🌙 深夜树洞</div>
+                            <div class="market-card-desc">那些说不出口的话，在这里都可以悄悄说</div>
+                            <div class="market-card-tags">
+                                <span class="market-card-tag">情感</span>
+                                <span class="market-card-tag">匿名</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="market-card reveal">
+                        <div class="market-cover">
+                            <img src="https://picsum.photos/seed/market2/400/300" alt="" class="market-cover-img">
+                            <div class="market-cover-overlay"></div>
+                        </div>
+                        <div class="market-card-body">
+                            <div class="market-card-title">🏃 晨跑打卡</div>
+                            <div class="market-card-desc">早起的人先享受世界，一起拥抱清晨的阳光</div>
+                            <div class="market-card-tags">
+                                <span class="market-card-tag">运动</span>
+                                <span class="market-card-tag">打卡</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="market-card reveal">
+                        <div class="market-cover">
+                            <img src="https://picsum.photos/seed/market3/400/300" alt="" class="market-cover-img">
+                            <div class="market-cover-overlay"></div>
+                        </div>
+                        <div class="market-card-body">
+                            <div class="market-card-title">🎬 电影放映室</div>
+                            <div class="market-card-desc">周末一起看电影，分享那些触动心灵的瞬间</div>
+                            <div class="market-card-tags">
+                                <span class="market-card-tag">影视</span>
+                                <span class="market-card-tag">讨论</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="market-card reveal">
+                        <div class="market-cover">
+                            <img src="https://picsum.photos/seed/market4/400/300" alt="" class="market-cover-img">
+                            <div class="market-cover-overlay"></div>
+                        </div>
+                        <div class="market-card-body">
+                            <div class="market-card-title">🐱 校园猫咪图鉴</div>
+                            <div class="market-card-desc">记录校园里每一只毛茸茸的小可爱</div>
+                            <div class="market-card-tags">
+                                <span class="market-card-tag">萌宠</span>
+                                <span class="market-card-tag">摄影</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="market-card reveal">
+                        <div class="market-cover">
+                            <img src="https://picsum.photos/seed/market5/400/300" alt="" class="market-cover-img">
+                            <div class="market-cover-overlay"></div>
+                        </div>
+                        <div class="market-card-body">
+                            <div class="market-card-title">📝 考研互助站</div>
+                            <div class="market-card-desc">资料共享、经验交流，我们一起上岸</div>
+                            <div class="market-card-tags">
+                                <span class="market-card-tag">学习</span>
+                                <span class="market-card-tag">互助</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="market-card reveal">
+                        <div class="market-cover">
+                            <img src="https://picsum.photos/seed/market6/400/300" alt="" class="market-cover-img">
+                            <div class="market-cover-overlay"></div>
+                        </div>
+                        <div class="market-card-body">
+                            <div class="market-card-title">🎸 吉他社</div>
+                            <div class="market-card-desc">用音乐连接彼此，弹唱我们的青春</div>
+                            <div class="market-card-tags">
+                                <span class="market-card-tag">音乐</span>
+                                <span class="market-card-tag">社团</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 过渡装饰 -->
+        <div class="section-divider">
+            <div class="divider-line"></div>
+            <div class="divider-ornament" style="animation-delay: -1.5s;">🍃</div>
+        </div>
+
+        <!-- 场景三：帖子列表 -->
+        <section class="section feed-section" id="feed">
+            <div class="feed-container">
+                <div class="feed-header reveal">
+                    <h2 class="feed-title">最新动态</h2>
+                    <p class="feed-subtitle">看看大家都在聊些什么</p>
+                </div>
+
+                <div class="feed-community reveal">
+                    <div class="feed-community-avatar">📸</div>
+                    <div class="feed-community-info">
+                        <h3>随手拍</h3>
+                        <p>校园里的每一帧风景，都值得被记录 · 1.2k 成员</p>
+                    </div>
+                </div>
+
+                <!-- 帖子1 -->
+                <article class="post-card reveal">
+                    <div class="post-bubble-line">
+                        <svg viewBox="0 0 20 30">
+                            <path d="M20 5 Q5 5, 5 15 Q5 25, 20 25" />
+                        </svg>
+                    </div>
+                    <div class="post-header">
+                        <img src="https://picsum.photos/seed/user1/100/100" alt="" class="post-avatar">
+                        <div class="post-meta">
+                            <div class="post-author">林小夏</div>
+                            <div class="post-time">2小时前 · 随手拍</div>
+                        </div>
+                    </div>
+                    <h3 class="post-title">图书馆窗外的夕阳，今天也超美 🌅</h3>
+                    <p class="post-preview">
+                        下午在图书馆自习，一抬头就被窗外的景色惊艳到了。金色的阳光洒在银杏树上，整个画面像是一幅油画。忍不住放下笔，静静地看了好一会儿...
+                    </p>
+                    <div class="post-image" style="background: linear-gradient(135deg, #FFD6A5, #FFB5BA);"></div>
+                    <div class="post-actions">
+                        <div class="post-action">
+                            <span class="post-action-icon">❤️</span>
+                            <span>128</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">💬</span>
+                            <span>23</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">⭐</span>
+                            <span>收藏</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">↗️</span>
+                            <span>分享</span>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- 帖子2 -->
+                <article class="post-card reveal">
+                    <div class="post-bubble-line">
+                        <svg viewBox="0 0 20 30">
+                            <path d="M20 5 Q5 5, 5 15 Q5 25, 20 25" />
+                        </svg>
+                    </div>
+                    <div class="post-header">
+                        <img src="https://picsum.photos/seed/user2/100/100" alt="" class="post-avatar">
+                        <div class="post-meta">
+                            <div class="post-author">阿杰学长</div>
+                            <div class="post-time">5小时前 · 自习室打卡</div>
+                        </div>
+                    </div>
+                    <h3 class="post-title">Day 30 | 坚持一个月啦！</h3>
+                    <p class="post-preview">
+                        从开学到现在，整整30天没有间断过自习打卡。虽然有时候真的很想躺平，但看到打卡记录里满满的一页，就觉得一切都值得。明天继续加油！
+                    </p>
+                    <div class="post-actions">
+                        <div class="post-action">
+                            <span class="post-action-icon">❤️</span>
+                            <span>256</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">💬</span>
+                            <span>45</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">⭐</span>
+                            <span>收藏</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">↗️</span>
+                            <span>分享</span>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- 帖子3 -->
+                <article class="post-card reveal">
+                    <div class="post-bubble-line">
+                        <svg viewBox="0 0 20 30">
+                            <path d="M20 5 Q5 5, 5 15 Q5 25, 20 25" />
+                        </svg>
+                    </div>
+                    <div class="post-header">
+                        <img src="https://picsum.photos/seed/user3/100/100" alt="" class="post-avatar">
+                        <div class="post-meta">
+                            <div class="post-author">食堂探险家</div>
+                            <div class="post-time">昨天 · 食堂测评</div>
+                        </div>
+                    </div>
+                    <h3 class="post-title">二食堂新出的麻辣香锅，测评来了！</h3>
+                    <p class="post-preview">
+                        今天终于排到了二食堂新开的麻辣香锅窗口！食材很新鲜，辣度可以自选，我点了中辣感觉刚刚好。唯一的小缺点是排队时间有点长，建议避开高峰期去。
+                    </p>
+                    <div class="post-image" style="background: linear-gradient(135deg, #B5EAD7, #C9E4F5);"></div>
+                    <div class="post-actions">
+                        <div class="post-action">
+                            <span class="post-action-icon">❤️</span>
+                            <span>89</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">💬</span>
+                            <span>67</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">⭐</span>
+                            <span>收藏</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">↗️</span>
+                            <span>分享</span>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- 帖子4 -->
+                <article class="post-card reveal">
+                    <div class="post-bubble-line">
+                        <svg viewBox="0 0 20 30">
+                            <path d="M20 5 Q5 5, 5 15 Q5 25, 20 25" />
+                        </svg>
+                    </div>
+                    <div class="post-header">
+                        <img src="https://picsum.photos/seed/user4/100/100" alt="" class="post-avatar">
+                        <div class="post-meta">
+                            <div class="post-author">夜空观测者</div>
+                            <div class="post-time">2天前 · 天文社</div>
+                        </div>
+                    </div>
+                    <h3 class="post-title">今晚有流星雨！观测指南请收好 ✨</h3>
+                    <p class="post-preview">
+                        英仙座流星雨今晚达到极大值，预计每小时可见60颗左右。最佳观测时间是凌晨2点到4点，建议去操场或者天台，记得带一件外套，晚上有点凉。
+                    </p>
+                    <div class="post-actions">
+                        <div class="post-action">
+                            <span class="post-action-icon">❤️</span>
+                            <span>412</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">💬</span>
+                            <span>89</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">⭐</span>
+                            <span>收藏</span>
+                        </div>
+                        <div class="post-action">
+                            <span class="post-action-icon">↗️</span>
+                            <span>分享</span>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- 页脚 -->
+        <footer class="footer">
+            <p>Made with <span class="footer-heart">❤</span> for every student · 校园墙 CampusWall</p>
+            <p style="margin-top: 8px; font-size: 0.75rem;">这是一个温暖的、属于年轻人的校园社区</p>
+        </footer>
+    </main>
+
+    <script>
+        // ============================================
+        // 加载动画：序列式打字机效果
+        // 模拟Galgame开场时的文本逐字浮现
+        // ============================================
+        const loadingTexts = [
+            "正在打开社团活动室的门...",
+            "阳光透过百叶窗洒了进来...",
+            "欢迎来到校园墙 ✨"
+        ];
+        
+        let textIndex = 0;
+        let charIndex = 0;
+        const loadingTextEl = document.getElementById('loadingText');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingLogo = document.querySelector('.loading-logo');
+
+        // 显示Logo
+        setTimeout(() => {
+            loadingLogo.style.transition = 'all 0.8s ease';
+            loadingLogo.style.opacity = '1';
+            loadingLogo.style.transform = 'translateY(0)';
+        }, 300);
+
+        // 打字机效果
+        function typeWriter() {
+            if (textIndex < loadingTexts.length) {
+                if (charIndex < loadingTexts[textIndex].length) {
+                    loadingTextEl.innerHTML = loadingTexts[textIndex].substring(0, charIndex + 1) + '<span class="loading-cursor"></span>';
+                    loadingTextEl.style.opacity = '1';
+                    charIndex++;
+                    setTimeout(typeWriter, 60);
+                } else {
+                    setTimeout(() => {
+                        textIndex++;
+                        charIndex = 0;
+                        if (textIndex < loadingTexts.length) {
+                            typeWriter();
+                        } else {
+                            // 加载完成，淡出
+                            setTimeout(() => {
+                                loadingScreen.classList.add('hidden');
+                                initAnimations();
+                            }, 800);
+                        }
+                    }, 600);
+                }
+            }
+        }
+
+        setTimeout(typeWriter, 1200);
+
+        // ============================================
+        // GSAP 滚动动画
+        // 所有.reveal元素在滚动进入视口时触发淡入上浮
+        // ============================================
+        function initAnimations() {
+            // 导航栏入场
+            gsap.to('#navbar', {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: 'power2.out'
+            });
+
+            // 注册ScrollTrigger
+            gsap.registerPlugin(ScrollTrigger);
+
+            // 为所有.reveal元素添加滚动触发
+            gsap.utils.toArray('.reveal').forEach((elem, i) => {
+                gsap.to(elem, {
+                    scrollTrigger: {
+                        trigger: elem,
+                        start: 'top 85%',
+                        toggleActions: 'play none none none'
+                    },
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.8,
+                    delay: i % 3 * 0.1, // 交错动画
+                    ease: 'power2.out'
+                });
+            });
+
+            // 背景光晕视差效果
+            gsap.to('.bg-glow-1', {
+                scrollTrigger: {
+                    trigger: 'body',
+                    start: 'top top',
+                    end: 'bottom bottom',
+                    scrub: 1
+                },
+                y: -100
+            });
+
+            gsap.to('.bg-glow-2', {
+                scrollTrigger: {
+                    trigger: 'body',
+                    start: 'top top',
+                    end: 'bottom bottom',
+                    scrub: 1
+                },
+                y: -200
+            });
+
+            gsap.to('.bg-glow-3', {
+                scrollTrigger: {
+                    trigger: 'body',
+                    start: 'top top',
+                    end: 'bottom bottom',
+                    scrub: 1
+                },
+                y: -150
+            });
+        }
+
+        // ============================================
+        // 标签切换交互
+        // ============================================
+        document.querySelectorAll('.tag').forEach(tag => {
+            tag.addEventListener('click', function() {
+                document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // ============================================
+        // 侧边导航交互
+        // ============================================
+        document.querySelectorAll('.side-nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.side-nav-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // ============================================
+        // 帖子卡片悬停时重绘对话气泡线
+        // ============================================
+        document.querySelectorAll('.post-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                const line = this.querySelector('.post-bubble-line path');
+                if (line) {
+                    line.style.animation = 'none';
+                    line.offsetHeight; // 触发重排
+                    line.style.animation = 'draw-line 0.8s ease forwards';
+                }
+            });
+        });
+
+        // ============================================
+        // 平滑滚动
+        // ============================================
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}积分商城 · 校园墙{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:1100px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">🎁 积分商城</h2>
+            <p class="chapter-sub">用金币和积分兑换专属好物</p>
+        </div>
+
+        <!-- 余额 -->
+        <div class="speech-bubble reveal" style="text-align:center;margin-bottom:24px;">
+            <span style="font-size:1.1rem;">💰 金币: <strong id="myCoins">-</strong></span>
+            <span style="margin-left:24px;font-size:1.1rem;">⭐ 积分: <strong id="myPoints">-</strong></span>
+            <a href="/checkin" class="btn btn-sm" style="margin-left:16px;">去签到赚金币</a>
+        </div>
+
+        <!-- 商品列表 -->
+        <div id="shopGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px;">
+            <div class="loading">加载中</div>
+        </div>
+
+        <!-- 我的订单 -->
+        <div style="margin-top:40px;" class="reveal">
+            <h3 class="chapter-title" style="font-size:1.5rem;">📦 我的订单</h3>
+            <div id="orderList" style="margin-top:16px;"><div class="loading">加载中</div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadBalance();
+    loadShopItems();
+    if (currentUser) loadOrders();
+});
+
+function loadBalance() {
+    if (!currentUser) return;
+    api.get('/api/shop/coins').then(data => {
+        document.getElementById('myCoins').textContent = data.coins || 0;
+        document.getElementById('myPoints').textContent = data.points || 0;
+    });
+}
+
+function loadShopItems() {
+    api.get('/api/shop/items').then(items => {
+        const grid = document.getElementById('shopGrid');
+        if (!items.length) { grid.innerHTML = '<div class="empty-state">暂无商品</div>'; return; }
+        grid.innerHTML = items.map(item => `
+            <div class="station-card reveal" style="cursor:default;">
+                <div style="text-align:center;font-size:2.5rem;margin-bottom:8px;">${item.icon}</div>
+                <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.1rem;text-align:center;margin-bottom:4px;">${escHtml(item.name)}</div>
+                <div style="font-size:0.8rem;color:var(--text-secondary);text-align:center;margin-bottom:12px;">${escHtml(item.description)}</div>
+                <div style="text-align:center;margin-bottom:12px;">
+                    ${item.price_coins ? '<span style="color:var(--orange);font-weight:700;">💰 '+item.price_coins+'</span>' : ''}
+                    ${item.price_coins && item.price_points ? ' + ' : ''}
+                    ${item.price_points ? '<span style="color:var(--mint);font-weight:700;">⭐ '+item.price_points+'</span>' : ''}
+                </div>
+                <div style="text-align:center;">
+                    <button class="btn btn-primary btn-sm" onclick="buyItem(${item.id},'${escHtml(item.name)}')">兑换</button>
+                </div>
+                ${item.stock >= 0 ? '<div style="text-align:center;font-size:0.7rem;color:var(--text-muted);margin-top:8px;">库存: '+item.stock+'</div>' : ''}
+            </div>
+        `).join('');
+        initReveal();
+    });
+}
+
+function buyItem(id, name) {
+    if (!requireAuth()) return;
+    if (!confirm('确定兑换「' + name + '」？')) return;
+    api.post('/api/shop/buy', { item_id: id }).then(data => {
+        showToast('兑换成功！', 'success');
+        loadBalance();
+        loadOrders();
+    }).catch(e => showToast(e.message || '兑换失败', 'error'));
+}
+
+function loadOrders() {
+    api.get('/api/shop/orders').then(orders => {
+        const list = document.getElementById('orderList');
+        if (!orders.length) { list.innerHTML = '<div style="color:var(--text-muted);">暂无订单</div>'; return; }
+        list.innerHTML = orders.map(o => `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
+                <span style="font-size:1.3rem;">${o.item_icon || '🎁'}</span>
+                <div style="flex:1;">
+                    <div style="font-weight:600;font-size:0.9rem;">${escHtml(o.item_name)}</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);">${formatTime(o.created_at)}</div>
+                </div>
+                <div style="font-size:0.85rem;color:var(--text-secondary);">
+                    ${o.total_coins ? '-'+o.total_coins+'💰' : ''} ${o.total_points ? '-'+o.total_points+'⭐' : ''}
+                </div>
+            </div>
+        `).join('');
+    });
+}
+</script>
+{% endblock %}

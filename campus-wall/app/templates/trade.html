@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}二手交易 · 校园墙{% endblock %}
+
+{% block content %}
+<div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:1100px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">🛒 二手交易</h2>
+            <p class="chapter-sub">闲置好物，低价出给有缘人</p>
+        </div>
+
+        <!-- 分类标签 -->
+        <div class="tag-bar reveal" id="tradeCategory">
+            <span class="tag active" onclick="filterTrade(this,'')">🔥 全部</span>
+            <span class="tag" onclick="filterTrade(this,'数码')">📱 数码</span>
+            <span class="tag" onclick="filterTrade(this,'教材')">📚 教材</span>
+            <span class="tag" onclick="filterTrade(this,'生活')">🏠 生活</span>
+            <span class="tag" onclick="filterTrade(this,'服饰')">👗 服饰</span>
+            <span class="tag" onclick="filterTrade(this,'其他')">📦 其他</span>
+        </div>
+
+        <!-- 发布按钮 -->
+        <div style="text-align:center;margin-bottom:24px;">
+            <button class="btn btn-primary" onclick="openCreateTrade()">📦 发布闲置</button>
+        </div>
+
+        <!-- 瀑布流 -->
+        <div id="tradeGrid" style="columns:3;column-gap:16px;">
+            <div class="loading">加载中</div>
+        </div>
+    </div>
+</div>
+
+<!-- 发布交易弹窗 -->
+<div class="modal-overlay" id="tradeModal">
+    <div class="modal" style="position:relative;max-width:560px;">
+        <button class="modal-close" onclick="closeModal('tradeModal')">&times;</button>
+        <div class="modal-title">📦 发布闲置</div>
+        <form onsubmit="return createTrade(event)">
+            <div class="form-group"><label class="form-label">商品名</label><input class="input" name="title" required maxlength="100"></div>
+            <div class="form-group"><label class="form-label">描述</label><textarea class="input" name="content" rows="4" required></textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group"><label class="form-label">售价 (元)</label><input class="input" name="price" type="number" step="0.01" min="0" required></div>
+                <div class="form-group"><label class="form-label">原价 (元)</label><input class="input" name="original_price" type="number" step="0.01" min="0"></div>
+                <div class="form-group"><label class="form-label">成色</label>
+                    <select class="input" name="condition"><option value="new">全新</option><option value="like_new">几乎全新</option><option value="good" selected>良好</option><option value="fair">一般</option></select>
+                </div>
+                <div class="form-group"><label class="form-label">分类</label>
+                    <select class="input" name="category"><option>数码</option><option>教材</option><option>生活</option><option>服饰</option><option>其他</option></select>
+                </div>
+            </div>
+            <div class="form-group"><label class="form-label">联系方式</label><input class="input" name="contact" placeholder="微信号/QQ/手机号"></div>
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">发布</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let tradeCategory = '';
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadTrades();
+});
+
+function filterTrade(el, cat) {
+    document.querySelectorAll('#tradeCategory .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    tradeCategory = cat;
+    loadTrades();
+}
+
+function loadTrades() {
+    const grid = document.getElementById('tradeGrid');
+    grid.innerHTML = '<div class="loading">加载中</div>';
+    let url = '/api/trade?limit=50';
+    if (tradeCategory) url += '&category=' + encodeURIComponent(tradeCategory);
+    api.get(url).then(trades => {
+        if (!trades.length) {
+            grid.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><div class="text">暂无商品</div></div>';
+            return;
+        }
+        grid.innerHTML = trades.map(t => {
+            const discount = t.original_price > 0 ? Math.round((1 - t.price / t.original_price) * 100) : 0;
+            const condMap = { new: '全新', like_new: '几乎全新', good: '良好', fair: '一般' };
+            return `
+                <div class="station-card reveal" style="break-inside:avoid;margin-bottom:16px;padding:16px;cursor:default;" onclick="viewTrade(${t.id},'${escHtml(t.title)}',${t.price},'${escHtml(t.contact||'')}','${escHtml(t.content||'')}')">
+                    <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1rem;margin-bottom:6px;">${escHtml(t.title)}</div>
+                    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
+                        <span style="font-size:1.3rem;font-weight:800;color:var(--pink-4);">¥${t.price}</span>
+                        ${t.original_price ? '<span style="font-size:0.75rem;color:var(--text-muted);text-decoration:line-through;">¥'+t.original_price+'</span>' : ''}
+                        ${discount > 0 ? '<span style="font-size:0.65rem;background:var(--pink-1);color:var(--pink-4);padding:1px 6px;border-radius:6px;">-'+discount+'%</span>' : ''}
+                    </div>
+                    <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(t.content || '')}</div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text-muted);">
+                        <span>${escHtml(t.username)} · ${condMap[t.condition] || t.condition}</span>
+                        <span>${formatTime(t.created_at)}</span>
+                    </div>
+                    <div style="margin-top:8px;">
+                        <span style="font-size:0.65rem;padding:2px 8px;border-radius:8px;background:${t.status==='available'?'var(--mint)':t.status==='reserved'?'var(--yellow)':'var(--text-muted)'};color:white;">${t.status==='available'?'在售':t.status==='reserved'?'已预定':'已售出'}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        initReveal();
+    });
+}
+
+function openCreateTrade() {
+    if (!requireAuth()) return;
+    openModal('tradeModal');
+}
+
+function createTrade(e) {
+    e.preventDefault();
+    const form = e.target;
+    api.post('/api/trade', {
+        title: form.title.value.trim(),
+        content: form.content.value.trim(),
+        price: parseFloat(form.price.value),
+        original_price: parseFloat(form.original_price.value) || 0,
+        condition: form.condition.value,
+        category: form.category.value,
+        contact: form.contact.value.trim()
+    }).then(() => {
+        closeModal('tradeModal');
+        showToast('发布成功！', 'success');
+        form.reset();
+        loadTrades();
+    }).catch(e => showToast(e.message || '发布失败', 'error'));
+    return false;
+}
+
+function viewTrade(id, title, price, contact, content) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay show';
+    modal.innerHTML = `
+        <div class="modal" style="position:relative;max-width:480px;">
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+            <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.3rem;margin-bottom:8px;">${title}</div>
+            <div style="font-size:1.5rem;font-weight:800;color:var(--pink-4);margin-bottom:12px;">¥${price}</div>
+            <div style="font-size:0.9rem;line-height:1.6;margin-bottom:16px;white-space:pre-wrap;">${content}</div>
+            ${contact ? '<div class="speech-bubble pink" style="font-size:0.9rem;">📱 联系方式: <strong>'+contact+'</strong></div>' : ''}
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+</script>
+{% endblock %}
