@@ -22,10 +22,11 @@
         <span>校园墙</span>
     </a>
     <ul class="nav-links">
-        <li><a href="#stations">子站市场</a></li>
-        <li><a href="#posts">最新动态</a></li>
+        <li><a href="#feed">动态</a></li>
+        <li><a href="#stations">子站</a></li>
     </ul>
-    <div style="display:flex;gap:8px;margin-left:auto;">
+    <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" title="切换深浅色" aria-label="切换深浅色"></button>
         <button class="btn btn-outline btn-sm" onclick="showToast('登录功能开发中')">登录</button>
         <button class="btn btn-primary btn-sm" onclick="showToast('注册功能开发中')">注册</button>
     </div>
@@ -39,8 +40,8 @@
         <button class="btn btn-primary btn-lg" onclick="showToast('创建子站功能开发中')">
             + 创建子站
         </button>
-        <button class="btn btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">
-            浏览子站 ↓
+        <button class="btn btn-lg" onclick="document.getElementById('feed').scrollIntoView({behavior:'smooth'})">
+            浏览动态 ↓
         </button>
     </div>
     <div class="scroll-hint" id="scrollHint">
@@ -55,10 +56,74 @@
     <div class="divider-ornament">🌸</div>
 </div>
 
-<!-- 子站市场 -->
-<section class="section" id="stations">
+<!-- ===== 三栏主布局：左标签轨 / 中动态流 / 右侧栏 ===== -->
+<section id="feed" style="padding: 30px 20px 40px;">
+    <div class="container">
+        <div class="home-layout">
+
+            <!-- 左栏：标签轨（移动端横向 / 桌面纵向 sticky） -->
+            <nav class="home-tabs" id="homeTabs" aria-label="动态分类">
+                <button class="home-tab active" data-tab="">🔥 全部</button>
+                <button class="home-tab" data-tab="学习">📚 学习</button>
+                <button class="home-tab" data-tab="游戏">🎮 游戏</button>
+                <button class="home-tab" data-tab="音乐">🎵 音乐</button>
+                <button class="home-tab" data-tab="生活">☕ 生活</button>
+            </nav>
+
+            <!-- 中栏：动态流（无限滚动） -->
+            <main class="home-feed" aria-label="最新动态">
+                <div class="feed-dimmer" id="feedDimmer">
+                    <div id="feedList" class="feed-dimmer">
+                        <!-- JS 动态渲染 -->
+                    </div>
+                    <div class="feed-sentinel" id="feedSentinel">
+                        <span class="feed-loading-spinner"></span>
+                    </div>
+                </div>
+            </main>
+
+            <!-- 右栏：轮播 + 子站精选 + 使用提示（桌面 sticky） -->
+            <aside class="home-aside" aria-label="侧边栏">
+                <div class="carousel" id="carousel" aria-label="热门子站轮播">
+                    <div class="carousel-track" id="carouselTrack"></div>
+                    <div class="carousel-dots" id="carouselDots"></div>
+                    <button class="carousel-arrow prev" id="carouselPrev" aria-label="上一张">‹</button>
+                    <button class="carousel-arrow next" id="carouselNext" aria-label="下一张">›</button>
+                </div>
+
+                <div class="aside-card">
+                    <h3><span class="dot"></span>子站精选</h3>
+                    <div class="mini-station-list" id="miniStations">
+                        <div class="feed-loading-spinner" style="margin:12px auto;"></div>
+                    </div>
+                </div>
+
+                <div class="aside-card">
+                    <h3><span class="dot"></span>校园墙小贴士</h3>
+                    <div class="help-tip">
+                        <p>1. 校园墙支持创建属于你自己的子站，让同好找到彼此。</p>
+                        <p>2. 每个子站都有独立动态流，标签帮你快速发现感兴趣的内容。</p>
+                        <p>3. 登录后即可发布动态、关注子站、收藏内容。</p>
+                        <p>4. 右上角按钮可切换深色 / 浅色模式。</p>
+                    </div>
+                </div>
+
+                <footer class="aside-footer">
+                    <div>
+                        <a href="/">校园墙</a> · <a href="#" onclick="showToast('功能开发中');return false;">关于</a> · <a href="#" onclick="showToast('功能开发中');return false;">协议</a>
+                    </div>
+                    <div>Made with <span class="footer-heart">❤</span> for every student</div>
+                </footer>
+            </aside>
+
+        </div>
+    </div>
+</section>
+
+<!-- ===== 子站市场全览 ===== -->
+<section class="section" id="stations" style="padding: 60px 20px 40px;">
     <div class="container" style="max-width:1100px;">
-        <div class="reveal" style="text-align:center;margin-bottom:40px;">
+        <div class="reveal" style="text-align:center;margin-bottom:36px;">
             <h2 class="chapter-header" style="justify-content:center;">子站市场</h2>
             <p class="chapter-sub">发现更多有趣的角落，找到属于你的同好圈子</p>
         </div>
@@ -69,7 +134,6 @@
         <div class="tag-bar reveal">
             <span class="tag active">🔥 热门</span>
             <span class="tag">✨ 最新</span>
-            <span class="tag">💎 推荐</span>
             <span class="tag">📚 学习</span>
             <span class="tag">🎮 游戏</span>
             <span class="tag">🎵 音乐</span>
@@ -80,31 +144,12 @@
     </div>
 </section>
 
-<!-- 过渡装饰 -->
-<div class="section-divider">
-    <div class="divider-line"></div>
-    <div class="divider-ornament" style="animation-delay:-1.5s;">🍃</div>
-</div>
-
-<!-- 最新动态 -->
-<section class="section" id="posts" style="padding-bottom:100px;">
-    <div class="container" style="max-width:800px;">
-        <div class="reveal" style="text-align:center;margin-bottom:40px;">
-            <h2 class="chapter-header" style="justify-content:center;">最新动态</h2>
-            <p class="chapter-sub">看看大家都在聊些什么</p>
-        </div>
-        <div id="postList" class="post-list">
-            <!-- JS 动态渲染 -->
-        </div>
-    </div>
-</section>
-
 <!-- 页脚 -->
 <footer class="footer">
     <p>Made with <span class="footer-heart">❤</span> for every student · 校园墙 CampusWall</p>
     <div class="footer-links">
-        <a href="#">关于我们</a> · 
-        <a href="#">用户协议</a> · 
+        <a href="#">关于我们</a> ·
+        <a href="#">用户协议</a> ·
         <a href="#">隐私政策</a>
     </div>
     <p style="margin-top:8px;font-size:0.75rem;">这是一个温暖的、属于年轻人的校园社区</p>
@@ -115,7 +160,7 @@
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // 加载动画
     const loadingTexts = ["正在打开社团活动室的门...", "阳光透过百叶窗洒了进来...", "欢迎来到校园墙 ✨"];
     let textIdx = 0, charIdx = 0;
@@ -145,19 +190,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // GSAP 滚动动画
     function initScrollAnim() {
+        if (!window.gsap) return;
         gsap.to('#navbar', { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
         gsap.registerPlugin(ScrollTrigger);
         gsap.utils.toArray('.reveal').forEach((el, i) => {
             gsap.to(el, { scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none none' }, opacity: 1, y: 0, duration: 0.8, delay: i % 3 * 0.1, ease: 'power2.out' });
         });
-        gsap.to('.bg-glow-1', { scrollTrigger: { trigger: 'body', start: 'top top', end: 'bottom bottom', scrub: 1 }, y: -100 });
-        gsap.to('.bg-glow-2', { scrollTrigger: { trigger: 'body', start: 'top top', end: 'bottom bottom', scrub: 1 }, y: -200 });
-        gsap.to('.bg-glow-3', { scrollTrigger: { trigger: 'body', start: 'top top', end: 'bottom bottom', scrub: 1 }, y: -150 });
     }
 
     // 数据加载
+    initThemeToggle();
+    initCarousel();
+    initFeed();
+    initTabs();
     loadStations();
-    loadPosts();
     initSearch();
 });
 </script>

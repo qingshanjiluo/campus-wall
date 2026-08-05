@@ -154,47 +154,103 @@ def index():
 
 @app.route('/api/stations')
 def get_stations():
+    """子站列表。?order=hot|new&limit=N&tab=<分类>
+    hot 按人气排序（轮播用），new 按创建时间（默认）。
+    """
+    order = request.args.get('order', 'new').strip()
+    limit = min(request.args.get('limit', 50, type=int), 100)
+    tab = request.args.get('tab', '').strip()
+
     conn = sqlite3.connect('instance/campushub.db')
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute('SELECT id, name, description, cover, tags, user_count, post_count, created_at FROM sub_stations ORDER BY created_at DESC')
+
+    if tab:
+        base = '''SELECT id, name, description, cover, tags, user_count, post_count, created_at
+                  FROM sub_stations
+                  WHERE (tags LIKE ? OR name LIKE ?)'''
+        params = (f'%{tab}%', f'%{tab}%')
+    else:
+        base = '''SELECT id, name, description, cover, tags, user_count, post_count, created_at
+                  FROM sub_stations'''
+        params = ()
+
+    if order == 'hot':
+        base += ' ORDER BY (user_count * 2 + post_count) DESC LIMIT ?'
+    else:
+        base += ' ORDER BY created_at DESC LIMIT ?'
+    params += (limit,)
+
+    c.execute(base, params)
     stations = []
     for row in c.fetchall():
         stations.append({
-            'id': row[0],
-            'name': row[1],
-            'description': row[2],
-            'cover': row[3] or '/static/images/default-cover.jpg',
-            'tags': json.loads(row[4]) if row[4] else [],
-            'user_count': row[5],
-            'post_count': row[6],
-            'created_at': row[7]
+            'id': row['id'],
+            'name': row['name'],
+            'description': row['description'],
+            'cover': row['cover'] or '/static/images/default-cover.jpg',
+            'tags': json.loads(row['tags']) if row['tags'] else [],
+            'user_count': row['user_count'],
+            'post_count': row['post_count'],
+            'created_at': row['created_at']
         })
     conn.close()
     return jsonify(stations)
 
 @app.route('/api/posts')
 def get_posts():
-    limit = request.args.get('limit', 6, type=int)
+    """帖子列表，支持游标分页与分类过滤。
+    ?limit=30&cursor=<id>&tab=<分类名>
+    分类名匹配子站 tags，为空则返回全部。
+    返回 { items, next_cursor, has_more }
+    """
+    limit = min(request.args.get('limit', 30, type=int), 50)
+    cursor = request.args.get('cursor', 0, type=int)
+    tab = request.args.get('tab', '').strip()
+    # cursor=0 表示"从最新开始"，即 id < 极大值
+    if cursor <= 0:
+        cursor = 2 ** 31
+
     conn = sqlite3.connect('instance/campushub.db')
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute('''SELECT p.id, p.title, p.content, p.author, p.views, p.likes, p.comments, p.created_at, s.name 
-                 FROM posts p JOIN sub_stations s ON p.station_id = s.id 
-                 ORDER BY p.created_at DESC LIMIT ?''', (limit,))
+
+    if tab:
+        # 分类过滤：匹配子站 tags 中含 tab 的子站，再取这些子站的帖子
+        c.execute('''SELECT p.id, p.title, p.content, p.author, p.views, p.likes,
+                            p.comments, p.created_at, s.name, s.tags
+                     FROM posts p JOIN sub_stations s ON p.station_id = s.id
+                     WHERE p.id < ? AND (s.tags LIKE ? OR s.name LIKE ?)
+                     ORDER BY p.id DESC LIMIT ?''',
+                  (cursor, f'%{tab}%', f'%{tab}%', limit + 1))
+    else:
+        c.execute('''SELECT p.id, p.title, p.content, p.author, p.views, p.likes,
+                            p.comments, p.created_at, s.name, s.tags
+                     FROM posts p JOIN sub_stations s ON p.station_id = s.id
+                     WHERE p.id < ?
+                     ORDER BY p.id DESC LIMIT ?''', (cursor, limit + 1))
+
+    rows = c.fetchall()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
     posts = []
-    for row in c.fetchall():
+    for row in rows:
         posts.append({
-            'id': row[0],
-            'title': row[1],
-            'content': row[2][:100] + ('...' if len(row[2]) > 100 else ''),
-            'author': row[3],
-            'views': row[4],
-            'likes': row[5],
-            'comments': row[6],
-            'created_at': row[7],
-            'station_name': row[8]
+            'id': row['id'],
+            'title': row['title'],
+            'content': row['content'][:100] + ('...' if len(row['content']) > 100 else ''),
+            'author': row['author'],
+            'views': row['views'],
+            'likes': row['likes'],
+            'comments': row['comments'],
+            'created_at': row['created_at'],
+            'station_name': row['name'],
+            'station_tags': json.loads(row['tags']) if row['tags'] else []
         })
     conn.close()
-    return jsonify(posts)
+    next_cursor = rows[-1]['id'] if rows else 0
+    return jsonify({'items': posts, 'next_cursor': next_cursor, 'has_more': has_more})
 
 @app.route('/api/search')
 def search_stations():
