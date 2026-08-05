@@ -96,7 +96,16 @@ function renderComments(comments) {
         list.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="icon">💬</div><div class="text">还没有评论，来说两句吧</div></div>';
         return;
     }
-    list.innerHTML = comments.map(c => `
+    // 楼中楼：parent_id 的评论缩进显示在父评论下方
+    const topLevel = comments.filter(c => !c.parent_id);
+    const replies = comments.filter(c => c.parent_id);
+    const replyHtml = {};
+    replies.forEach(r => {
+        const parent = comments.find(x => x.id === r.parent_id);
+        (replyHtml[r.parent_id] = replyHtml[r.parent_id] || []).push({ r, parent });
+    });
+
+    const renderComment = (c) => `
         <div class="comment-item">
             <img class="comment-avatar" src="${c.author_avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'" onclick="window.location.href='/profile/${c.author_id}'" style="cursor:pointer;">
             <div class="comment-body">
@@ -114,7 +123,32 @@ function renderComments(comments) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+
+    // 顶层评论 + 其下的回复
+    let html = '';
+    const shown = new Set();
+    const renderThread = (c) => {
+        if (shown.has(c.id)) return '';
+        shown.add(c.id);
+        let h = renderComment(c);
+        const childs = replyHtml[c.id] || [];
+        if (childs.length) {
+            h += `<div style="margin-left:44px;padding-left:14px;border-left:2px solid var(--pink-2);">` +
+                 childs.map(({ r, parent }) => {
+                     let h2 = renderComment(r);
+                     // 在被回复的父评论上方标注回复对象
+                     h2 = h2.replace('<div class="comment-content">', `<div class="comment-content" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:2px;">回复 @${escHtml(parent ? parent.author_name : '')}</div><div class="comment-content">`);
+                     return h2;
+                 }).join('') + `</div>`;
+        }
+        return h;
+    };
+
+    // 顶层的先排，再追加只有回复没有顶层父（安全兜底）
+    topLevel.forEach(c => { html += renderThread(c); });
+    replies.forEach(c => { if (!shown.has(c.id)) html += renderThread(c); });
+    list.innerHTML = html;
 }
 
 function deletePost(pid) {

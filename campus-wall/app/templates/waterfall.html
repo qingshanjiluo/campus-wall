@@ -129,14 +129,15 @@ function loadWaterfall(append) {
         }
 
         const html = posts.map((p, i) => {
-            const hasImage = p.image || (p.images && JSON.parse(p.images||'[]').length > 0);
-            const imgHeight = [120, 160, 200, 140, 180][Math.floor(Math.random() * 5)];
+            // 从 content 提取 Markdown 图片 URL，显示真实图片
+            const imgMatch = String(p.content || '').match(/!\[[^\]]*\]\(([^)]+)\)/);
+            const coverUrl = imgMatch && /^\/static\//.test(imgMatch[1]) ? imgMatch[1] : '';
             return `
                 <div class="masonry-item reveal">
                     <div class="masonry-card" onclick="window.location.href='/post/${p.id}'">
-                        ${hasImage ? '<div class="img-placeholder" style="height:'+imgHeight+'px;background:'+wfColors[i%wfColors.length]+';"></div>' : ''}
+                        ${coverUrl ? '<img class="post-image" src="'+escHtml(coverUrl)+'" alt="" loading="lazy" style="width:100%;height:auto;border-radius:12px;margin-bottom:8px;display:block;">' : ''}
                         <div class="title">${escHtml(p.title)}</div>
-                        <div class="content">${escHtml(p.content)}</div>
+                        <div class="content">${renderContent(p.content, false)}</div>
                         <div class="meta">
                             <span>${escHtml(p.author_name)}</span>
                             <span>${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>

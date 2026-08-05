@@ -6,11 +6,11 @@
     <div class="container" style="max-width:800px;">
         <div class="section-header reveal">
             <h2 class="chapter-title">🔍 搜索</h2>
-            <p class="chapter-sub">搜索子站，找到你的圈子</p>
+            <p class="chapter-sub">搜索子站、帖子与用户</p>
         </div>
         <div class="search-box reveal" style="margin-bottom:32px;">
             <span class="search-icon">🔍</span>
-            <input class="input" type="text" id="globalSearch" placeholder="搜索子站..." autofocus>
+            <input class="input" type="text" id="globalSearch" placeholder="搜索子站 / 帖子 / 用户..." autofocus>
         </div>
         <div id="searchResults"></div>
     </div>
@@ -24,21 +24,65 @@ document.addEventListener('DOMContentLoaded', function() {
         const results = document.getElementById('searchResults');
         if (!q) { results.innerHTML = ''; return; }
         results.innerHTML = '<div class="loading">搜索中</div>';
-        api.get('/api/stations/search?q=' + encodeURIComponent(q)).then(data => {
-            if (data.length === 0) {
-                results.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><div class="text">没有找到「'+escHtml(q)+'」相关子站</div></div>';
+        api.get('/api/recommend/search?q=' + encodeURIComponent(q)).then(data => {
+            data = data || { stations: [], posts: [], users: [] };
+            const total = (data.stations||[]).length + (data.posts||[]).length + (data.users||[]).length;
+            if (total === 0) {
+                results.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><div class="text">没有找到「'+escHtml(q)+'」相关的内容</div></div>';
                 return;
             }
-            results.innerHTML = '<p style="margin-bottom:16px;color:var(--text-muted);font-size:0.9rem;">找到 '+data.length+' 个结果</p><div class="station-grid">' + data.map(s => `
-                <div class="station-card" onclick="window.location.href='/station/${s.id}'">
-                    <div class="station-card-header">
-                        <div class="station-icon">${s.icon||'🏫'}</div>
-                        <div class="name">${escHtml(s.name)}</div>
+            let html = '<p style="margin-bottom:16px;color:var(--text-muted);font-size:0.9rem;">共找到 '+total+' 个结果</p>';
+
+            // 子站结果
+            if (data.stations && data.stations.length) {
+                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:20px 0 12px;">🏫 子站 ('+data.stations.length+')</h3><div class="station-grid">' + data.stations.map(s => `
+                    <div class="station-card" onclick="window.location.href='/station/${s.id}'">
+                        <div class="station-card-header">
+                            <div class="station-icon">${s.icon||'🏫'}</div>
+                            <div class="name">${escHtml(s.name)}</div>
+                        </div>
+                        <div class="desc">${escHtml(s.description||'')}</div>
+                        <div class="meta"><span>👥 ${s.user_count||0}</span><span>📝 ${s.post_count||0}</span></div>
                     </div>
-                    <div class="desc">${escHtml(s.description||'')}</div>
-                    <div class="meta"><span>👥 ${s.user_count||0}</span><span>📝 ${s.post_count||0}</span></div>
-                </div>
-            `).join('') + '</div>';
+                `).join('') + '</div>';
+            }
+
+            // 帖子结果
+            if (data.posts && data.posts.length) {
+                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:24px 0 12px;">📝 帖子 ('+data.posts.length+')</h3>';
+                html += data.posts.map(p => `
+                    <article class="post-card reveal" onclick="window.location.href='/post/${p.id}'" style="margin-bottom:12px;">
+                        <div class="post-header">
+                            <img class="post-avatar" src="${p.author_avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
+                            <div class="post-meta">
+                                <div class="post-author">${escHtml(p.author_name)}</div>
+                                <div class="post-time">${formatTime(p.created_at)}</div>
+                            </div>
+                            <span class="post-station">${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
+                        </div>
+                        <div class="post-title">${escHtml(p.title)}</div>
+                        <div class="post-content">${renderContent(p.content, false)}</div>
+                    </article>
+                `).join('');
+            }
+
+            // 用户结果
+            if (data.users && data.users.length) {
+                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:24px 0 12px;">👥 用户 ('+data.users.length+')</h3>';
+                html += data.users.map(u => `
+                    <div class="post-card reveal" onclick="window.location.href='/profile/${u.id}'" style="padding:16px;margin-bottom:10px;cursor:pointer;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <img src="${u.avatar||'/static/images/default-avatar.svg'}" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--glass-border);" onerror="this.src='/static/images/default-avatar.svg'">
+                            <div>
+                                <div style="font-weight:600;font-size:0.9rem;">${escHtml(u.username)}</div>
+                                <div style="font-size:0.8rem;color:var(--text-muted);">${escHtml(u.bio||'')}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            results.innerHTML = html;
             initReveal();
         }).catch(() => results.innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">搜索失败</div></div>');
     }, 300);
