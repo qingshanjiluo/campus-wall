@@ -59,6 +59,7 @@ function updateNavRight() {
             <div id="userMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:8px;background:var(--cream);border:2px solid var(--text-dark);border-radius:16px;padding:8px;box-shadow:5px 5px 0 var(--pink-2);min-width:160px;z-index:200;">
                 <a href="/profile/${currentUser.id}" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">👤 个人中心</a>
                 <a href="/notifications" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">🔔 通知</a>
+                <a href="/favorites" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">🔖 我的收藏</a>
                 <a href="/create-station" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">🏗️ 创建子站</a>
                 <a href="#" onclick="openEditProfile();return false;" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">✏️ 编辑资料</a>
                 <a href="#" onclick="openChangePassword();return false;" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">🔑 修改密码</a>

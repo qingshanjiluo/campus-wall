@@ -63,3 +63,7 @@ def admin_page():
 @pages_bp.route('/waterfall')
 def waterfall_page():
     return render_template('waterfall.html')
+
+@pages_bp.route('/favorites')
+def favorites_page():
+    return render_template('favorites.html')

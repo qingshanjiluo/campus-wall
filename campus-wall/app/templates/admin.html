@@ -17,6 +17,7 @@
             <span class="tag" onclick="switchAdminTab(this,'posts')">📝 帖子管理</span>
             <span class="tag" onclick="switchAdminTab(this,'groups')">🏷️ 身份组</span>
             <span class="tag" onclick="switchAdminTab(this,'shop')">🎁 商城管理</span>
+            <span class="tag" onclick="switchAdminTab(this,'reports')">🚩 举报中心</span>
             <span class="tag" onclick="switchAdminTab(this,'logs')">📋 操作日志</span>
         </div>
 
@@ -160,6 +161,28 @@ function switchAdminTab(el, tab) {
                 </div>
             `;
         });
+    } else if (tab === 'reports') {
+        api.get('/api/reports?status=pending').then(reports => {
+            if (!reports.length) { content.innerHTML = '<div class="empty-state"><div class="icon">🚩</div><div class="text">暂无待处理举报</div></div>'; return; }
+            const typeMap = { post: '帖子', comment: '评论', user: '用户', gossip: '树洞', trade: '交易' };
+            content.innerHTML = reports.map(r => `
+                <div class="station-card" style="padding:16px;cursor:default;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:1.1rem;">🚩</span>
+                        <strong>${typeMap[r.target_type]||r.target_type} #${r.target_id}</strong>
+                        <span style="font-size:0.7rem;color:var(--pink-4);background:var(--pink-1);padding:2px 8px;border-radius:8px;">${escHtml(r.reason)}</span>
+                        <span style="font-size:0.75rem;color:var(--text-muted);">举报人: ${escHtml(r.reporter_name||'-')}</span>
+                        <span style="font-size:0.7rem;color:var(--text-muted);margin-left:auto;">${formatTime(r.created_at)}</span>
+                    </div>
+                    ${r.detail ? '<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:6px;">'+escHtml(r.detail)+'</div>' : ''}
+                    <div style="display:flex;gap:8px;margin-top:10px;">
+                        <a href="/post/${r.target_type==='post'?r.target_id:''}" class="btn btn-ghost btn-sm" style="padding:3px 12px;font-size:0.75rem;" onclick="${r.target_type!=='post'?'event.preventDefault();showToast(\'仅帖子可跳转查看\');':''}">查看</a>
+                        <button class="btn btn-ghost btn-sm" style="padding:3px 12px;font-size:0.75rem;color:var(--danger);" onclick="handleReport(${r.id},'approved')">确认违规</button>
+                        <button class="btn btn-ghost btn-sm" style="padding:3px 12px;font-size:0.75rem;" onclick="handleReport(${r.id},'rejected')">驳回</button>
+                    </div>
+                </div>
+            `).join('');
+        });
     } else if (tab === 'logs') {
         api.get('/api/admin/logs').then(logs => {
             if (!logs.length) { content.innerHTML = '<div class="empty-state">暂无日志</div>'; return; }
@@ -187,6 +210,12 @@ function deleteStationAdmin(sid) {
     if (!confirm('确定删除该子站？')) return;
     if (!confirm('再次确认：子站及成员关系将永久删除。')) return;
     api.delete('/api/stations/' + sid).then(() => { showToast('已删除', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'stations'); }).catch(e => showToast(e.message, 'error'));
+}
+
+function handleReport(rid, status) {
+    const label = status === 'approved' ? '确认违规' : '驳回';
+    if (!confirm('确定' + label + '该举报？')) return;
+    api.put('/api/reports/' + rid, { status }).then(() => { showToast('已处理', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'reports'); }).catch(e => showToast(e.message, 'error'));
 }
 
 function pinPost(pid) {

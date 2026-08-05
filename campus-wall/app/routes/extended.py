@@ -18,7 +18,10 @@ from app.models_ext import (
     get_kanban_message,
     get_recommended_posts, get_user_interest_stations,
     smart_search,
-    get_admin_stats, get_all_users_admin, update_user_admin, admin_log, get_admin_logs
+    get_admin_stats, get_all_users_admin, update_user_admin, admin_log, get_admin_logs,
+    toggle_favorite, is_favorited, get_favorites,
+    create_report, get_reports, handle_report,
+    get_user_settings, save_user_settings
 )
 from app.models import get_user_by_id, query_db
 
@@ -494,3 +497,86 @@ def create_shop_item():
 @admin_required
 def identity_groups():
     return jsonify(get_identity_groups())
+
+
+# ══════════════════════════════════════════════
+# 收藏
+# ══════════════════════════════════════════════
+
+favorites_bp = Blueprint('favorites', __name__)
+
+
+@favorites_bp.route('/<string:target_type>/<int:target_id>', methods=['POST'])
+@token_required
+def toggle_fav(target_type, target_id):
+    if target_type not in ('post', 'station'):
+        return jsonify({'error': '不支持的收藏类型'}), 400
+    favorited = toggle_favorite(g.current_user['id'], target_type, target_id)
+    return jsonify({'favorited': favorited, 'message': '已收藏' if favorited else '已取消收藏'})
+
+
+@favorites_bp.route('/status/<string:target_type>/<int:target_id>', methods=['GET'])
+@token_required
+def fav_status(target_type, target_id):
+    return jsonify({'favorited': is_favorited(g.current_user['id'], target_type, target_id)})
+
+
+@favorites_bp.route('', methods=['GET'])
+@token_required
+def my_favorites():
+    target_type = request.args.get('type', 'post')
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    items = get_favorites(g.current_user['id'], target_type, limit, offset)
+    return jsonify({'items': items, 'type': target_type})
+
+
+# ══════════════════════════════════════════════
+# 举报
+# ══════════════════════════════════════════════
+
+reports_bp = Blueprint('reports', __name__)
+
+
+@reports_bp.route('', methods=['POST'])
+@token_required
+def report():
+    data = request.get_json(silent=True) or {}
+    target_type = data.get('target_type', '')
+    target_id = data.get('target_id')
+    reason = (data.get('reason') or '').strip()
+    detail = (data.get('detail') or '').strip()
+
+    if target_type not in ('post', 'comment', 'user', 'gossip', 'trade'):
+        return jsonify({'error': '不支持的举报类型'}), 400
+    if not target_id:
+        return jsonify({'error': '缺少举报目标'}), 400
+    if not reason:
+        return jsonify({'error': '请选择举报原因'}), 400
+
+    rid = create_report(g.current_user['id'], target_type, int(target_id), reason, detail)
+    if not rid:
+        return jsonify({'error': '该内容已举报，等待处理'}), 409
+    return jsonify({'message': '举报成功，感谢反馈', 'id': rid}), 201
+
+
+@reports_bp.route('', methods=['GET'])
+@token_required
+@admin_required
+def list_reports():
+    status = request.args.get('status', 'pending')
+    return jsonify(get_reports(status))
+
+
+@reports_bp.route('/<int:rid>', methods=['PUT'])
+@token_required
+@admin_required
+def handle(rid):
+    data = request.get_json(silent=True) or {}
+    status = data.get('status', '')
+    note = (data.get('note') or '').strip()
+    if status not in ('approved', 'rejected'):
+        return jsonify({'error': '无效的处理结果'}), 400
+    handle_report(rid, g.current_user['id'], status, note)
+    admin_log(g.current_user['id'], 'handle_report', 'report', rid, status)
+    return jsonify({'message': '已处理'})

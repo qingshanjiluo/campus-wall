@@ -198,6 +198,41 @@ def init_extended_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # ── 收藏 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS favorites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, target_type, target_id)
+    )''')
+
+    # ── 举报 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reporter_id INTEGER NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        reason TEXT DEFAULT '',
+        detail TEXT DEFAULT '',
+        status TEXT DEFAULT 'pending',
+        handler_id INTEGER,
+        handled_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # ── 通知偏好 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS user_settings (
+        user_id INTEGER PRIMARY KEY,
+        notify_comment INTEGER DEFAULT 1,
+        notify_like INTEGER DEFAULT 1,
+        notify_follow INTEGER DEFAULT 1,
+        notify_system INTEGER DEFAULT 1,
+        theme TEXT DEFAULT 'auto',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     conn.commit()
     conn.close()
 
@@ -653,3 +688,115 @@ def get_admin_logs(limit=100):
         '''SELECT al.*, u.username as admin_name
            FROM admin_log al LEFT JOIN users u ON al.admin_id = u.id
            ORDER BY al.created_at DESC LIMIT ?''', (limit,))
+
+
+# ══════════════════════════════════════════════
+# 收藏
+# ══════════════════════════════════════════════
+
+def toggle_favorite(user_id, target_type, target_id):
+    """收藏 / 取消收藏，返回 {favorited: bool}"""
+    row = query_db(
+        'SELECT id FROM favorites WHERE user_id = ? AND target_type = ? AND target_id = ?',
+        (user_id, target_type, target_id), one=True)
+    if row:
+        execute_db('DELETE FROM favorites WHERE id = ?', (row['id'],))
+        return False
+    execute_db('INSERT INTO favorites (user_id, target_type, target_id) VALUES (?,?,?)',
+               (user_id, target_type, target_id))
+    return True
+
+
+def is_favorited(user_id, target_type, target_id):
+    return query_db(
+        'SELECT 1 FROM favorites WHERE user_id = ? AND target_type = ? AND target_id = ?',
+        (user_id, target_type, target_id), one=True) is not None
+
+
+def get_favorites(user_id, target_type='post', limit=50, offset=0):
+    """获取用户的收藏列表（关联帖子/子站信息）"""
+    if target_type == 'post':
+        return query_db(
+            '''SELECT f.target_id, f.created_at as favorited_at, p.*, u.username as author_name,
+                      s.name as station_name, s.icon as station_icon
+               FROM favorites f
+               JOIN posts p ON f.target_id = p.id AND p.is_deleted = 0
+               LEFT JOIN users u ON p.author_id = u.id
+               LEFT JOIN stations s ON p.station_id = s.id
+               WHERE f.user_id = ? AND f.target_type = 'post'
+               ORDER BY f.created_at DESC LIMIT ? OFFSET ?''',
+            (user_id, limit, offset))
+    if target_type == 'station':
+        return query_db(
+            '''SELECT f.target_id, f.created_at as favorited_at, s.*
+               FROM favorites f JOIN stations s ON f.target_id = s.id
+               WHERE f.user_id = ? AND f.target_type = 'station'
+               ORDER BY f.created_at DESC LIMIT ? OFFSET ?''',
+            (user_id, limit, offset))
+    return []
+
+
+# ══════════════════════════════════════════════
+# 举报
+# ══════════════════════════════════════════════
+
+def create_report(reporter_id, target_type, target_id, reason='', detail=''):
+    """提交举报，返回举报id（同一目标不可重复举报）"""
+    existing = query_db(
+        'SELECT id FROM reports WHERE reporter_id = ? AND target_type = ? AND target_id = ? AND status = ?',
+        (reporter_id, target_type, target_id, 'pending'), one=True)
+    if existing:
+        return None
+    return execute_db(
+        'INSERT INTO reports (reporter_id, target_type, target_id, reason, detail) VALUES (?,?,?,?,?)',
+        (reporter_id, target_type, target_id, reason, detail))
+
+
+def get_reports(status='pending', limit=100):
+    """管理端举报列表"""
+    return query_db(
+        '''SELECT r.*, u.username as reporter_name, t.username as handler_name
+           FROM reports r
+           LEFT JOIN users u ON r.reporter_id = u.id
+           LEFT JOIN users t ON r.handler_id = t.id
+           WHERE ? = 'all' OR r.status = ?
+           ORDER BY r.created_at DESC LIMIT ?''',
+        (status, status, limit))
+
+
+def handle_report(report_id, handler_id, status, note=''):
+    """处理举报：approve（确认违规）/ reject（驳回）"""
+    execute_db(
+        'UPDATE reports SET status = ?, handler_id = ?, handled_at = CURRENT_TIMESTAMP WHERE id = ?',
+        (status, handler_id, report_id))
+    return True
+
+
+# ══════════════════════════════════════════════
+# 通知偏好设置
+# ══════════════════════════════════════════════
+
+def get_user_settings(user_id):
+    row = query_db('SELECT * FROM user_settings WHERE user_id = ?', (user_id,), one=True)
+    if row:
+        return dict(row)
+    return {
+        'notify_comment': 1, 'notify_like': 1, 'notify_follow': 1,
+        'notify_system': 1, 'theme': 'auto'
+    }
+
+
+def save_user_settings(user_id, **kwargs):
+    allowed = ('notify_comment', 'notify_like', 'notify_follow', 'notify_system', 'theme')
+    fields = {k: int(v) for k, v in kwargs.items() if k in allowed and k != 'theme'}
+    if 'theme' in kwargs:
+        fields['theme'] = kwargs['theme']
+    if not fields:
+        return False
+    sets = ', '.join(f'{k} = ?' for k in fields)
+    vals = list(fields.values()) + [user_id]
+    execute_db(
+        f'''INSERT INTO user_settings (user_id, {', '.join(fields.keys())}) VALUES (?, {', '.join('?' for _ in fields)})
+            ON CONFLICT(user_id) DO UPDATE SET {sets}, updated_at = CURRENT_TIMESTAMP''',
+        [user_id] + list(fields.values()) + vals)
+    return True

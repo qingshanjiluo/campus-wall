@@ -37,7 +37,12 @@ onUserReady(function() {
 function loadPost() {
     api.get('/api/posts/' + POST_ID).then(data => {
         postData = data;
-        renderPostDetail(data);
+        if (currentUser) {
+            api.get('/api/favorites/status/post/' + POST_ID).then(res => { data.is_favorited = res.favorited; renderPostDetail(data); }).catch(() => renderPostDetail(data));
+        } else {
+            data.is_favorited = false;
+            renderPostDetail(data);
+        }
         document.title = data.title + ' · 校园墙';
     }).catch(() => {
         document.getElementById('postDetail').innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">帖子不存在或已被删除</div></div>';
@@ -77,6 +82,10 @@ function renderPostDetail(p) {
                 </button>
                 <span class="post-action"><span class="icon">💬</span> ${p.comments_count||0}</span>
                 <span class="post-action"><span class="icon">👁️</span> ${p.views||0}</span>
+                <button class="post-action btn-ghost ${p.is_favorited?'liked':''}" id="favBtn" onclick="toggleFav(${p.id},this)" style="padding:0;margin-left:auto;">
+                    <span class="icon">${p.is_favorited?'🔖':'🤍'}</span> ${p.is_favorited?'已收藏':'收藏'}
+                </button>
+                <button class="post-action btn-ghost" onclick="reportTarget('post',${p.id})" style="padding:0;" title="举报">🚩</button>
             </div>
         </article>
     `;
@@ -165,6 +174,28 @@ function deleteComment(cid) {
         showToast('已删除', 'success');
         loadComments();
     }).catch(e => showToast(e.message || '删除失败', 'error'));
+}
+
+function toggleFav(pid, btn) {
+    if (!requireAuth()) return;
+    api.post('/api/favorites/post/' + pid).then(res => {
+        btn.classList.toggle('liked', res.favorited);
+        btn.innerHTML = res.favorited ? '<span class="icon">🔖</span> 已收藏' : '<span class="icon">🤍</span> 收藏';
+        showToast(res.message, 'success');
+    }).catch(e => showToast(e.message || '操作失败', 'error'));
+}
+
+function reportTarget(targetType, targetId) {
+    if (!requireAuth()) return;
+    const reasons = ['广告', '色情低俗', '暴力', '诈骗', '辱骂', '侵权', '其他'];
+    const reason = prompt('请选择举报原因（1-7）:\n1.广告\n2.色情低俗\n3.暴力\n4.诈骗\n5.辱骂\n6.侵权\n7.其他');
+    if (!reason) return;
+    const idx = parseInt(reason) - 1;
+    const reasonText = reasons[idx] || '其他';
+    const detail = prompt('补充说明（可选）:') || '';
+    api.post('/api/reports', { target_type: targetType, target_id: targetId, reason: reasonText, detail })
+        .then(res => showToast(res.message, 'success'))
+        .catch(e => showToast(e.message || '举报失败', 'error'));
 }
 </script>
 {% endblock %}
