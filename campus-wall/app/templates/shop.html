@@ -92,7 +92,10 @@ function loadOrders() {
     api.get('/api/shop/orders').then(orders => {
         const list = document.getElementById('orderList');
         if (!orders.length) { list.innerHTML = '<div style="color:var(--text-muted);">暂无订单</div>'; return; }
-        list.innerHTML = orders.map(o => `
+        const usableTypes = ['rename', 'rename_card', 'pin', 'pin_card', 'anonymous', 'anonymity_card', 'title', 'rainbow_name'];
+        list.innerHTML = orders.map(o => {
+            const usable = o.status === 'completed' && usableTypes.includes(o.item_type);
+            return `
             <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
                 <span style="font-size:1.3rem;">${o.item_icon || '🎁'}</span>
                 <div style="flex:1;">
@@ -102,9 +105,44 @@ function loadOrders() {
                 <div style="font-size:0.85rem;color:var(--text-secondary);">
                     ${o.total_coins ? '-'+o.total_coins+'💰' : ''} ${o.total_points ? '-'+o.total_points+'⭐' : ''}
                 </div>
-            </div>
-        `).join('');
+                ${usable ? '<button class="btn btn-primary btn-sm" style="padding:4px 12px;font-size:0.75rem;" onclick="useItemById('+o.item_id+')">使用</button>' : ''}
+                ${o.status === 'used' ? '<span style="font-size:0.7rem;color:var(--text-muted);">已使用</span>' : ''}
+            </div>`;
+        }).join('');
     });
+}
+
+function useItemById(itemId) {
+    if (!requireAuth()) return;
+    // 需要知道 item_type 才能决定参数，先查商品
+    api.get('/api/shop/items/' + itemId).then(item => {
+        const t = item.item_type;
+        if (t === 'rename' || t === 'rename_card') {
+            const name = prompt('输入新用户名（2-30字符）:');
+            if (!name) return;
+            useItem(itemId, { new_name: name.trim() });
+        } else if (t === 'pin' || t === 'pin_card') {
+            const pid = prompt('输入要置顶的帖子ID:');
+            if (!pid) return;
+            useItem(itemId, { post_id: parseInt(pid) });
+        } else if (t === 'anonymous' || t === 'anonymity_card') {
+            useItem(itemId, {});
+        } else if (t === 'title' || t === 'rainbow_name') {
+            const title = t === 'rainbow_name' ? '🌈' : prompt('输入你的称号:');
+            if (!title) return;
+            useItem(itemId, { title: title.trim() });
+        } else {
+            showToast('该道具暂不支持使用', 'error');
+        }
+    }).catch(() => showToast('加载道具失败', 'error'));
+}
+
+function useItem(itemId, extra) {
+    api.post('/api/shop/use', { item_id: itemId, extra }).then(data => {
+        showToast(data.message, 'success');
+        loadOrders();
+        loadBalance();
+    }).catch(e => showToast(e.message || '使用失败', 'error'));
 }
 </script>
 {% endblock %}

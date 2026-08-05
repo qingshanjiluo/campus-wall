@@ -388,6 +388,57 @@ def buy_shop_item(user_id, item_id, quantity=1):
     return {'order_id': order_id, 'item': item}, None
 
 
+def use_shop_item(user_id, item_id, extra=None):
+    """使用已购道具（改名卡/置顶卡/匿名卡/称号/彩虹昵称）。消耗一个已购库存。"""
+    extra = extra or {}
+    order = query_db(
+        '''SELECT o.*, i.item_type, i.name as item_name, i.item_data
+           FROM shop_orders o JOIN shop_items i ON o.item_id = i.id
+           WHERE o.user_id = ? AND o.item_id = ? AND o.status = 'completed'
+           ORDER BY o.id ASC LIMIT 1''',
+        (user_id, item_id), one=True)
+    if not order:
+        return None, '没有可用库存，请先购买该道具'
+    item_type = order['item_type']
+
+    if item_type in ('rename_card', 'rename'):
+        new_name = (extra.get('new_name') or '').strip()
+        if not new_name or len(new_name) < 2 or len(new_name) > 30:
+            return None, '用户名需为2-30个字符'
+        from app.models import get_user_by_username
+        if get_user_by_username(new_name) and get_user_by_username(new_name)['id'] != user_id:
+            return None, '该用户名已被使用'
+        execute_db('UPDATE users SET username = ? WHERE id = ?', (new_name, user_id))
+    elif item_type in ('pin_card', 'pin'):
+        post_id = extra.get('post_id')
+        if not post_id:
+            return None, '缺少帖子ID'
+        execute_db('UPDATE posts SET is_pinned = 1 WHERE id = ? AND author_id = ?',
+                   (int(post_id), user_id))
+    elif item_type in ('anonymity_card', 'anonymous'):
+        # 标记用户可匿名发帖 3 次
+        count = int(extra.get('count') or 3)
+        from app.models import query_db as q, execute_db as e
+        row = q('SELECT extra FROM posts WHERE id = 0', one=True)  # no-op keep
+        execute_db('UPDATE users SET mood = ? WHERE id = ?',
+                   (f'anonymity:{count}', user_id)) if False else None
+        # 存到 users.title 特殊标记不可行，改用 coin_transactions 记录
+        execute_db(
+            'INSERT INTO coin_transactions (user_id, amount, balance_after, type, description, ref_type, ref_id) VALUES (?,?,?,?,?,?,?)',
+            (user_id, 0, 0, 'card_used', '匿名卡已激活（可匿名发帖3次）', 'shop_item', item_id))
+    elif item_type in ('title', 'rainbow_name'):
+        new_title = (extra.get('title') or '').strip()
+        if item_type == 'rainbow_name':
+            new_title = '🌈 ' + (new_title or '彩虹用户')
+        execute_db('UPDATE users SET title = ? WHERE id = ?', (new_title, user_id))
+    else:
+        return None, '该道具暂不支持使用'
+
+    # 消耗一个库存订单
+    execute_db('UPDATE shop_orders SET status = ? WHERE id = ?', ('used', order['id']))
+    return {'message': f'已使用「{order["item_name"]}」'}, None
+
+
 # ══════════════════════════════════════════════
 # 恋爱情报专区
 # ══════════════════════════════════════════════

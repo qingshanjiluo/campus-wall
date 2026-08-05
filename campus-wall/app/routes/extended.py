@@ -9,7 +9,7 @@ from app.models_ext import (
     get_identity_groups, create_identity_group, assign_user_group, get_user_group,
     do_checkin, get_checkin_history, get_checkin_today,
     get_coin_transactions,
-    get_shop_items, get_shop_item_by_id, buy_shop_item,
+    get_shop_items, get_shop_item_by_id, buy_shop_item, use_shop_item,
     get_romance_profiles, get_romance_profile, create_romance_profile,
     create_romance_link, get_romance_links, create_romance_task, get_romance_tasks,
     create_gossip, get_gossip, get_gossip_by_id, toggle_gossip_like,
@@ -135,7 +135,7 @@ def buy():
 @token_required
 def my_orders():
     orders = query_db(
-        '''SELECT so.*, si.name as item_name, si.icon as item_icon
+        '''SELECT so.*, si.name as item_name, si.icon as item_icon, si.item_type
            FROM shop_orders so JOIN shop_items si ON so.item_id = si.id
            WHERE so.user_id = ? ORDER BY so.created_at DESC LIMIT 50''',
         (g.current_user['id'],))
@@ -154,6 +154,19 @@ def my_coins():
 @token_required
 def my_transactions():
     return jsonify(get_coin_transactions(g.current_user['id']))
+
+@shop_bp.route('/use', methods=['POST'])
+@token_required
+def use_item():
+    """使用已购道具（改名卡/置顶卡/匿名卡/称号/彩虹昵称）"""
+    data = request.get_json(silent=True) or {}
+    item_id = data.get('item_id')
+    if not item_id:
+        return jsonify({'error': '缺少商品ID'}), 400
+    result, err = use_shop_item(g.current_user['id'], item_id, data.get('extra') or {})
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': result['message']})
 
 
 # ══════════════════════════════════════════════
