@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>帖子详情 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -21,7 +27,7 @@
 
         <!-- 评论区 -->
         <div style="margin-top:40px;" id="commentSection">
-            <h3 class="chapter-title" style="font-size:1.5rem;margin-bottom:16px;">💬 评论</h3>
+            <h3 class="chapter-title" style="font-size:1.5rem;margin-bottom:16px;"><i data-lucide="message-circle" class="icon"></i> 评论</h3>
             <div id="commentForm" style="display:none;margin-bottom:24px;">
                 <form onsubmit="return submitComment(event)">
                     <textarea class="input" id="commentContent" placeholder="说说你的想法..." rows="3" required maxlength="2000"></textarea>
@@ -57,7 +63,7 @@ function loadPost() {
         }
         document.title = data.title + ' · 校园墙';
     }).catch(() => {
-        document.getElementById('postDetail').innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">帖子不存在或已被删除</div></div>';
+        document.getElementById('postDetail').innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="frown" class="icon icon-lg"></i></div><div class="text">帖子不存在或已被删除</div></div>';
     });
 }
 
@@ -68,12 +74,12 @@ function renderPostDetail(p) {
     let actionBtns = '';
     if (isAuthor || isAdmin) {
         actionBtns = `
-            <button class="btn btn-sm btn-ghost" onclick="openEditPost(${p.id})" title="编辑">✏️</button>
-            <button class="btn btn-sm btn-ghost" onclick="deletePost(${p.id})" title="删除" style="color:var(--text-muted);">🗑️</button>
+            <button class="btn btn-sm btn-ghost" onclick="openEditPost(${p.id})" title="编辑"><i data-lucide="pencil" class="icon icon-sm"></i></button>
+            <button class="btn btn-sm btn-ghost" onclick="deletePost(${p.id})" title="删除" style="color:var(--text-muted);"><i data-lucide="trash-2" class="icon icon-sm"></i></button>
         `;
     }
     if (p.is_pinned) {
-        actionBtns = `<span class="post-station" style="background:var(--yellow);color:var(--text-dark);">📌 置顶</span>` + actionBtns;
+        actionBtns = `<span class="post-station" style="background:var(--color-accent);color:white;"><i data-lucide="pin" class="icon icon-sm"></i> 置顶</span>` + actionBtns;
     }
     document.getElementById('postDetail').innerHTML = `
         <article class="speech-bubble reveal" style="position:relative;">
@@ -83,26 +89,31 @@ function renderPostDetail(p) {
                     <div class="post-author" style="cursor:pointer;" onclick="window.location.href='/profile/${p.author_id}'">${escHtml(p.author_name)}</div>
                     <div class="post-time">${time}</div>
                 </div>
-                <span class="post-station" onclick="window.location.href='/station/${p.station_id}'" style="cursor:pointer;">${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
+                <span class="post-station" onclick="window.location.href='/station/${p.station_id}'" style="cursor:pointer;"><i data-lucide="${getStationIcon(p.station_icon)}" class="icon icon-sm"></i> ${escHtml(p.station_name||'')}</span>
                 ${actionBtns}
             </div>
             <h1 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.5rem;margin-bottom:12px;line-height:1.4;">${escHtml(p.title)}</h1>
             <div class="post-content full" style="margin-bottom:16px;word-break:break-word;">${renderContent(p.content, true)}</div>
+            ${p.post_type === 'vote' && p.vote_options ? renderVoteSection(p) : ''}
             <div class="post-actions">
                 <button class="post-action ${p.is_liked?'liked':''}" onclick="toggleLike(${p.id},this)" data-likes="${p.likes_count||0}">
-                    <span class="icon">${p.is_liked?'❤️':'🤍'}</span> ${p.likes_count||0}
+                    <i data-lucide="${p.is_liked?'heart':'heart'}" class="icon icon-sm"></i> ${p.likes_count||0}
                 </button>
-                <span class="post-action"><span class="icon">💬</span> ${p.comments_count||0}</span>
-                <span class="post-action"><span class="icon">👁️</span> ${p.views||0}</span>
+                <span class="post-action"><i data-lucide="message-circle" class="icon icon-sm"></i> ${p.comments_count||0}</span>
+                <span class="post-action"><i data-lucide="eye" class="icon icon-sm"></i> ${p.views||0}</span>
+                <button class="post-action btn-ghost" onclick="sharePost(${p.id})" style="padding:0;" title="分享">
+                    <i data-lucide="share-2" class="icon icon-sm"></i>
+                </button>
                 <button class="post-action btn-ghost ${p.is_favorited?'liked':''}" id="favBtn" onclick="toggleFav(${p.id},this)" style="padding:0;margin-left:auto;">
-                    <span class="icon">${p.is_favorited?'🔖':'🤍'}</span> ${p.is_favorited?'已收藏':'收藏'}
+                    <i data-lucide="bookmark" class="icon icon-sm"></i> ${p.is_favorited?'已收藏':'收藏'}
                 </button>
-                <button class="post-action btn-ghost" onclick="reportTarget('post',${p.id})" style="padding:0;" title="举报">🚩</button>
+                <button class="post-action btn-ghost" onclick="reportTarget('post',${p.id})" style="padding:0;" title="举报"><i data-lucide="flag" class="icon icon-sm"></i></button>
             </div>
         </article>
     `;
     document.getElementById('commentForm').style.display = currentUser ? '' : 'none';
     initReveal();
+    if (window.lucide) lucide.createIcons();
 }
 
 function loadComments() {
@@ -114,7 +125,7 @@ function loadComments() {
 function renderComments(comments) {
     const list = document.getElementById('commentList');
     if (!comments || comments.length === 0) {
-        list.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="icon">💬</div><div class="text">还没有评论，来说两句吧</div></div>';
+        list.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="icon"><i data-lucide="message-circle" class="icon icon-lg"></i></div><div class="text">还没有评论，来说两句吧</div></div>';
         return;
     }
     // 楼中楼：parent_id 的评论缩进显示在父评论下方
@@ -137,10 +148,10 @@ function renderComments(comments) {
                 <div class="comment-content">${escHtml(c.content)}</div>
                 <div class="comment-actions">
                     <button class="post-action btn-ghost ${c.is_liked?'liked':''}" onclick="toggleCommentLike(${c.id},this)" data-likes="${c.likes_count||0}" style="padding:0;">
-                        <span class="icon">${c.is_liked?'❤️':'🤍'}</span> ${c.likes_count||0}
+                        <i data-lucide="heart" class="icon icon-sm"></i> ${c.likes_count||0}
                     </button>
-                    ${currentUser ? `<button class="post-action btn-ghost" onclick="replyToCommentById(this)" data-cid="${c.id}" data-author="${escHtml(c.author_name)}" style="padding:0;font-size:0.75rem;">↩️ 回复</button>` : ''}
-                    ${currentUser && (currentUser.id === c.author_id || currentUser.role === 'admin') ? `<button class="post-action btn-ghost" onclick="deleteComment(${c.id})" style="padding:0;font-size:0.75rem;color:var(--text-muted);">🗑️</button>` : ''}
+                    ${currentUser ? `<button class="post-action btn-ghost" onclick="replyToCommentById(this)" data-cid="${c.id}" data-author="${escHtml(c.author_name)}" style="padding:0;font-size:0.75rem;"><i data-lucide="reply" class="icon icon-sm"></i> 回复</button>` : ''}
+                    ${currentUser && (currentUser.id === c.author_id || currentUser.role === 'admin') ? `<button class="post-action btn-ghost" onclick="deleteComment(${c.id})" style="padding:0;font-size:0.75rem;color:var(--text-muted);"><i data-lucide="trash-2" class="icon icon-sm"></i></button>` : ''}
                 </div>
             </div>
         </div>
@@ -170,6 +181,7 @@ function renderComments(comments) {
     topLevel.forEach(c => { html += renderThread(c); });
     replies.forEach(c => { if (!shown.has(c.id)) html += renderThread(c); });
     list.innerHTML = html;
+    if (window.lucide) lucide.createIcons();
 }
 
 function deletePost(pid) {
@@ -192,7 +204,7 @@ function toggleFav(pid, btn) {
     if (!requireAuth()) return;
     api.post('/api/favorites/post/' + pid).then(res => {
         btn.classList.toggle('liked', res.favorited);
-        btn.innerHTML = res.favorited ? '<span class="icon">🔖</span> 已收藏' : '<span class="icon">🤍</span> 收藏';
+        btn.innerHTML = res.favorited ? '<i data-lucide="bookmark" class="icon icon-sm"></i> 已收藏' : '<i data-lucide="bookmark" class="icon icon-sm"></i> 收藏';
         showToast(res.message, 'success');
     }).catch(e => showToast(e.message || '操作失败', 'error'));
 }

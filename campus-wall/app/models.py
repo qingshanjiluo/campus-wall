@@ -352,6 +352,7 @@ def create_post(title, content, author_id, station_id, image='', is_anonymous=0)
 def get_post_by_id(pid):
     return query_db(
         '''SELECT p.*, u.username as author_name, u.avatar as author_avatar,
+                  u.identity_group as author_identity_group,
                   s.name as station_name, s.icon as station_icon
            FROM posts p
            JOIN users u ON p.author_id = u.id
@@ -361,6 +362,7 @@ def get_post_by_id(pid):
 
 def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest'):
     sql = '''SELECT p.*, u.username as author_name, u.avatar as author_avatar,
+                    u.identity_group as author_identity_group,
                     s.name as station_name, s.icon as station_icon
              FROM posts p
              JOIN users u ON p.author_id = u.id

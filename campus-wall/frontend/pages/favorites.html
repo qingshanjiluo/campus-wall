@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的收藏 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -18,13 +24,13 @@
         <div class="section" style="padding-top:100px;">
     <div class="container" style="max-width:900px;">
         <div class="section-header reveal">
-            <h2 class="chapter-title">🔖 我的收藏</h2>
+            <h2 class="chapter-title"><i data-lucide="bookmark" class="icon"></i> 我的收藏</h2>
             <p class="chapter-sub">收藏的帖子和子站</p>
         </div>
 
         <div class="tag-bar reveal" id="favTabs">
-            <span class="tag active" onclick="switchFavTab(this,'post')">📝 帖子</span>
-            <span class="tag" onclick="switchFavTab(this,'station')">🏫 子站</span>
+            <span class="tag active" onclick="switchFavTab(this,'post')"><i data-lucide="file-text" class="icon icon-sm"></i> 帖子</span>
+            <span class="tag" onclick="switchFavTab(this,'station')"><i data-lucide="building-2" class="icon icon-sm"></i> 子站</span>
         </div>
         <div id="favList"><div class="loading">加载中</div></div>
     </div>
@@ -52,7 +58,8 @@ function loadFavorites() {
     api.get('/api/favorites?type=' + currentFavType).then(data => {
         const items = data.items || [];
         if (!items.length) {
-            list.innerHTML = '<div class="empty-state"><div class="icon">🔖</div><div class="text">还没有收藏，去发现有趣的内容吧</div></div>';
+            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="bookmark-plus" class="icon-lg"></i></div><div class="text">还没有收藏，去发现有趣的内容吧</div></div>';
+            if (window.lucide) lucide.createIcons();
             return;
         }
         if (currentFavType === 'post') {
@@ -65,12 +72,12 @@ function loadFavorites() {
                         <div class="name">${escHtml(s.name)}</div>
                     </div>
                     <div class="desc">${escHtml(s.description||'')}</div>
-                    <div class="meta"><span>👥 ${s.user_count||0}</span><span>📝 ${s.post_count||0}</span></div>
+                    <div class="meta"><span><i data-lucide="users" class="icon icon-sm"></i> ${s.user_count||0}</span><span><i data-lucide="file-text" class="icon icon-sm"></i> ${s.post_count||0}</span></div>
                 </div>
             `).join('');
         }
         initReveal();
-    }).catch(() => list.innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">加载失败</div></div>');
+    }).catch(() => list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="frown" class="icon icon-lg"></i></div><div class="text">加载失败</div></div>');
 }
 </script>
 </body>

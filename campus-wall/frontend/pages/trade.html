@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>交易 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -18,23 +24,23 @@
         <div class="section" style="padding-top:100px;">
     <div class="container" style="max-width:1100px;">
         <div class="section-header reveal">
-            <h2 class="chapter-title">🛒 二手交易</h2>
+            <h2 class="chapter-title"><i data-lucide="shopping-bag" class="icon"></i> 二手交易</h2>
             <p class="chapter-sub">闲置好物，低价出给有缘人</p>
         </div>
 
         <!-- 分类标签 -->
         <div class="tag-bar reveal" id="tradeCategory">
-            <span class="tag active" onclick="filterTrade(this,'')">🔥 全部</span>
-            <span class="tag" onclick="filterTrade(this,'数码')">📱 数码</span>
-            <span class="tag" onclick="filterTrade(this,'教材')">📚 教材</span>
-            <span class="tag" onclick="filterTrade(this,'生活')">🏠 生活</span>
-            <span class="tag" onclick="filterTrade(this,'服饰')">👗 服饰</span>
-            <span class="tag" onclick="filterTrade(this,'其他')">📦 其他</span>
+            <span class="tag active" onclick="filterTrade(this,'')"><i data-lucide="flame" class="icon icon-sm"></i> 全部</span>
+            <span class="tag" onclick="filterTrade(this,'数码')"><i data-lucide="smartphone" class="icon icon-sm"></i> 数码</span>
+            <span class="tag" onclick="filterTrade(this,'教材')"><i data-lucide="book-open" class="icon icon-sm"></i> 教材</span>
+            <span class="tag" onclick="filterTrade(this,'生活')"><i data-lucide="home" class="icon icon-sm"></i> 生活</span>
+            <span class="tag" onclick="filterTrade(this,'服饰')"><i data-lucide="shirt" class="icon icon-sm"></i> 服饰</span>
+            <span class="tag" onclick="filterTrade(this,'其他')"><i data-lucide="package" class="icon icon-sm"></i> 其他</span>
         </div>
 
         <!-- 发布按钮 -->
         <div style="text-align:center;margin-bottom:24px;">
-            <button class="btn btn-primary" onclick="openCreateTrade()">📦 发布闲置</button>
+            <button class="btn btn-primary" onclick="openCreateTrade()"><i data-lucide="plus-circle" class="icon icon-sm"></i> 发布闲置</button>
         </div>
 
         <!-- 瀑布流 -->
@@ -48,7 +54,7 @@
 <div class="modal-overlay" id="tradeModal">
     <div class="modal" style="position:relative;max-width:560px;">
         <button class="modal-close" onclick="closeModal('tradeModal')">&times;</button>
-        <div class="modal-title">📦 发布闲置</div>
+        <div class="modal-title"><i data-lucide="package" class="icon icon-sm"></i> 发布闲置</div>
         <form onsubmit="return createTrade(event)">
             <div class="form-group"><label class="form-label">商品名</label><input class="input" name="title" required maxlength="100"></div>
             <div class="form-group"><label class="form-label">描述</label><textarea class="input" name="content" rows="4" required></textarea></div>

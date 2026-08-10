@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>瀑布流 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     <style>
@@ -63,6 +65,10 @@
 }
 </style>
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -73,14 +79,14 @@
         <div class="section" style="padding-top:100px;">
     <div class="container" style="max-width:1200px;">
         <div class="section-header reveal">
-            <h2 class="chapter-title">🌊 瀑布流</h2>
+            <h2 class="chapter-title"><i data-lucide="waves" class="icon"></i> 瀑布流</h2>
             <p class="chapter-sub">刷不完的校园动态</p>
         </div>
 
         <!-- 排序 -->
         <div class="tag-bar reveal" id="waterfallSort">
-            <span class="tag active" onclick="sortWaterfall(this,'newest')">✨ 最新</span>
-            <span class="tag" onclick="sortWaterfall(this,'hot')">🔥 热门推荐</span>
+            <span class="tag active" onclick="sortWaterfall(this,'newest')"><i data-lucide="sparkles" class="icon icon-sm"></i> 最新</span>
+            <span class="tag" onclick="sortWaterfall(this,'hot')"><i data-lucide="flame" class="icon icon-sm"></i> 热门推荐</span>
         </div>
 
         <div id="waterfallGrid" class="masonry">
@@ -88,8 +94,8 @@
         </div>
 
         <div style="text-align:center;margin-top:32px;">
-            <button class="btn" id="loadMoreWaterfall" onclick="loadMoreWaterfall()" style="display:none;">加载更多 ↓</button>
-            <div id="waterfallEnd" style="display:none;color:var(--text-muted);font-family:'Ma Shan Zheng',cursive;">已到底啦~ ✨</div>
+            <button class="btn" id="loadMoreWaterfall" onclick="loadMoreWaterfall()" style="display:none;"><i data-lucide="chevrons-down" class="icon icon-sm"></i> 加载更多</button>
+            <div id="waterfallEnd" style="display:none;color:var(--text-muted);font-family:'Ma Shan Zheng',cursive;"><i data-lucide="check-circle" class="icon icon-sm"></i> 已到底啦~</div>
         </div>
     </div>
 </div>
@@ -132,14 +138,15 @@ function loadWaterfall(append) {
     api.get(url).then(posts => {
         const grid = document.getElementById('waterfallGrid');
         if (!posts.length && !append) {
-            grid.innerHTML = '<div class="empty-state"><div class="icon">🌊</div><div class="text">暂无动态</div></div>';
+            grid.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="waves" class="icon icon-lg"></i></div><div class="text">暂无动态</div></div>';
+            if (window.lucide) lucide.createIcons();
             return;
         }
 
         const html = posts.map((p, i) => {
-            // 从 content 提取 Markdown 图片 URL，显示真实图片
             const imgMatch = String(p.content || '').match(/!\[[^\]]*\]\(([^)]+)\)/);
             const coverUrl = imgMatch && /^\/static\//.test(imgMatch[1]) ? imgMatch[1] : '';
+            const stationIcon = getStationIcon(p.station_icon || 'school');
             return `
                 <div class="masonry-item reveal">
                     <div class="masonry-card" onclick="window.location.href='/post/${p.id}'">
@@ -148,9 +155,9 @@ function loadWaterfall(append) {
                         <div class="content">${renderContent(p.content, false)}</div>
                         <div class="meta">
                             <span>${escHtml(p.author_name)}</span>
-                            <span>${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
-                            <span>❤️ ${p.likes_count||0}</span>
-                            <span>💬 ${p.comments_count||0}</span>
+                            <span><i data-lucide="${stationIcon}" class="icon icon-sm"></i> ${escHtml(p.station_name||'')}</span>
+                            <span><i data-lucide="heart" class="icon icon-sm"></i> ${p.likes_count||0}</span>
+                            <span><i data-lucide="message-circle" class="icon icon-sm"></i> ${p.comments_count||0}</span>
                         </div>
                     </div>
                 </div>
@@ -171,12 +178,27 @@ function loadWaterfall(append) {
             end.style.display = '';
         }
         initReveal();
+        if (window.lucide) lucide.createIcons();
     });
 }
 
 function loadMoreWaterfall() {
     loadWaterfall(true);
 }
+
+// 无限滚动检测
+let _wfLoading = false;
+window.addEventListener('scroll', function() {
+    if (_wfLoading) return;
+    const btn = document.getElementById('loadMoreWaterfall');
+    if (!btn || btn.style.display === 'none') return;
+    const rect = btn.getBoundingClientRect();
+    if (rect.top <= window.innerHeight + 200) {
+        _wfLoading = true;
+        loadWaterfall(true);
+        setTimeout(() => { _wfLoading = false; }, 800);
+    }
+});
 </script>
 </body>
 </html>

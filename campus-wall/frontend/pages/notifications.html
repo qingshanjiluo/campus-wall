@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>通知 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -18,11 +24,11 @@
         <div class="section" style="padding-top:100px;">
     <div class="container" style="max-width:700px;">
         <div class="section-header reveal">
-            <h2 class="chapter-title">🔔 通知</h2>
+            <h2 class="chapter-title"><i data-lucide="bell" class="icon"></i> 通知</h2>
             <p class="chapter-sub">看看谁给你发来了消息</p>
         </div>
         <div style="margin-bottom:16px;text-align:right;">
-            <button class="btn btn-sm" onclick="markAllRead()">全部标为已读</button>
+            <button class="btn btn-sm" onclick="markAllRead()"><i data-lucide="check-check" class="icon icon-sm"></i> 全部标为已读</button>
         </div>
         <div id="notifList"><div class="loading">加载中</div></div>
     </div>
@@ -44,15 +50,16 @@ function loadNotifications() {
 function renderNotifications(notifs) {
     const list = document.getElementById('notifList');
     if (!notifs || notifs.length === 0) {
-        list.innerHTML = '<div class="empty-state"><div class="icon">🔔</div><div class="text">暂无通知</div></div>';
+        list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="bell-off" class="icon-lg"></i></div><div class="text">暂无通知</div></div>';
+        if (window.lucide) lucide.createIcons();
         return;
     }
     list.innerHTML = notifs.map(n => {
-        const icon = n.type === 'like' ? '❤️' : n.type === 'comment' ? '💬' : n.type === 'follow' ? '👤' : '🔔';
+        const icon = n.type === 'like' ? 'heart' : n.type === 'comment' ? 'message-circle' : n.type === 'follow' ? 'user-plus' : 'bell';
         return `
             <div class="post-card" style="padding:16px;${n.is_read?'':'border-left:3px solid var(--pink-4);'}${n.link?'cursor:pointer;':''}" data-link="${n.link?escHtml(n.link):''}" onclick="openNotifLink(this)">
                 <div style="display:flex;align-items:center;gap:12px;">
-                    <span style="font-size:1.3rem;">${icon}</span>
+                    <span style="font-size:1.3rem;"><i data-lucide="${icon}" class="icon"></i></span>
                     <div style="flex:1;">
                         <div style="font-size:0.9rem;">${escHtml(n.content)}</div>
                         <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">${formatTime(n.created_at)}</div>
@@ -61,6 +68,7 @@ function renderNotifications(notifs) {
             </div>
         `;
     }).join('');
+    if (window.lucide) lucide.createIcons();
 }
 
 function openNotifLink(el) {

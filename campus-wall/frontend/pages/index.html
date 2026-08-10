@@ -4,10 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>校园墙 · 连接校园 分享青春</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
-    
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -15,24 +20,31 @@
 <body>
 <div id="app-root">
     <main id="page-main">
-        <!-- Hero -->
+<!-- Hero -->
 <section class="hero-section" id="hero">
-    <div class="giant-deco" style="top:8%;left:-8%;">★</div>
-    <div class="giant-deco" style="bottom:5%;right:-5%;color:var(--pink-2);font-size:15vw;">✦</div>
+    <div class="giant-deco" style="top:8%;left:-8%;opacity:0.08;">
+        <i data-lucide="sparkles" style="width:100%;height:100%;color:var(--primary);"></i>
+    </div>
+    <div class="giant-deco" style="bottom:5%;right:-5%;opacity:0.06;">
+        <i data-lucide="heart" style="width:80%;height:80%;color:var(--secondary);"></i>
+    </div>
     <h1>连接校园<br>分享青春</h1>
-    <p>创建属于你的校园墙，让每一个声音都被听见 ✨</p>
+    <p>创建属于你的校园墙，让每一个声音都被听见</p>
     <div class="hero-btns">
-        <button class="btn btn-primary btn-lg" onclick="requireAuth() && openModal('createPostModal')">✍️ 发帖</button>
-        <button class="btn btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">浏览子站 ↓</button>
+        <button class="btn btn-primary btn-lg" onclick="requireAuth() && openModal('createPostModal')">
+            <i data-lucide="pencil" class="icon icon-md"></i> 发帖
+        </button>
+        <button class="btn btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">
+            <i data-lucide="arrow-down" class="icon icon-md"></i> 浏览子站
+        </button>
     </div>
     <div class="scroll-hint">
         <span class="scroll-hint-text">向下滚动探索</span>
-        <div class="scroll-hint-arrow">↓</div>
+        <div class="scroll-hint-arrow"><i data-lucide="chevrons-down" class="icon icon-lg"></i></div>
     </div>
 </section>
 
-<!-- 过渡 -->
-<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament">🌸</div></div>
+<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament"><i data-lucide="flower-2" class="icon icon-lg"></i></div></div>
 
 <!-- 子站市场 -->
 <section class="section" id="stations">
@@ -42,18 +54,18 @@
             <p class="chapter-sub">发现更多有趣的角落，找到属于你的同好圈子</p>
         </div>
         <div class="search-box reveal" style="margin-bottom:24px;">
-            <span class="search-icon">🔍</span>
+            <i data-lucide="search" class="icon search-icon"></i>
             <input class="input" type="text" id="searchInput" placeholder="搜索感兴趣的子站...">
         </div>
         <div class="tag-bar reveal" id="tagBar">
-            <span class="tag active" onclick="filterByTag(this, '')">🔥 全部</span>
-            <span class="tag" onclick="filterByTag(this, '情感')">💌 情感</span>
-            <span class="tag" onclick="filterByTag(this, '学习')">📚 学习</span>
-            <span class="tag" onclick="filterByTag(this, '美食')">🍜 美食</span>
-            <span class="tag" onclick="filterByTag(this, '摄影')">📸 摄影</span>
-            <span class="tag" onclick="filterByTag(this, '运动')">🏃 运动</span>
-            <span class="tag" onclick="filterByTag(this, '音乐')">🎵 音乐</span>
-            <span class="tag" onclick="filterByTag(this, '社团')">🎉 社团</span>
+            <span class="tag active" onclick="filterByTag(this, '')"><i data-lucide="flame" class="icon icon-sm"></i> 全部</span>
+            <span class="tag" onclick="filterByTag(this, '情感')"><i data-lucide="heart" class="icon icon-sm"></i> 情感</span>
+            <span class="tag" onclick="filterByTag(this, '学习')"><i data-lucide="book-open" class="icon icon-sm"></i> 学习</span>
+            <span class="tag" onclick="filterByTag(this, '美食')"><i data-lucide="utensils" class="icon icon-sm"></i> 美食</span>
+            <span class="tag" onclick="filterByTag(this, '摄影')"><i data-lucide="camera" class="icon icon-sm"></i> 摄影</span>
+            <span class="tag" onclick="filterByTag(this, '运动')"><i data-lucide="activity" class="icon icon-sm"></i> 运动</span>
+            <span class="tag" onclick="filterByTag(this, '音乐')"><i data-lucide="music" class="icon icon-sm"></i> 音乐</span>
+            <span class="tag" onclick="filterByTag(this, '社团')"><i data-lucide="users" class="icon icon-sm"></i> 社团</span>
         </div>
         <div id="stationGrid" class="station-grid">
             <div class="loading">加载中</div>
@@ -61,8 +73,7 @@
     </div>
 </section>
 
-<!-- 过渡 -->
-<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament" style="animation-delay:-1.5s;">🍃</div></div>
+<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament" style="animation-delay:-1.5s;"><i data-lucide="leaf" class="icon icon-lg"></i></div></div>
 
 <!-- 最新动态 -->
 <section class="section" id="posts" style="padding-bottom:100px;">
@@ -72,15 +83,17 @@
             <p class="chapter-sub">看看大家都在聊些什么</p>
         </div>
         <div class="tag-bar reveal" id="postSortBar">
-            <span class="tag active" onclick="sortPosts(this, 'newest')">✨ 最新</span>
-            <span class="tag" onclick="sortPosts(this, 'popular')">🔥 热门</span>
-            <span class="tag" onclick="sortPosts(this, 'comments')">💬 最多评论</span>
+            <span class="tag active" onclick="sortPosts(this, 'newest')"><i data-lucide="clock" class="icon icon-sm"></i> 最新</span>
+            <span class="tag" onclick="sortPosts(this, 'popular')"><i data-lucide="trending-up" class="icon icon-sm"></i> 热门</span>
+            <span class="tag" onclick="sortPosts(this, 'comments')"><i data-lucide="message-circle" class="icon icon-sm"></i> 最多评论</span>
         </div>
         <div id="postList">
             <div class="loading">加载中</div>
         </div>
         <div style="text-align:center;margin-top:32px;">
-            <button class="btn" id="loadMoreBtn" onclick="loadMorePosts()" style="display:none;">加载更多 ↓</button>
+            <button class="btn" id="loadMoreBtn" onclick="loadMorePosts()" style="display:none;">
+                <i data-lucide="arrow-down" class="icon icon-sm"></i> 加载更多
+            </button>
         </div>
     </div>
 </section>
@@ -96,7 +109,7 @@ onUserReady(function() {
     loadPosts();
     debouncedSearch('searchInput', function(q) {
         if (!q) { loadStations(); return; }
-        api.get('/api/stations/search?q=' + encodeURIComponent(q)).then(data => renderStations(data)).catch(() => showToast('搜索失败','error'));
+        api.get('/api/stations/search?q=' + encodeURIComponent(q)).then(data => renderStations(data)).catch(() => CampusUtils.showToast('搜索失败','error'));
     });
     document.addEventListener('postCreated', () => loadPosts());
 });
@@ -108,29 +121,32 @@ function loadStations(tag) {
     if (tag) url += '&tag=' + encodeURIComponent(tag);
     api.get(url)
         .then(data => renderStations(data))
-        .catch(() => grid.innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">加载失败，刷新试试</div></div>');
+        .catch(() => { grid.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败，刷新试试</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });
 }
 
 function renderStations(stations) {
     const grid = document.getElementById('stationGrid');
     if (!stations || stations.length === 0) {
-        grid.innerHTML = '<div class="empty-state"><div class="icon">🏗️</div><div class="text">还没有子站，来创建第一个吧！</div></div>';
+        grid.innerHTML = '<div class="empty-state"><i data-lucide="building-2" class="icon empty-icon"></i><div class="text">还没有子站，来创建第一个吧！</div></div>';
+        if(typeof lucide!=='undefined') lucide.createIcons();
         return;
     }
     grid.innerHTML = stations.map(s => `
         <div class="station-card reveal" onclick="window.location.href='/station/${s.id}'">
+            ${s.cover ? '<div class="station-cover" style="background-image:url(\'' + s.cover + '\')"></div>' : ''}
             <div class="station-card-header">
-                <div class="station-icon">${s.icon || '🏫'}</div>
+                <div class="station-icon"><i data-lucide="${s.icon || 'school'}" class="icon icon-lg"></i></div>
                 <div class="name">${escHtml(s.name)}</div>
             </div>
             <div class="desc">${escHtml(s.description || '暂无简介')}</div>
-            <div class="tags">${(s.tags||[]).map(t => '<span class="tag">#'+escHtml(t)+'</span>').join('')}</div>
+            <div class="tags">${(s.tags||[]).map(t => '<span class="tag">#' + escHtml(t) + '</span>').join('')}</div>
             <div class="meta">
-                <span>👥 ${s.user_count||0}</span>
-                <span>📝 ${s.post_count||0}</span>
+                <span><i data-lucide="users" class="icon icon-sm"></i> ${s.user_count||0}</span>
+                <span><i data-lucide="file-text" class="icon icon-sm"></i> ${s.post_count||0}</span>
             </div>
         </div>
     `).join('');
+    if(typeof lucide!=='undefined') lucide.createIcons();
     initReveal();
 }
 
@@ -140,13 +156,11 @@ function filterByTag(el, tag) {
     loadStations(tag);
 }
 
-
-
 function loadPosts(append) {
     if (!append) postOffset = 0;
     const list = document.getElementById('postList');
     if (!append) list.innerHTML = '<div class="loading">加载中</div>';
-    api.get(`/api/posts?limit=${postLimit}&offset=${postOffset}&sort=${currentPostSort}`)
+    api.get('/api/posts?limit=' + postLimit + '&offset=' + postOffset + '&sort=' + currentPostSort)
         .then(data => {
             renderPosts(data.posts, append);
             const btn = document.getElementById('loadMoreBtn');
@@ -157,13 +171,13 @@ function loadPosts(append) {
                 btn.style.display = 'none';
             }
         })
-        .catch(() => { if (!append) list.innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">加载失败</div></div>'; });
+        .catch(() => { if (!append) { list.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); } });
 }
 
 function renderPosts(posts, append) {
     const list = document.getElementById('postList');
     if (!posts || posts.length === 0) {
-        if (!append) list.innerHTML = '<div class="empty-state"><div class="icon">📝</div><div class="text">还没有帖子，来发第一帖吧！</div></div>';
+        if (!append) { list.innerHTML = '<div class="empty-state"><i data-lucide="file-text" class="icon empty-icon"></i><div class="text">还没有帖子，来发第一帖吧！</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); }
         return;
     }
     const html = posts.map(p => renderPostCard(p)).join('');
@@ -172,6 +186,7 @@ function renderPosts(posts, append) {
     } else {
         list.innerHTML = html;
     }
+    if(typeof lucide!=='undefined') lucide.createIcons();
     initReveal();
 }
 

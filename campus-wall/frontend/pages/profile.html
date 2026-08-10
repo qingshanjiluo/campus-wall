@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>个人中心 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -29,9 +35,9 @@
             <div>
                 <!-- 标签切换 -->
                 <div class="tag-bar reveal" id="profileTabs">
-                    <span class="tag active" onclick="switchProfileTab(this,'posts')">📝 帖子</span>
-                    <span class="tag" onclick="switchProfileTab(this,'followers')">👥 粉丝</span>
-                    <span class="tag" onclick="switchProfileTab(this,'following')">➡️ 关注</span>
+                    <span class="tag active" onclick="switchProfileTab(this,'posts')"><i data-lucide="file-text" class="icon icon-sm"></i> 帖子</span>
+                    <span class="tag" onclick="switchProfileTab(this,'followers')"><i data-lucide="users" class="icon icon-sm"></i> 粉丝</span>
+                    <span class="tag" onclick="switchProfileTab(this,'following')"><i data-lucide="user-plus" class="icon icon-sm"></i> 关注</span>
                 </div>
                 <div id="profileContent"><div class="loading">加载中</div></div>
             </div>
@@ -56,7 +62,8 @@ function loadProfile() {
         renderProfileCard(data);
         document.title = data.username + ' · 校园墙';
     }).catch(() => {
-        document.getElementById('profileCard').innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">用户不存在</div></div>';
+        document.getElementById('profileCard').innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="frown" class="icon icon-lg"></i></div><div class="text">用户不存在</div></div>';
+        if (window.lucide) lucide.createIcons();
     });
 }
 
@@ -65,13 +72,13 @@ function renderProfileCard(u) {
     const stats = u.stats || {};
     let followBtn = '';
     if (!isMe && currentUser) {
-        followBtn = `<button class="btn btn-primary btn-sm" id="followBtn" onclick="toggleFollow(${u.id})" style="margin-top:12px;">关注</button>`;
+        followBtn = `<button class="btn btn-primary btn-sm" id="followBtn" onclick="toggleFollow(${u.id})" style="margin-top:12px;"><i data-lucide="user-plus" class="icon icon-sm"></i> 关注</button>`;
         checkFollowing(u.id);
     }
     const badges = [];
-    if (u.identity_group) badges.push('<span class="profile-badge" style="background:var(--lavender);">🎖️ '+escHtml(u.identity_group)+'</span>');
-    if (u.title) badges.push('<span class="profile-badge" style="background:var(--yellow);">🏷️ '+escHtml(u.title)+'</span>');
-    if (u.mood) badges.push('<span class="profile-badge" style="background:var(--mint);">💬 '+escHtml(u.mood)+'</span>');
+    if (u.identity_group) badges.push('<span class="profile-badge" style="background:var(--lavender);"><i data-lucide="shield" class="icon icon-sm"></i> '+escHtml(u.identity_group)+'</span>');
+    if (u.title) badges.push('<span class="profile-badge" style="background:var(--yellow);"><i data-lucide="award" class="icon icon-sm"></i> '+escHtml(u.title)+'</span>');
+    if (u.mood) badges.push('<span class="profile-badge" style="background:var(--mint);"><i data-lucide="smile" class="icon icon-sm"></i> '+escHtml(u.mood)+'</span>');
     document.getElementById('profileCard').innerHTML = `
         <div class="avatar-container">
             <div class="avatar-ring"></div>
@@ -81,19 +88,20 @@ function renderProfileCard(u) {
         ${badges.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:6px;">'+badges.join('')+'</div>' : ''}
         ${u.bio ? '<div class="profile-bio">'+escHtml(u.bio)+'</div>' : ''}
         <div class="profile-assets" style="display:flex;justify-content:center;gap:18px;margin:12px 0;">
-            <div style="text-align:center;"><div style="font-weight:800;color:var(--orange);font-size:1.05rem;">💰 ${u.coins||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">金币</div></div>
-            <div style="text-align:center;"><div style="font-weight:800;color:var(--mint);font-size:1.05rem;">⭐ ${u.points||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">积分</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--orange);font-size:1.05rem;"><i data-lucide="coins" class="icon icon-sm"></i> ${u.coins||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">金币</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--mint);font-size:1.05rem;"><i data-lucide="star" class="icon icon-sm"></i> ${u.points||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">积分</div></div>
             <div style="text-align:center;"><div style="font-weight:800;color:var(--pink-4);font-size:1.05rem;">Lv.${u.level||1}</div><div style="font-size:0.7rem;color:var(--text-muted);">等级</div></div>
-            <div style="text-align:center;"><div style="font-weight:800;color:var(--blue);font-size:1.05rem;">🔥 ${u.checkin_streak||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">连续签到</div></div>
+            <div style="text-align:center;"><div style="font-weight:800;color:var(--blue);font-size:1.05rem;"><i data-lucide="flame" class="icon icon-sm"></i> ${u.checkin_streak||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">连续签到</div></div>
         </div>
         <div class="profile-stats">
             <div class="stat-item"><div class="stat-num">${stats.posts||0}</div><div class="stat-label">帖子</div></div>
             <div class="stat-item"><div class="stat-num">${stats.followers||0}</div><div class="stat-label">粉丝</div></div>
             <div class="stat-item"><div class="stat-num">${stats.following||0}</div><div class="stat-label">关注</div></div>
         </div>
-        ${isMe ? '<button class="btn btn-sm" onclick="openEditProfile()" style="margin-top:12px;">✏️ 编辑资料</button>' : ''}
+        ${isMe ? '<button class="btn btn-sm" onclick="openEditProfile()" style="margin-top:12px;"><i data-lucide="pencil" class="icon icon-sm"></i> 编辑资料</button>' : ''}
         ${followBtn}
     `;
+    if (window.lucide) lucide.createIcons();
 }
 
 function checkFollowing(uid) {
@@ -133,11 +141,12 @@ function loadProfileTab(tab) {
     if (tab === 'posts') {
         api.get('/api/posts?author_id=' + PROFILE_UID + '&limit=50').then(data => {
             if (!data.posts || data.posts.length === 0) {
-                content.innerHTML = '<div class="empty-state"><div class="icon">📝</div><div class="text">还没有发过帖子</div></div>';
+                content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="file-text" class="icon icon-lg"></i></div><div class="text">还没有发过帖子</div></div>';
                 return;
             }
             content.innerHTML = data.posts.map(p => renderPostCard(p)).join('');
             initReveal();
+            if (window.lucide) lucide.createIcons();
         });
     } else if (tab === 'followers') {
         api.get('/api/social/followers/' + PROFILE_UID).then(data => renderUserList(content, data));
@@ -148,7 +157,7 @@ function loadProfileTab(tab) {
 
 function renderUserList(container, users) {
     if (!users || users.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="icon">👥</div><div class="text">暂无</div></div>';
+        container.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="users" class="icon icon-lg"></i></div><div class="text">暂无</div></div>';
         return;
     }
     container.innerHTML = users.map(u => `
@@ -163,6 +172,7 @@ function renderUserList(container, users) {
         </div>
     `).join('');
     initReveal();
+    if (window.lucide) lucide.createIcons();
 }
 </script>
 

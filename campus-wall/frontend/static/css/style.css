@@ -4,12 +4,12 @@
 @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@300;400;500;700&family=Nunito:wght@400;600;700;800&family=Press+Start+2P&display=swap');
 
 :root {
-    --cream: #FFF8F0;
-    --warm-white: #FFFBF5;
+    --cream: var(--bg-primary, #FFF8F0);
+    --warm-white: var(--bg-secondary, #FFFBF5);
     --pink-1: #ffe4ec;
     --pink-2: #ffb3c6;
-    --pink-3: #ff8fab;
-    --pink-4: #fb6f92;
+    --pink-3: var(--secondary, #ff8fab);
+    --pink-4: var(--secondary-hover, #fb6f92);
     --orange: #FFD6A5;
     --yellow: #FDFFB6;
     --lavender: #E2D5F5;
@@ -17,15 +17,15 @@
     --mint: #B5EAD7;
     --klein: #002fa7;
     --neon-yellow: #ccff00;
-    --text-dark: #3d2b1f;
-    --text-secondary: #8B7D6B;
-    --text-muted: #B8A99A;
+    --text-dark: var(--text-primary, #3d2b1f);
+    --text-secondary: var(--text-secondary, #8B7D6B);
+    --text-muted: var(--text-muted, #B8A99A);
     --glass-bg: rgba(255, 251, 245, 0.72);
     --glass-border: rgba(255, 255, 255, 0.85);
-    --shadow-soft: 0 8px 32px rgba(139, 125, 107, 0.12);
-    --shadow-hover: 0 14px 44px rgba(139, 125, 107, 0.2);
-    --radius: 24px;
-    --radius-sm: 16px;
+    --shadow-soft: var(--shadow-md, 0 8px 32px rgba(139, 125, 107, 0.12));
+    --shadow-hover: var(--shadow-lg, 0 14px 44px rgba(139, 125, 107, 0.2));
+    --radius: var(--radius-2xl, 24px);
+    --radius-sm: var(--radius-xl, 16px);
     --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -33,11 +33,12 @@
 html { scroll-behavior: smooth; }
 
 body {
-    font-family: 'Noto Sans SC', 'Nunito', sans-serif;
-    background: var(--cream);
-    color: var(--text-dark);
+    font-family: var(--font-sans, 'Noto Sans SC', 'Nunito', sans-serif);
+    background: var(--bg-primary, var(--cream));
+    color: var(--text-primary, var(--text-dark));
     overflow-x: hidden;
     min-height: 100vh;
+    line-height: 1.6;
 }
 
 a { color: var(--pink-4); text-decoration: none; transition: color 0.2s; }
@@ -162,6 +163,37 @@ a:hover { color: var(--pink-3); }
 
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
+/* 汉堡菜单按钮 */
+.nav-toggle {
+    display: none;
+    width: 36px; height: 36px;
+    background: transparent; border: none;
+    cursor: pointer; padding: 0;
+    color: var(--text-primary);
+}
+.nav-toggle .icon { width: 24px; height: 24px; }
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+    .nav-toggle { display: flex; align-items: center; justify-content: center; }
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        background: var(--bg-primary, white);
+        border-radius: 0 0 var(--radius-xl, 16px) var(--radius-xl, 16px);
+        box-shadow: var(--shadow-lg);
+        flex-direction: column;
+        padding: 12px;
+        gap: 4px;
+    }
+    .nav-links.open { display: flex; }
+    .nav-links a { padding: 10px 16px; border-radius: var(--radius-md, 8px); width: 100%; }
+    .navbar { padding: 10px 16px; gap: 12px; }
+    .station-grid { grid-template-columns: 1fr; }
+    .hero-section h1 { font-size: 2.5rem; }
+}
+
 /* 滚动后导航栏变实 */
 .navbar.scrolled {
     background: rgba(255, 248, 240, 0.92);
@@ -236,7 +268,36 @@ select.input {
     padding-right: 36px; cursor: pointer;
 }
 
-.search-box { position: relative; max-width: 500px; margin: 0 auto; }
+/* ── 帖子类型选择器 ── */
+.post-type-selector {
+    display: flex; gap: 8px;
+}
+.post-type-option {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 12px 8px;
+    border: 2px solid var(--border-primary, #e2e8f0);
+    border-radius: var(--radius-md, 8px);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+.post-type-option:hover {
+    border-color: var(--primary, #6366f1);
+    background: var(--primary-light, #eef2ff);
+}
+.post-type-option.active {
+    border-color: var(--primary, #6366f1);
+    background: var(--primary-light, #eef2ff);
+    color: var(--primary);
+}
+.post-type-option input[type="radio"] {
+    display: none;
+}
+
+/* ── 搜索框 ── */
 .search-box .input { padding-left: 44px; }
 .search-icon {
     position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
@@ -246,6 +307,63 @@ select.input {
 .search-box .input:focus ~ .search-icon {
     color: var(--pink-4);
     transform: translateY(-50%) scale(1.15);
+}
+
+/* ── 封面上传 ── */
+.cover-upload {
+    width: 100%;
+    border: 2px dashed var(--border-primary, #e2e8f0);
+    border-radius: var(--radius-lg, 12px);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+}
+.cover-upload:hover {
+    border-color: var(--primary, #6366f1);
+}
+.cover-upload-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    cursor: pointer;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.85rem;
+}
+.cover-upload-btn:hover {
+    color: var(--primary, #6366f1);
+}
+
+/* ── 图标选择器 ── */
+.icon-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.icon-option {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--border-primary, #e2e8f0);
+    border-radius: var(--radius-md, 8px);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+}
+.icon-option:hover {
+    border-color: var(--primary, #6366f1);
+    color: var(--primary);
+}
+.icon-option.active {
+    border-color: var(--primary, #6366f1);
+    background: var(--primary-light, #eef2ff);
+    color: var(--primary);
+}
+.icon-option input[type="radio"] {
+    display: none;
 }
 
 /* ── 容器与章节 ── */
@@ -362,6 +480,12 @@ select.input {
     display: flex; align-items: center; gap: 12px;
     margin-bottom: 12px;
 }
+.station-cover {
+    width: 100%; height: 120px;
+    background-size: cover; background-position: center;
+    border-radius: var(--radius-sm, 16px) var(--radius-sm, 16px) 0 0;
+    margin: -24px -24px 16px -24px;
+}
 .station-icon {
     width: 48px; height: 48px; border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
@@ -442,6 +566,24 @@ select.input {
     font-family: 'ZCOOL KuaiLe', cursive;
     font-size: 1.1rem; color: var(--text-dark);
     margin-bottom: 8px; line-height: 1.4;
+}
+
+/* ── 帖子高亮 ── */
+.post-card.pinned {
+    border-color: var(--color-accent);
+    background: linear-gradient(135deg, rgba(255,181,186,0.08), rgba(255,214,165,0.08));
+}
+.post-card.pinned .post-station {
+    background: var(--color-accent);
+    color: white;
+}
+.post-card.featured {
+    border-color: var(--color-secondary);
+    background: linear-gradient(135deg, rgba(255,214,165,0.08), rgba(253,255,182,0.08));
+}
+.post-card.featured .post-station {
+    background: var(--color-secondary);
+    color: var(--text-dark);
 }
 .post-content {
     font-size: 0.9rem; color: var(--text-secondary);
@@ -780,6 +922,14 @@ main {
 }
 .user-chip:hover { background: rgba(255,181,186,0.12); }
 .user-chip img { width: 28px; height: 28px; border-radius: 50%; }
+
+/* ── 用户资产显示 ── */
+.user-assets {
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 6px 12px; border-radius: 20px;
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+}
+.asset-item { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
 /* ── 响应式 ── */
 @media (max-width: 768px) {

@@ -458,7 +458,7 @@ def stations():
 def posts():
     limit = request.args.get('limit', 100, type=int)
     return jsonify(query_db(
-        '''SELECT p.*, u.username as author_name, s.name as station_name
+        '''SELECT p.*, u.username as author_name, u.identity_group as author_identity_group, s.name as station_name
            FROM posts p JOIN users u ON p.author_id = u.id JOIN stations s ON p.station_id = s.id
            ORDER BY p.created_at DESC LIMIT ?''', (limit,)))
 

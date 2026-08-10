@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>创建子站 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -18,15 +24,26 @@
         <div class="section" style="padding-top:100px;">
     <div class="container" style="max-width:500px;">
         <div class="speech-bubble reveal" style="position:relative;">
-            <h2 class="chapter-title" style="font-size:1.5rem;margin-bottom:20px;">🏗️ 创建子站</h2>
+            <h2 class="chapter-title" style="font-size:1.5rem;margin-bottom:20px;"><i data-lucide="building-2" class="icon"></i> 创建子站</h2>
             <form id="createStationPageForm" onsubmit="return handleCreateStationPage(event)">
                 <div class="form-group">
                     <label class="form-label">子站名称</label>
                     <input class="input" type="text" name="name" placeholder="给子站起个名字" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">图标 (emoji)</label>
-                    <input class="input" type="text" name="icon" placeholder="🏫" maxlength="4" value="🏫">
+                    <label class="form-label">图标 (选择一个)</label>
+                    <select class="input" name="icon">
+                        <option value="school">🏫 学校</option>
+                        <option value="book-open">📚 图书</option>
+                        <option value="gamepad-2">🎮 游戏</option>
+                        <option value="heart"><i data-lucide="heart" class="icon icon-sm"></i> 恋爱</option>
+                        <option value="shopping-bag">🛒 交易</option>
+                        <option value="message-circle"><i data-lucide="message-circle" class="icon icon-sm"></i> 聊天</option>
+                        <option value="code">💻 编程</option>
+                        <option value="music">🎵 音乐</option>
+                        <option value="camera">📷 摄影</option>
+                        <option value="utensils">🍜 美食</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">简介</label>
@@ -36,7 +53,7 @@
                     <label class="form-label">标签 (逗号分隔)</label>
                     <input class="input" type="text" name="tags" placeholder="学习,互助,考研">
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">创建子站</button>
+                <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;"><i data-lucide="plus-circle" class="icon icon-sm"></i> 创建子站</button>
             </form>
         </div>
     </div>

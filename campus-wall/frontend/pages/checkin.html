@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>签到 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -29,14 +35,14 @@
             </div>
 
             <button class="btn btn-primary btn-lg" id="checkinBtn" onclick="doCheckin()" style="font-size:1.2rem;padding:14px 40px;">
-                ✨ 签到领奖
+                <i data-lucide="sparkles" class="icon"></i> 签到领奖
             </button>
             <div id="checkinResult" style="margin-top:16px;display:none;"></div>
         </div>
 
         <!-- 签到日历 -->
         <div class="speech-bubble reveal" style="margin-top:24px;">
-            <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:16px;">📋 签到记录</h3>
+            <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:16px;"><i data-lucide="calendar" class="icon"></i> 签到记录</h3>
             <div id="checkinHistory" style="display:flex;flex-wrap:wrap;gap:8px;">
                 <div class="loading">加载中</div>
             </div>
@@ -44,12 +50,12 @@
 
         <!-- 奖励规则 -->
         <div class="speech-bubble yellow reveal" style="margin-top:24px;">
-            <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;">🎁 奖励规则</h3>
+            <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;"><i data-lucide="gift" class="icon"></i> 奖励规则</h3>
             <div style="font-size:0.85rem;line-height:1.8;text-align:left;">
-                <p>📌 基础签到：<strong>10 金币 + 2 积分</strong></p>
-                <p>🔥 连签加成：每天 <strong>+5 金币</strong>，最多 +35</p>
-                <p>💎 连签7天可达 <strong>45 金币 + 14 积分</strong>！</p>
-                <p>⏰ 每天 0 点重置，记得来签到哦~</p>
+                <p><i data-lucide="pin" class="icon icon-sm"></i> 基础签到：<strong>10 金币 + 2 积分</strong></p>
+                <p><i data-lucide="flame" class="icon icon-sm"></i> 连签加成：每天 <strong>+5 金币</strong>，最多 +35</p>
+                <p><i data-lucide="gem" class="icon icon-sm"></i> 连签7天可达 <strong>45 金币 + 14 积分</strong>！</p>
+                <p><i data-lucide="clock" class="icon icon-sm"></i> 每天 0 点重置，记得来签到哦~</p>
             </div>
         </div>
     </div>
@@ -82,7 +88,7 @@ function doCheckin() {
             showToast('今天已经签到过了');
             return;
         }
-        document.getElementById('checkinIcon').textContent = '🎉';
+        document.getElementById('checkinIcon').innerHTML = '<i data-lucide="check-circle" class="icon icon-lg"></i>';
         document.getElementById('checkinTitle').textContent = '签到成功！';
         document.getElementById('checkinSub').textContent = `连签 ${data.streak} 天`;
         document.getElementById('checkinBtn').disabled = true;
@@ -96,7 +102,7 @@ function doCheckin() {
         result.style.display = '';
         result.innerHTML = `
             <div class="speech-bubble pink" style="display:inline-block;">
-                获得 <strong>${data.coins_earned} 金币</strong> + <strong>${data.points_earned} 积分</strong> 💰
+                获得 <strong>${data.coins_earned} 金币</strong> + <strong>${data.points_earned} 积分</strong> <i data-lucide="coins" class="icon icon-sm"></i>
             </div>
         `;
         showToast('签到成功！+' + data.coins_earned + '金币', 'success');
@@ -113,7 +119,7 @@ function renderHistory(history) {
     container.innerHTML = history.map(h => `
         <div style="background:var(--mint);border-radius:10px;padding:6px 12px;font-size:0.75rem;text-align:center;">
             <div>${h.checkin_date.slice(5)}</div>
-            <div style="font-size:0.65rem;color:var(--text-muted);">🔥${h.streak}</div>
+            <div style="font-size:0.65rem;color:var(--text-muted);"><i data-lucide="flame" class="icon icon-sm"></i> ${h.streak}</div>
         </div>
     `).join('');
 }

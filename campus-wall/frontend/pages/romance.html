@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>恋爱专区 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -18,16 +24,16 @@
         <div class="section" style="padding-top:100px;">
     <div class="container" style="max-width:1100px;">
         <div class="section-header reveal">
-            <h2 class="chapter-title">💕 恋爱情报专区</h2>
+            <h2 class="chapter-title"><i data-lucide="heart" class="icon"></i> 恋爱情报专区</h2>
             <p class="chapter-sub">缘分从这里开始，勇敢说出你的心意</p>
         </div>
 
         <!-- 标签栏 -->
         <div class="tag-bar reveal" id="romanceTabs">
-            <span class="tag active" onclick="switchRomanceTab(this,'profiles')">👤 人物墙</span>
-            <span class="tag" onclick="switchRomanceTab(this,'links')">💌 情报链接</span>
-            <span class="tag" onclick="switchRomanceTab(this,'tasks')">🎯 任务板</span>
-            <span class="tag" onclick="switchRomanceTab(this,'my')">💝 我的</span>
+            <span class="tag active" onclick="switchRomanceTab(this,'profiles')"><i data-lucide="user" class="icon icon-sm"></i> 人物墙</span>
+            <span class="tag" onclick="switchRomanceTab(this,'links')"><i data-lucide="send" class="icon icon-sm"></i> 情报链接</span>
+            <span class="tag" onclick="switchRomanceTab(this,'tasks')"><i data-lucide="target" class="icon icon-sm"></i> 任务板</span>
+            <span class="tag" onclick="switchRomanceTab(this,'my')"><i data-lucide="heart-handshake" class="icon icon-sm"></i> 我的</span>
         </div>
 
         <div id="romanceContent"><div class="loading">加载中</div></div>
@@ -123,7 +129,7 @@ function loadRomanceTab(tab) {
                     <div style="display:flex;gap:12px;font-size:0.75rem;color:var(--text-muted);">
                         <span>发布者: ${escHtml(t.creator_name)}</span>
                         <span>类型: ${t.task_type}</span>
-                        ${t.reward_coins ? '<span>赏金: '+t.reward_coins+'💰</span>' : ''}
+                        ${t.reward_coins ? '<span>赏金: '+t.reward_coins+' <i data-lucide="coins" class="icon icon-sm"></i></span>' : ''}
                     </div>
                 </div>
             `).join('');
@@ -133,7 +139,7 @@ function loadRomanceTab(tab) {
         if (!requireAuth()) return;
         content.innerHTML = `
             <div class="speech-bubble reveal" style="margin-bottom:20px;">
-                <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;">📝 我的恋爱档案</h3>
+                <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;"><i data-lucide="file-text" class="icon icon-sm"></i> 我的恋爱档案</h3>
                 <form id="romanceForm" onsubmit="return saveRomanceProfile(event)">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         <div class="form-group"><label class="form-label">昵称</label><input class="input" name="nickname" placeholder="你的昵称"></div>

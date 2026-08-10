@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>商城 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
     
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -18,15 +24,15 @@
         <div class="section" style="padding-top:100px;">
     <div class="container" style="max-width:1100px;">
         <div class="section-header reveal">
-            <h2 class="chapter-title">🎁 积分商城</h2>
+            <h2 class="chapter-title"><i data-lucide="shopping-bag" class="icon"></i> 积分商城</h2>
             <p class="chapter-sub">用金币和积分兑换专属好物</p>
         </div>
 
         <!-- 余额 -->
         <div class="speech-bubble reveal" style="text-align:center;margin-bottom:24px;">
-            <span style="font-size:1.1rem;">💰 金币: <strong id="myCoins">-</strong></span>
-            <span style="margin-left:24px;font-size:1.1rem;">⭐ 积分: <strong id="myPoints">-</strong></span>
-            <a href="/checkin" class="btn btn-sm" style="margin-left:16px;">去签到赚金币</a>
+            <span style="font-size:1.1rem;"><i data-lucide="coins" class="icon icon-sm"></i> 金币: <strong id="myCoins">-</strong></span>
+            <span style="margin-left:24px;font-size:1.1rem;"><i data-lucide="star" class="icon icon-sm"></i> 积分: <strong id="myPoints">-</strong></span>
+            <a href="/checkin" class="btn btn-sm" style="margin-left:16px;"><i data-lucide="calendar-check" class="icon icon-sm"></i> 去签到赚金币</a>
         </div>
 
         <!-- 商品列表 -->
@@ -36,7 +42,7 @@
 
         <!-- 我的订单 -->
         <div style="margin-top:40px;" class="reveal">
-            <h3 class="chapter-title" style="font-size:1.5rem;">📦 我的订单</h3>
+            <h3 class="chapter-title" style="font-size:1.5rem;"><i data-lucide="package" class="icon"></i> 我的订单</h3>
             <div id="orderList" style="margin-top:16px;"><div class="loading">加载中</div></div>
         </div>
     </div>
@@ -69,9 +75,9 @@ function loadShopItems() {
                 <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.1rem;text-align:center;margin-bottom:4px;">${escHtml(item.name)}</div>
                 <div style="font-size:0.8rem;color:var(--text-secondary);text-align:center;margin-bottom:12px;">${escHtml(item.description)}</div>
                 <div style="text-align:center;margin-bottom:12px;">
-                    ${item.price_coins ? '<span style="color:var(--orange);font-weight:700;">💰 '+item.price_coins+'</span>' : ''}
+                    ${item.price_coins ? '<span style="color:var(--orange);font-weight:700;"><i data-lucide="coins" class="icon icon-sm"></i> '+item.price_coins+'</span>' : ''}
                     ${item.price_coins && item.price_points ? ' + ' : ''}
-                    ${item.price_points ? '<span style="color:var(--mint);font-weight:700;">⭐ '+item.price_points+'</span>' : ''}
+                    ${item.price_points ? '<span style="color:var(--mint);font-weight:700;"><i data-lucide="star" class="icon icon-sm"></i> '+item.price_points+'</span>' : ''}
                 </div>
                 <div style="text-align:center;">
                     <button class="btn btn-primary btn-sm" data-item-id="${item.id}" onclick="buyItemById(this)">兑换</button>
@@ -109,13 +115,13 @@ function loadOrders() {
             const usable = o.status === 'completed' && usableTypes.includes(o.item_type);
             return `
             <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
-                <span style="font-size:1.3rem;">${o.item_icon || '🎁'}</span>
+                <span style="font-size:1.3rem;"><i data-lucide="${o.item_icon || 'gift'}" class="icon"></i></span>
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:0.9rem;">${escHtml(o.item_name)}</div>
                     <div style="font-size:0.75rem;color:var(--text-muted);">${formatTime(o.created_at)}</div>
                 </div>
                 <div style="font-size:0.85rem;color:var(--text-secondary);">
-                    ${o.total_coins ? '-'+o.total_coins+'💰' : ''} ${o.total_points ? '-'+o.total_points+'⭐' : ''}
+                    ${o.total_coins ? '-'+o.total_coins+' <i data-lucide="coins" class="icon icon-sm"></i>' : ''} ${o.total_points ? '-'+o.total_points+' <i data-lucide="star" class="icon icon-sm"></i>' : ''}
                 </div>
                 ${usable ? '<button class="btn btn-primary btn-sm" style="padding:4px 12px;font-size:0.75rem;" onclick="useItemById('+o.item_id+')">使用</button>' : ''}
                 ${o.status === 'used' ? '<span style="font-size:0.7rem;color:var(--text-muted);">已使用</span>' : ''}

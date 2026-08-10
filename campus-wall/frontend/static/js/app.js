@@ -43,38 +43,6 @@ async function loadCurrentUser() {
     }
 }
 
-function updateNavRight() {
-    const navRight = document.getElementById('navRight');
-    if (!navRight) return;
-    if (currentUser) {
-        navRight.innerHTML = `
-            <a href="/create" class="btn btn-primary btn-sm" style="text-decoration:none;">✍️ 发帖</a>
-            <a href="/notifications" class="btn btn-ghost btn-sm" style="position:relative;text-decoration:none;" id="notifLink">
-                🔔<span class="badge" id="notifBadge" style="display:none;"></span>
-            </a>
-            <div class="user-chip" onclick="toggleUserMenu()">
-                <img src="${currentUser.avatar || '/static/images/default-avatar.svg'}" onerror="this.src='/static/images/default-avatar.svg'" style="width:28px;height:28px;border-radius:50%;">
-                <span style="font-size:0.85rem;font-weight:500;">${escHtml(currentUser.username)}</span>
-            </div>
-            <div id="userMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:8px;background:var(--cream);border:2px solid var(--text-dark);border-radius:16px;padding:8px;box-shadow:5px 5px 0 var(--pink-2);min-width:160px;z-index:200;">
-                <a href="/profile/${currentUser.id}" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">👤 个人中心</a>
-                <a href="/notifications" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">🔔 通知</a>
-                <a href="/favorites" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">🔖 我的收藏</a>
-                <a href="/create-station" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">🏗️ 创建子站</a>
-                <a href="#" onclick="openEditProfile();return false;" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">✏️ 编辑资料</a>
-                <a href="#" onclick="openChangePassword();return false;" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--text-dark);">🔑 修改密码</a>
-                <hr style="border:none;border-top:1px solid rgba(139,125,107,0.1);margin:4px 0;">
-                <a href="#" onclick="handleLogout();return false;" style="display:block;padding:8px 12px;border-radius:10px;font-size:0.85rem;color:var(--pink-4);">🚪 退出登录</a>
-            </div>
-        `;
-    } else {
-        navRight.innerHTML = `
-            <button class="btn btn-sm" onclick="openModal('loginModal')">登录</button>
-            <button class="btn btn-primary btn-sm" onclick="openModal('registerModal')">注册</button>
-        `;
-    }
-}
-
 function toggleUserMenu() {
     const menu = document.getElementById('userMenu');
     if (menu) menu.style.display = menu.style.display === 'none' ? '' : 'none';
@@ -111,8 +79,31 @@ function openModal(id) {
     if (modal) {
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
-        if (id === 'createPostModal') loadStationOptions('postStationSelect');
+        if (id === 'createPostModal') {
+            loadStationOptions('postStationSelect');
+            initPostTypeSelector();
+        }
+        if (id === 'createStationModal') {
+            initIconSelector();
+        }
     }
+}
+
+function initPostTypeSelector() {
+    const selector = document.getElementById('postTypeSelector');
+    if (!selector) return;
+    const options = selector.querySelectorAll('.post-type-option');
+    const linkGroup = document.getElementById('linkUrlGroup');
+    const voteGroup = document.getElementById('voteOptionsGroup');
+    options.forEach(opt => {
+        opt.onclick = function() {
+            options.forEach(o => o.classList.remove('active'));
+            this.classList.add('active');
+            const type = this.dataset.type;
+            if (linkGroup) linkGroup.style.display = type === 'link' ? '' : 'none';
+            if (voteGroup) voteGroup.style.display = type === 'vote' ? '' : 'none';
+        };
+    });
 }
 
 function closeModal(id) {
@@ -203,23 +194,59 @@ function requireAuth() {
 function handleCreatePost(e) {
     e.preventDefault();
     const form = e.target;
+    const postType = form.querySelector('input[name="post_type"]:checked')?.value || 'text';
     const data = {
         station_id: parseInt(form.station_id.value),
         title: form.title.value.trim(),
         content: form.content.value.trim(),
+        post_type: postType,
         is_anonymous: form.is_anonymous && form.is_anonymous.checked ? 1 : 0
     };
+    if (postType === 'link') {
+        data.link_url = form.link_url?.value.trim() || '';
+    }
+    if (postType === 'vote') {
+        const options = form.vote_options?.value.split('\n').map(s => s.trim()).filter(Boolean) || [];
+        data.vote_options = options;
+    }
     if (!data.station_id || !data.title || !data.content) {
-        showToast('请填写完整信息', 'error');
+        CampusUtils.showToast('请填写完整信息', 'error');
         return false;
     }
     api.post('/api/posts', data).then(res => {
         closeModal('createPostModal');
-        showToast('发帖成功！', 'success');
+        CampusUtils.showToast('发帖成功！', 'success');
         form.reset();
         document.dispatchEvent(new CustomEvent('postCreated'));
-    }).catch(err => showToast(err.message || '发帖失败', 'error'));
+    }).catch(err => CampusUtils.showToast(err.message || '发帖失败', 'error'));
     return false;
+}
+
+// ── 封面预览 ──
+function previewCover(input) {
+    const preview = document.getElementById('coverPreview');
+    if (!preview) return;
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// ── 图标选择器初始化 ──
+function initIconSelector() {
+    const selector = document.getElementById('iconSelector');
+    if (!selector) return;
+    const options = selector.querySelectorAll('.icon-option');
+    options.forEach(opt => {
+        opt.onclick = function() {
+            options.forEach(o => o.classList.remove('active'));
+            this.classList.add('active');
+        };
+    });
 }
 
 // ── 创建子站表单 ──
@@ -227,19 +254,20 @@ function handleCreateStation(e) {
     e.preventDefault();
     const form = e.target;
     const tags = form.tags.value.split(',').map(t => t.trim()).filter(Boolean);
+    const iconInput = form.querySelector('input[name="icon"]:checked');
     const data = {
         name: form.name.value.trim(),
-        icon: form.icon.value.trim() || '🏫',
+        icon: iconInput ? iconInput.value : 'school',
         description: form.description.value.trim(),
         tags: tags
     };
-    if (!data.name) { showToast('请输入子站名称', 'error'); return false; }
+    if (!data.name) { CampusUtils.showToast('请输入子站名称', 'error'); return false; }
     api.post('/api/stations', data).then(res => {
         closeModal('createStationModal');
-        showToast('创建成功！', 'success');
+        CampusUtils.showToast('创建成功！', 'success');
         form.reset();
         window.location.href = '/station/' + res.station.id;
-    }).catch(err => showToast(err.message || '创建失败', 'error'));
+    }).catch(err => CampusUtils.showToast(err.message || '创建失败', 'error'));
     return false;
 }
 
@@ -422,7 +450,9 @@ function toggleLike(postId, btn) {
         const newLikes = data.liked ? currentLikes + 1 : Math.max(0, currentLikes - 1);
         btn.dataset.likes = newLikes;
         btn.className = 'post-action' + (data.liked ? ' liked' : '');
-        btn.innerHTML = `<span class="icon">${data.liked ? '❤️' : '🤍'}</span> ${newLikes}`;
+        btn.innerHTML = `<i data-lucide="${data.liked ? 'heart' : 'heart'}" class="icon icon-sm"></i> ${newLikes}`;
+        if (btn.classList.contains('liked')) btn.classList.add('liked');
+        if (window.lucide) lucide.createIcons();
     }).catch(e => showToast(e.message || '操作失败', 'error'));
 }
 
@@ -433,7 +463,8 @@ function toggleCommentLike(commentId, btn) {
         const newLikes = data.liked ? currentLikes + 1 : Math.max(0, currentLikes - 1);
         btn.dataset.likes = newLikes;
         btn.className = 'post-action btn-ghost' + (data.liked ? ' liked' : '');
-        btn.innerHTML = `<span class="icon">${data.liked ? '❤️' : '🤍'}</span> ${newLikes}`;
+        btn.innerHTML = `<i data-lucide="heart" class="icon icon-sm"></i> ${newLikes}`;
+        if (window.lucide) lucide.createIcons();
     }).catch(e => showToast(e.message || '操作失败', 'error'));
 }
 
@@ -478,7 +509,8 @@ function loadStationOptions(selectId) {
         const current = sel.value;
         sel.innerHTML = '<option value="">请选择子站...</option>';
         (data || []).forEach(s => {
-            sel.innerHTML += `<option value="${s.id}">${s.icon||'🏫'} ${escHtml(s.name)}</option>`;
+            const iconHtml = `<i data-lucide="${getStationIcon(s.icon)}" class="icon icon-sm"></i>`;
+            sel.innerHTML += `<option value="${s.id}">${iconHtml} ${escHtml(s.name)}</option>`;
         });
         if (current) sel.value = current;
     }).catch(() => {});
@@ -558,13 +590,23 @@ function escHtml(str) {
 // 渲染帖子内容：转义 HTML，并将 Markdown 图片 ![alt](url) 转为安全的 <img>
 function renderContent(content, full) {
     if (!content) return '';
-    let html = escHtml(content);
+    let html = CampusUtils.escHtml(content);
     // 将 ![alt](url) 转为 <img>
     html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(m, alt, url) {
         const u = String(url).replace(/&amp;/g, '&').trim();
-        // 只允许站内静态图片路径
-        if (!/^\/static\//.test(u)) return m;
-        return '<img src="' + escHtml(u) + '" alt="' + escHtml(alt) + '" loading="lazy" class="post-image" style="max-height:400px;border-radius:14px;margin:8px 0;display:block;">';
+        // 支持站内静态图片、上传图片、CDN图片
+        if (/^\/static\/|^\/uploads\/|^https?:\/\//.test(u)) {
+            return '<img src="' + CampusUtils.escHtml(u) + '" alt="' + CampusUtils.escHtml(alt) + '" loading="lazy" class="post-image" style="max-height:400px;width:100%;object-fit:cover;border-radius:14px;margin:8px 0;display:block;">';
+        }
+        return m;
+    });
+    // 将 HTML img 标签也处理（支持已有 HTML 格式）
+    html = html.replace(/<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi, function(m, url) {
+        const u = String(url).replace(/&amp;/g, '&').trim();
+        if (/^\/static\/|^\/uploads\/|^https?:\/\//.test(u)) {
+            return '<img src="' + CampusUtils.escHtml(u) + '" loading="lazy" class="post-image" style="max-height:400px;width:100%;object-fit:cover;border-radius:14px;margin:8px 0;display:block;">';
+        }
+        return m;
     });
     if (full) {
         return html;
@@ -575,28 +617,45 @@ function renderContent(content, full) {
 
 // 帖子卡片（全局复用：首页 / 子站页 / 个人主页等）
 function renderPostCard(p) {
-    const time = formatTime(p.created_at);
+    const time = CampusUtils.formatTime(p.created_at);
     const imgMatch = String(p.content || '').match(/!\[[^\]]*\]\(([^)]+)\)/);
     const coverImg = imgMatch && /^\/static\//.test(imgMatch[1]) ? imgMatch[1] : '';
+    const cardClass = `post-card reveal${p.is_pinned ? ' pinned' : ''}${p.is_featured ? ' featured' : ''}`;
+
+    const typeMap = {
+        text: { label: '图文', color: 'var(--pink-4)', bg: 'rgba(255,181,186,0.08)', icon: 'file-text' },
+        link: { label: '链接', color: 'var(--blue)', bg: 'rgba(147,197,253,0.08)', icon: 'link' },
+        vote: { label: '投票', color: 'var(--orange)', bg: 'rgba(255,214,165,0.08)', icon: 'bar-chart-2' },
+    };
+    const postType = p.post_type || 'text';
+    const typeInfo = typeMap[postType] || typeMap.text;
+
+    const identityGroup = p.author_identity_group || '';
+    const groupBadge = identityGroup ? `<span class="identity-badge" style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:8px;font-size:0.65rem;font-weight:600;background:var(--lavender);color:var(--text-dark);"><i data-lucide="shield" class="icon" style="width:10px;height:10px;"></i> ${CampusUtils.escHtml(identityGroup)}</span>` : '';
+
     return `
-        <article class="post-card reveal" onclick="window.location.href='/post/${p.id}'">
+        <article class="${cardClass}" style="${postType !== 'text' ? 'background:' + typeInfo.bg + ';' : ''}" onclick="window.location.href='/post/${p.id}'">
             <div class="post-header">
                 <img class="post-avatar" src="${p.author_avatar || '/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
                 <div class="post-meta">
-                    <div class="post-author">${escHtml(p.author_name)}</div>
+                    <div class="post-author">${CampusUtils.escHtml(p.author_name)} ${groupBadge}</div>
                     <div class="post-time">${time}</div>
                 </div>
-                <span class="post-station">${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="post-type-badge" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;color:${typeInfo.color};background:${typeInfo.bg};border:1px solid ${typeInfo.color}30;"><i data-lucide="${typeInfo.icon}" class="icon" style="width:12px;height:12px;"></i> ${typeInfo.label}</span>
+                    <span class="post-station"><i data-lucide="${getStationIcon(p.station_icon)}" class="icon icon-sm"></i> ${CampusUtils.escHtml(p.station_name||'')}</span>
+                </div>
             </div>
-            <div class="post-title">${escHtml(p.title)}</div>
-            ${coverImg ? '<img class="post-image" src="'+escHtml(coverImg)+'" alt="" loading="lazy" style="max-height:260px;width:100%;object-fit:cover;border-radius:14px;margin:8px 0;">' : ''}
+            ${p.is_pinned ? '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;"><i data-lucide="pin" class="icon icon-sm icon-danger"></i> <span style="font-size:0.75rem;color:var(--color-accent);font-weight:600;">置顶</span></div>' : ''}
+            <div class="post-title">${CampusUtils.escHtml(p.title)}</div>
+            ${coverImg ? '<img class="post-image" src="'+CampusUtils.escHtml(coverImg)+'" alt="" loading="lazy" style="max-height:260px;width:100%;object-fit:cover;border-radius:14px;margin:8px 0;">' : ''}
             <div class="post-content">${renderContent(p.content, false)}</div>
             <div class="post-actions">
                 <button class="post-action ${p.is_liked?'liked':''}" onclick="event.stopPropagation();toggleLike(${p.id},this)">
-                    <span class="icon">${p.is_liked?'❤️':'🤍'}</span> ${p.likes_count||0}
+                    <i data-lucide="heart" class="icon icon-sm ${p.is_liked ? 'icon-danger' : ''}"></i> ${p.likes_count||0}
                 </button>
-                <span class="post-action"><span class="icon">💬</span> ${p.comments_count||0}</span>
-                <span class="post-action"><span class="icon">👁️</span> ${p.views||0}</span>
+                <span class="post-action"><i data-lucide="message-circle" class="icon icon-sm"></i> ${p.comments_count||0}</span>
+                <span class="post-action"><i data-lucide="eye" class="icon icon-sm"></i> ${p.views||0}</span>
             </div>
         </article>
     `;
@@ -630,4 +689,57 @@ function showToast(message, type) {
     toast.className = 'toast show' + (type ? ' ' + type : '');
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ── 投票功能 ──
+function renderVoteSection(p) {
+    const options = p.vote_options ? p.vote_options.split('\n').filter(o => o.trim()) : [];
+    if (!options.length) return '';
+    const totalVotes = p.vote_counts ? Object.values(p.vote_counts).reduce((a, b) => a + b, 0) : 0;
+    const hasVoted = p.user_voted;
+    return `
+        <div class="vote-section" style="margin:16px 0;padding:16px;background:var(--bg-secondary);border-radius:var(--radius-lg);border:1px solid var(--border-primary);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:600;">
+                <i data-lucide="bar-chart-2" class="icon icon-sm"></i>
+                <span>投票</span>
+                <span style="font-size:0.75rem;color:var(--text-muted);font-weight:400;">${totalVotes} 票</span>
+            </div>
+            <div id="voteOptions">
+                ${options.map((opt, i) => {
+                    const votes = p.vote_counts ? (p.vote_counts[i] || 0) : 0;
+                    const pct = totalVotes > 0 ? Math.round(votes / totalVotes * 100) : 0;
+                    if (hasVoted) {
+                        return `<div class="vote-option voted" style="position:relative;overflow:hidden;margin:6px 0;padding:10px 12px;border-radius:var(--radius-md);background:var(--bg-primary);border:1px solid var(--border-primary);">
+                            <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:linear-gradient(90deg,rgba(255,181,186,0.2),rgba(255,214,165,0.2));transition:width 0.5s;"></div>
+                            <div style="position:relative;display:flex;justify-content:space-between;align-items:center;">
+                                <span>${CampusUtils.escHtml(opt)}</span>
+                                <span style="font-size:0.8rem;color:var(--text-muted);">${votes} 票 (${pct}%)</span>
+                            </div>
+                        </div>`;
+                    }
+                    return `<button class="vote-option" onclick="submitVote(${p.id},${i})" style="display:block;width:100%;text-align:left;margin:6px 0;padding:10px 12px;border-radius:var(--radius-md);background:var(--bg-primary);border:1px solid var(--border-primary);cursor:pointer;transition:all 0.2s;font-size:inherit;color:inherit;">
+                        <i data-lucide="circle" class="icon icon-sm"></i> ${CampusUtils.escHtml(opt)}
+                    </button>`;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function submitVote(postId, optionIndex) {
+    if (!currentUser) { openModal('loginModal'); return; }
+    api.post(`/api/posts/${postId}/vote`, { option_index: optionIndex }).then(() => {
+        showToast('投票成功', 'success');
+        loadPost();
+    }).catch(err => showToast(err.message || '投票失败', 'error'));
+}
+
+// ── 分享功能 ──
+function sharePost(postId) {
+    const url = window.location.origin + '/post/' + postId;
+    if (navigator.share) {
+        navigator.share({ title: document.title, url: url });
+    } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => showToast('链接已复制', 'success'));
+    }
 }

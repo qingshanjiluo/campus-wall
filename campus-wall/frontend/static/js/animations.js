@@ -51,7 +51,7 @@ function initLoadingAnimation() {
     const texts = [
         "正在打开社团活动室的门...",
         "阳光透过百叶窗洒了进来...",
-        "欢迎来到校园墙 ✨"
+        "欢迎来到校园墙"
     ];
 
     return new Promise(resolve => {

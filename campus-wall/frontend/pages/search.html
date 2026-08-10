@@ -4,10 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>搜索 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
-    
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
     <script src="/static/js/common.js"></script>
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/app.js"></script>
@@ -18,11 +23,11 @@
         <div class="section" style="padding-top:100px;">
     <div class="container" style="max-width:800px;">
         <div class="section-header reveal">
-            <h2 class="chapter-title">🔍 搜索</h2>
+            <h2 class="chapter-title"><i data-lucide="search" class="icon icon-lg"></i> 搜索</h2>
             <p class="chapter-sub">搜索子站、帖子与用户</p>
         </div>
         <div class="search-box reveal" style="margin-bottom:32px;">
-            <span class="search-icon">🔍</span>
+            <i data-lucide="search" class="icon search-icon"></i>
             <input class="input" type="text" id="globalSearch" placeholder="搜索子站 / 帖子 / 用户..." autofocus>
         </div>
         <div id="searchResults"></div>
@@ -40,63 +45,65 @@ document.addEventListener('DOMContentLoaded', function() {
             data = data || { stations: [], posts: [], users: [] };
             const total = (data.stations||[]).length + (data.posts||[]).length + (data.users||[]).length;
             if (total === 0) {
-                results.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><div class="text">没有找到「'+escHtml(q)+'」相关的内容</div></div>';
+                results.innerHTML = '<div class="empty-state"><i data-lucide="search-x" class="icon empty-icon"></i><div class="text">没有找到「' + CampusUtils.escHtml(q) + '」相关的内容</div></div>';
+                if(typeof lucide!=='undefined') lucide.createIcons();
                 return;
             }
-            let html = '<p style="margin-bottom:16px;color:var(--text-muted);font-size:0.9rem;">共找到 '+total+' 个结果</p>';
+            let html = '<p style="margin-bottom:16px;color:var(--text-muted);font-size:0.9rem;">共找到 ' + total + ' 个结果</p>';
 
             // 子站结果
             if (data.stations && data.stations.length) {
-                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:20px 0 12px;">🏫 子站 ('+data.stations.length+')</h3><div class="station-grid">' + data.stations.map(s => `
-                    <div class="station-card" onclick="window.location.href='/station/${s.id}'">
-                        <div class="station-card-header">
-                            <div class="station-icon">${s.icon||'🏫'}</div>
-                            <div class="name">${escHtml(s.name)}</div>
-                        </div>
-                        <div class="desc">${escHtml(s.description||'')}</div>
-                        <div class="meta"><span>👥 ${s.user_count||0}</span><span>📝 ${s.post_count||0}</span></div>
-                    </div>
-                `).join('') + '</div>';
+                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:20px 0 12px;"><i data-lucide="building-2" class="icon icon-md"></i> 子站 (' + data.stations.length + ')</h3><div class="station-grid">' + data.stations.map(s => {
+                    return '<div class="station-card" onclick="window.location.href=\'/station/' + s.id + '\'">' +
+                        '<div class="station-card-header">' +
+                        '<div class="station-icon"><i data-lucide="' + (s.icon || 'school') + '" class="icon icon-lg"></i></div>' +
+                        '<div class="name">' + CampusUtils.escHtml(s.name) + '</div>' +
+                        '</div>' +
+                        '<div class="desc">' + CampusUtils.escHtml(s.description || '') + '</div>' +
+                        '<div class="meta"><span><i data-lucide="users" class="icon icon-sm"></i> ' + (s.user_count || 0) + '</span><span><i data-lucide="file-text" class="icon icon-sm"></i> ' + (s.post_count || 0) + '</span></div>' +
+                        '</div>';
+                }).join('') + '</div>';
             }
 
             // 帖子结果
             if (data.posts && data.posts.length) {
-                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:24px 0 12px;">📝 帖子 ('+data.posts.length+')</h3>';
-                html += data.posts.map(p => `
-                    <article class="post-card reveal" onclick="window.location.href='/post/${p.id}'" style="margin-bottom:12px;">
-                        <div class="post-header">
-                            <img class="post-avatar" src="${p.author_avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
-                            <div class="post-meta">
-                                <div class="post-author">${escHtml(p.author_name)}</div>
-                                <div class="post-time">${formatTime(p.created_at)}</div>
-                            </div>
-                            <span class="post-station">${p.station_icon||'🏫'} ${escHtml(p.station_name||'')}</span>
-                        </div>
-                        <div class="post-title">${escHtml(p.title)}</div>
-                        <div class="post-content">${renderContent(p.content, false)}</div>
-                    </article>
-                `).join('');
+                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:24px 0 12px;"><i data-lucide="file-text" class="icon icon-md"></i> 帖子 (' + data.posts.length + ')</h3>';
+                html += data.posts.map(p => {
+                    return '<article class="post-card reveal" onclick="window.location.href=\'/post/' + p.id + '\'">' +
+                        '<div class="post-header">' +
+                        '<img class="post-avatar" src="' + (p.author_avatar || '/static/images/default-avatar.svg') + '" alt="" onerror="this.src=\'/static/images/default-avatar.svg\'">' +
+                        '<div class="post-meta">' +
+                        '<div class="post-author">' + CampusUtils.escHtml(p.author_name) + '</div>' +
+                        '<div class="post-time">' + CampusUtils.formatTime(p.created_at) + '</div>' +
+                        '</div>' +
+                        '<span class="post-station"><i data-lucide="' + (p.station_icon || 'school') + '" class="icon icon-sm"></i> ' + CampusUtils.escHtml(p.station_name || '') + '</span>' +
+                        '</div>' +
+                        '<div class="post-title">' + CampusUtils.escHtml(p.title) + '</div>' +
+                        '<div class="post-content">' + renderContent(p.content, false) + '</div>' +
+                        '</article>';
+                }).join('');
             }
 
             // 用户结果
             if (data.users && data.users.length) {
-                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:24px 0 12px;">👥 用户 ('+data.users.length+')</h3>';
-                html += data.users.map(u => `
-                    <div class="post-card reveal" onclick="window.location.href='/profile/${u.id}'" style="padding:16px;margin-bottom:10px;cursor:pointer;">
-                        <div style="display:flex;align-items:center;gap:12px;">
-                            <img src="${u.avatar||'/static/images/default-avatar.svg'}" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--glass-border);" onerror="this.src='/static/images/default-avatar.svg'">
-                            <div>
-                                <div style="font-weight:600;font-size:0.9rem;">${escHtml(u.username)}</div>
-                                <div style="font-size:0.8rem;color:var(--text-muted);">${escHtml(u.bio||'')}</div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+                html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:24px 0 12px;"><i data-lucide="users" class="icon icon-md"></i> 用户 (' + data.users.length + ')</h3>';
+                html += data.users.map(u => {
+                    return '<div class="post-card reveal" onclick="window.location.href=\'/profile/' + u.id + '\'">' +
+                        '<div style="display:flex;align-items:center;gap:12px;">' +
+                        '<img src="' + (u.avatar || '/static/images/default-avatar.svg') + '" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--border-primary);" onerror="this.src=\'/static/images/default-avatar.svg\'">' +
+                        '<div>' +
+                        '<div style="font-weight:600;font-size:0.9rem;">' + CampusUtils.escHtml(u.username) + '</div>' +
+                        '<div style="font-size:0.8rem;color:var(--text-muted);">' + CampusUtils.escHtml(u.bio || '') + '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>';
+                }).join('');
             }
 
             results.innerHTML = html;
+            if(typeof lucide!=='undefined') lucide.createIcons();
             initReveal();
-        }).catch(() => results.innerHTML = '<div class="empty-state"><div class="icon">😢</div><div class="text">搜索失败</div></div>');
+        }).catch(() => { results.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">搜索失败</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });
     }, 300);
 });
 </script>

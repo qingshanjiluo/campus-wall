@@ -1,0 +1,140 @@
+/**
+ * CampusWall 图标样式
+ * 基于 Lucide Icons 的样式定义
+ */
+
+/* 图标基础样式 */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 图标大小 */
+.icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-md {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-lg {
+  width: 24px;
+  height: 24px;
+}
+
+/* 图标颜色 */
+.icon-primary {
+  color: var(--primary, #6366f1);
+}
+
+.icon-secondary {
+  color: var(--secondary, #ec4899);
+}
+
+.icon-success {
+  color: var(--success, #22c55e);
+}
+
+.icon-warning {
+  color: var(--warning, #f59e0b);
+}
+
+.icon-danger {
+  color: var(--danger, #ef4444);
+}
+
+.icon-muted {
+  color: var(--text-muted, #94a3b8);
+}
+
+/* 图标按钮 */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary, #1e293b);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--primary, #6366f1);
+}
+
+.icon-btn:active {
+  transform: scale(0.95);
+}
+
+/* 图标 + 文本 */
+.icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-text .icon {
+  flex-shrink: 0;
+}
+
+/* 导航栏图标 */
+.nav-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* 卡片图标 */
+.card-icon {
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--bg-light, #f8fafc);
+  color: var(--primary, #6366f1);
+}
+
+/* 空状态图标 */
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  color: var(--text-muted, #94a3b8);
+  opacity: 0.5;
+}
+
+/* 动画图标 */
+@keyframes icon-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.icon-pulse {
+  animation: icon-pulse 2s ease-in-out infinite;
+}
+
+@keyframes icon-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.icon-spin {
+  animation: icon-spin 1s linear infinite;
+}
