@@ -42,9 +42,19 @@
 
         <!-- 签到日历 -->
         <div class="speech-bubble reveal" style="margin-top:24px;">
-            <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:16px;"><i data-lucide="calendar" class="icon"></i> 签到记录</h3>
-            <div id="checkinHistory" style="display:flex;flex-wrap:wrap;gap:8px;">
-                <div class="loading">加载中</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <h3 style="font-family:'ZCOOL KuaiLe',cursive;margin:0;"><i data-lucide="calendar" class="icon"></i> 签到日历</h3>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-sm" onclick="changeMonth(-1)"><i data-lucide="chevron-left" class="icon icon-sm"></i></button>
+                    <span id="calendarMonth" style="font-weight:600;line-height:2;"></span>
+                    <button class="btn btn-sm" onclick="changeMonth(1)"><i data-lucide="chevron-right" class="icon icon-sm"></i></button>
+                </div>
+            </div>
+            <div id="checkinCalendar" class="checkin-calendar"></div>
+            <div style="display:flex;gap:16px;margin-top:12px;font-size:0.75rem;color:var(--text-muted);">
+                <span><span class="calendar-dot calendar-checked"></span> 已签到</span>
+                <span><span class="calendar-dot calendar-today"></span> 今天</span>
+                <span><span class="calendar-dot calendar-unchecked"></span> 未签到</span>
             </div>
         </div>
 
@@ -63,8 +73,14 @@
     </main>
 </div>
 <script>
+let currentYear, currentMonth;
+let checkinDates = [];
+
 onUserReady(function() {
     if (!requireAuth()) return;
+    const now = new Date();
+    currentYear = now.getFullYear();
+    currentMonth = now.getMonth() + 1;
     loadCheckinStatus();
 });
 
@@ -75,10 +91,12 @@ function loadCheckinStatus() {
         document.getElementById('statPoints').textContent = data.points || 0;
         if (data.checked_in_today) {
             document.getElementById('checkinBtn').disabled = true;
-            document.getElementById('checkinBtn').textContent = '✅ 今日已签到';
+            document.getElementById('checkinBtn').innerHTML = '<i data-lucide="check-circle" class="icon"></i> 今日已签到';
             document.getElementById('checkinBtn').className = 'btn btn-lg';
+            if(typeof lucide!=='undefined') lucide.createIcons();
         }
-        renderHistory(data.history || []);
+        checkinDates = (data.history || []).map(h => h.checkin_date);
+        renderCalendar();
     });
 }
 
@@ -92,7 +110,7 @@ function doCheckin() {
         document.getElementById('checkinTitle').textContent = '签到成功！';
         document.getElementById('checkinSub').textContent = `连签 ${data.streak} 天`;
         document.getElementById('checkinBtn').disabled = true;
-        document.getElementById('checkinBtn').textContent = '✅ 今日已签到';
+        document.getElementById('checkinBtn').innerHTML = '<i data-lucide="check-circle" class="icon"></i> 今日已签到';
         document.getElementById('checkinBtn').className = 'btn btn-lg';
         document.getElementById('statStreak').textContent = data.streak;
         document.getElementById('statCoins').textContent = data.total_coins;
@@ -106,22 +124,44 @@ function doCheckin() {
             </div>
         `;
         showToast('签到成功！+' + data.coins_earned + '金币', 'success');
+        if(typeof lucide!=='undefined') lucide.createIcons();
         loadCheckinStatus();
     }).catch(e => showToast(e.message || '签到失败', 'error'));
 }
 
-function renderHistory(history) {
-    const container = document.getElementById('checkinHistory');
-    if (!history.length) {
-        container.innerHTML = '<div style="color:var(--text-muted);">暂无记录</div>';
-        return;
+function changeMonth(delta) {
+    currentMonth += delta;
+    if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+    if (currentMonth < 1) { currentMonth = 12; currentYear--; }
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const container = document.getElementById('checkinCalendar');
+    const monthLabel = document.getElementById('calendarMonth');
+    monthLabel.textContent = currentYear + '年' + currentMonth + '月';
+
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+    const weekdays = ['日','一','二','三','四','五','六'];
+    let html = '<div class="calendar-grid">';
+    weekdays.forEach(w => { html += '<div class="calendar-header">' + w + '</div>'; });
+    for (let i = 0; i < firstDay; i++) html += '<div class="calendar-cell"></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = currentYear + '-' + String(currentMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const isChecked = checkinDates.includes(dateStr);
+        const isToday = dateStr === todayStr;
+        let cls = 'calendar-cell';
+        if (isChecked) cls += ' calendar-checked';
+        else if (isToday) cls += ' calendar-today';
+        html += '<div class="' + cls + '"><span class="calendar-day">' + d + '</span>' + (isChecked ? '<i data-lucide="check" class="icon icon-xs"></i>' : '') + '</div>';
     }
-    container.innerHTML = history.map(h => `
-        <div style="background:var(--mint);border-radius:10px;padding:6px 12px;font-size:0.75rem;text-align:center;">
-            <div>${h.checkin_date.slice(5)}</div>
-            <div style="font-size:0.65rem;color:var(--text-muted);"><i data-lucide="flame" class="icon icon-sm"></i> ${h.streak}</div>
-        </div>
-    `).join('');
+    html += '</div>';
+    container.innerHTML = html;
+    if(typeof lucide!=='undefined') lucide.createIcons();
 }
 </script>
 </body>

@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
-    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="/static/js/api.js"></script>
     <script src="/static/js/utils.js"></script>
     <script src="/static/js/icons.js"></script>
@@ -54,6 +54,39 @@ onUserReady(function() {
     switchAdminTab(document.querySelector('#adminTabs .tag'), 'dashboard');
 });
 
+function loadStatsChart(el, days) {
+    document.querySelectorAll('#adminContent .tag').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+    if (typeof Chart === 'undefined') return;
+    api.get('/api/admin/stats/series?days=' + days).then(s => {
+        const ctx = document.getElementById('adminStatsChart');
+        if (!ctx) return;
+        if (window._adminChart) window._adminChart.destroy();
+        window._adminChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: s.labels,
+                datasets: [
+                    { label: '新增用户', data: s.users, borderColor: '#fb6f92', backgroundColor: 'rgba(251,111,146,0.12)', fill: true, tension: 0.4, pointRadius: 3 },
+                    { label: '新帖子', data: s.posts, borderColor: '#002fa7', backgroundColor: 'rgba(0,47,167,0.08)', fill: true, tension: 0.4, pointRadius: 3 },
+                    { label: '新评论', data: s.comments, borderColor: '#ffd6a5', backgroundColor: 'rgba(255,214,165,0.12)', fill: true, tension: 0.4, pointRadius: 3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { font: { family: 'Nunito, Noto Sans SC', size: 12 } } }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }).catch(() => {});
+}
+
 function switchAdminTab(el, tab) {
     document.querySelectorAll('#adminTabs .tag').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
@@ -76,9 +109,16 @@ function switchAdminTab(el, tab) {
                         return '<div class="station-card" style="text-align:center;padding:20px;cursor:default;"><div style="font-size:1.8rem;font-weight:800;"><i data-lucide="'+icon+'" class="icon"></i> '+val+'</div><div style="font-size:0.8rem;color:var(--text-muted);">'+label+'</div></div>';
                     }).join('')}
                 </div>
+                <div style="display:flex;gap:8px;margin:20px 0 12px;">
+                    ${[7,14,30].map(d => '<span class="tag '+(d===7?'active':'')+'" onclick="loadStatsChart(this,'+d+')">近'+d+'天</span>').join('')}
+                </div>
+                <div class="reveal" style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius);padding:20px;">
+                    <canvas id="adminStatsChart" height="120"></canvas>
+                </div>
             `;
             initReveal();
             if (window.lucide) lucide.createIcons();
+            loadStatsChart(document.querySelector('#adminContent .tag.active'), 7);
         });
     } else if (tab === 'users') {        api.get('/api/admin/users').then(users => {
             api.get('/api/admin/identity-groups').then(groups => {

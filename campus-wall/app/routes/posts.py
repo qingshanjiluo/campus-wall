@@ -33,9 +33,10 @@ def list_posts():
     sort = request.args.get('sort', 'newest')
     station_id = request.args.get('station_id', type=int)
     author_id = request.args.get('author_id', type=int)
+    post_type = request.args.get('type')
 
-    posts = get_posts(station_id=station_id, author_id=author_id, limit=limit, offset=offset, sort=sort)
-    total = get_post_count(station_id=station_id, author_id=author_id)
+    posts = get_posts(station_id=station_id, author_id=author_id, limit=limit, offset=offset, sort=sort, post_type=post_type)
+    total = get_post_count(station_id=station_id, author_id=author_id, post_type=post_type)
 
     if g.current_user:
         for p in posts:

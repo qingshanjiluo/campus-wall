@@ -93,6 +93,16 @@ function renderProfileCard(u) {
             <div style="text-align:center;"><div style="font-weight:800;color:var(--pink-4);font-size:1.05rem;">Lv.${u.level||1}</div><div style="font-size:0.7rem;color:var(--text-muted);">等级</div></div>
             <div style="text-align:center;"><div style="font-weight:800;color:var(--blue);font-size:1.05rem;"><i data-lucide="flame" class="icon icon-sm"></i> ${u.checkin_streak||0}</div><div style="font-size:0.7rem;color:var(--text-muted);">连续签到</div></div>
         </div>
+        <div class="level-progress-wrap">
+            ${(() => {
+                const level = u.level || 1;
+                const xp = u.experience || 0;
+                const xpNeeded = level * 100;
+                const pct = Math.min(100, Math.round((xp / xpNeeded) * 100));
+                return '<div class="level-progress-bar"><div class="level-progress-fill" style="width:' + pct + '%;"></div></div>' +
+                    '<div class="level-progress-text">' + xp + ' / ' + xpNeeded + ' EXP · 下一级 Lv.' + (level + 1) + '</div>';
+            })()}
+        </div>
         <div class="profile-stats">
             <div class="stat-item"><div class="stat-num">${stats.posts||0}</div><div class="stat-label">帖子</div></div>
             <div class="stat-item"><div class="stat-num">${stats.followers||0}</div><div class="stat-label">粉丝</div></div>

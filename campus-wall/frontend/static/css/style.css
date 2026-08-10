@@ -931,6 +931,78 @@ main {
 }
 .asset-item { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
+/* ── 热帖列表 ── */
+.hot-post-list { display: flex; flex-direction: column; gap: 12px; }
+.hot-post-item {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 20px; border-radius: var(--radius);
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    cursor: pointer; transition: all 0.3s var(--bounce);
+}
+.hot-post-item:hover {
+    transform: translateX(4px); box-shadow: var(--shadow-hover);
+    border-color: var(--secondary);
+}
+.hot-rank {
+    min-width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
+    background: var(--glass-bg); color: var(--text-secondary);
+    border: 2px solid var(--glass-border);
+}
+.hot-rank-top {
+    background: linear-gradient(135deg, var(--secondary), var(--pink-4));
+    color: white; border: none; box-shadow: 0 4px 12px rgba(255,143,171,0.3);
+}
+.hot-post-info { flex: 1; min-width: 0; }
+.hot-post-title {
+    font-weight: 600; margin-bottom: 4px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-primary);
+}
+.hot-post-meta {
+    display: flex; gap: 16px; font-size: 0.8rem; color: var(--text-muted);
+}
+.hot-post-meta span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ── 签到日历 ── */
+.checkin-calendar { display: flex; flex-direction: column; gap: 4px; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.calendar-header { font-size: 0.75rem; color: var(--text-muted); padding: 4px 0; font-weight: 600; }
+.calendar-cell {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 12px; font-size: 0.85rem; position: relative; transition: all 0.2s;
+}
+.calendar-cell.calendar-checked {
+    background: linear-gradient(135deg, var(--mint), rgba(181,234,215,0.5));
+    color: var(--primary); font-weight: 700;
+}
+.calendar-cell.calendar-today {
+    border: 2px solid var(--secondary); color: var(--secondary); font-weight: 700;
+}
+.calendar-day { line-height: 1; }
+.calendar-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.calendar-checked { background: var(--mint); }
+.calendar-today { background: var(--secondary); }
+.calendar-unchecked { background: var(--bg-tertiary); }
+
+/* ── 等级进度条 ── */
+.level-progress-wrap { text-align: center; margin: 8px 0 4px; }
+.level-progress-bar {
+    width: 100%; height: 8px; border-radius: 4px; overflow: hidden;
+    background: var(--bg-tertiary, #f0e6dc);
+}
+.level-progress-fill {
+    height: 100%; border-radius: 4px; transition: width 0.8s var(--bounce);
+    background: linear-gradient(90deg, var(--secondary), var(--pink-4), var(--orange));
+}
+.level-progress-text {
+    font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;
+}
+
+/* ── 搜索历史 ── */
+.search-history-tag { cursor: pointer; user-select: none; }
+
 /* ── 响应式 ── */
 @media (max-width: 768px) {
     .navbar { padding: 8px 16px; gap: 12px; }

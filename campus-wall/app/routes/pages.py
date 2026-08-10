@@ -71,3 +71,15 @@ def favorites_page():
 @pages_bp.route('/reset-password')
 def reset_password_page():
     return render_template('reset_password.html')
+
+@pages_bp.route('/about')
+def about_page():
+    return render_template('about.html')
+
+@pages_bp.route('/terms')
+def terms_page():
+    return render_template('terms.html')
+
+@pages_bp.route('/privacy')
+def privacy_page():
+    return render_template('privacy.html')

@@ -18,7 +18,7 @@ from app.models_ext import (
     get_kanban_message,
     get_recommended_posts, get_user_interest_stations,
     smart_search,
-    get_admin_stats, get_all_users_admin, update_user_admin, admin_log, get_admin_logs,
+    get_admin_stats, get_admin_stats_series, get_all_users_admin, update_user_admin, admin_log, get_admin_logs,
     toggle_favorite, is_favorited, get_favorites,
     create_report, get_reports, handle_report,
     get_user_settings, save_user_settings
@@ -428,6 +428,13 @@ def admin_required(f):
 @admin_required
 def stats():
     return jsonify(get_admin_stats())
+
+@admin_bp.route('/stats/series', methods=['GET'])
+@token_required
+@admin_required
+def stats_series():
+    days = request.args.get('days', 7, type=int)
+    return jsonify(get_admin_stats_series(days))
 
 @admin_bp.route('/users', methods=['GET'])
 @token_required

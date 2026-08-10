@@ -46,9 +46,9 @@
     <footer class="footer">
         <p>Made with <i data-lucide="heart" class="icon icon-sm" style="color:var(--pink-3);"></i> for every student · 校园墙 CampusWall</p>
         <div class="footer-links">
-            <a href="#"><i data-lucide="info" class="icon icon-sm"></i> 关于我们</a>
-            <a href="#"><i data-lucide="file-text" class="icon icon-sm"></i> 用户协议</a>
-            <a href="#"><i data-lucide="shield" class="icon icon-sm"></i> 隐私政策</a>
+            <a href="/about"><i data-lucide="info" class="icon icon-sm"></i> 关于我们</a>
+            <a href="/terms"><i data-lucide="file-text" class="icon icon-sm"></i> 用户协议</a>
+            <a href="/privacy"><i data-lucide="shield" class="icon icon-sm"></i> 隐私政策</a>
         </div>
     </footer>
 

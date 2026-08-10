@@ -713,6 +713,26 @@ def get_admin_stats():
         'today_users': query_db("SELECT COUNT(*) as c FROM users WHERE date(created_at) = date('now')", one=True)['c'],
     }
 
+def get_admin_stats_series(days=7):
+    """返回最近 days 天的新增用户 / 帖子 / 评论趋势"""
+    days = max(1, min(30, int(days)))
+    labels, users, posts, comments = [], [], [], []
+    for i in range(days - 1, -1, -1):
+        d = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+        labels.append(d[5:])  # MM-DD
+        users.append(query_db(
+            "SELECT COUNT(*) as c FROM users WHERE date(created_at) = ?", (d,), one=True)['c'])
+        posts.append(query_db(
+            "SELECT COUNT(*) as c FROM posts WHERE date(created_at) = ? AND is_deleted = 0", (d,), one=True)['c'])
+        comments.append(query_db(
+            "SELECT COUNT(*) as c FROM comments WHERE date(created_at) = ? AND is_deleted = 0", (d,), one=True)['c'])
+    return {
+        'labels': labels,
+        'users': users,
+        'posts': posts,
+        'comments': comments,
+    }
+
 def get_all_users_admin(limit=100, offset=0):
     return query_db(
         'SELECT id, username, email, avatar, role, coins, points, level, identity_group, created_at FROM users ORDER BY id DESC LIMIT ? OFFSET ?',

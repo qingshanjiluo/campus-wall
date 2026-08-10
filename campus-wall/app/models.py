@@ -360,7 +360,7 @@ def get_post_by_id(pid):
            WHERE p.id = ? AND p.is_deleted = 0''', (pid,), one=True)
 
 
-def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest'):
+def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest', post_type=None):
     sql = '''SELECT p.*, u.username as author_name, u.avatar as author_avatar,
                     u.identity_group as author_identity_group,
                     s.name as station_name, s.icon as station_icon
@@ -375,6 +375,9 @@ def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest'
     if author_id:
         sql += ' AND p.author_id = ?'
         args.append(author_id)
+    if post_type:
+        sql += ' AND p.post_type = ?'
+        args.append(post_type)
     if sort == 'popular':
         sql += ' ORDER BY p.likes_count DESC'
     elif sort == 'comments':
@@ -386,7 +389,7 @@ def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest'
     return query_db(sql, args)
 
 
-def get_post_count(station_id=None, author_id=None):
+def get_post_count(station_id=None, author_id=None, post_type=None):
     sql = 'SELECT COUNT(*) as c FROM posts WHERE is_deleted = 0'
     args = []
     if station_id:
@@ -395,6 +398,9 @@ def get_post_count(station_id=None, author_id=None):
     if author_id:
         sql += ' AND author_id = ?'
         args.append(author_id)
+    if post_type:
+        sql += ' AND post_type = ?'
+        args.append(post_type)
     return query_db(sql, args, one=True)['c']
 
 
