@@ -281,6 +281,14 @@
                     <label class="form-label">简介</label>
                     <textarea class="input" name="bio" placeholder="介绍一下自己" rows="3"></textarea>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">个性签名</label>
+                    <input class="input" type="text" name="mood" placeholder="此刻的心情 / 签名（如：今天也要元气满满）" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">称号</label>
+                    <input class="input" type="text" name="title" placeholder="自定义称号（可选）" maxlength="20">
+                </div>
                 <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">保存</button>
             </form>
         </div>
@@ -304,6 +312,31 @@
                     <input class="input" type="password" name="confirm_password" required minlength="6">
                 </div>
                 <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">确认修改</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal" style="position:relative;max-width:480px;">
+            <button class="modal-close" onclick="closeModal('reportModal')">&times;</button>
+            <div class="modal-title"><i data-lucide="flag" class="icon icon-md"></i> 举报内容</div>
+            <div id="reportHint" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;"></div>
+            <form id="reportForm" onsubmit="return handleReport(event)">
+                <div class="form-group">
+                    <label class="form-label">举报原因</label>
+                    <div id="reportReasons" style="display:flex;flex-wrap:wrap;gap:8px;">
+                        ${['广告', '色情低俗', '暴力', '诈骗', '辱骂', '侵权', '其他'].map(r =>
+                            '<span class="tag" data-reason="' + r + '" onclick="selectReportReason(this)">' + r + '</span>'
+                        ).join('')}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">补充说明（可选）</label>
+                    <textarea class="input" name="detail" placeholder="详细描述问题，方便管理员核实" rows="3" maxlength="500"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">
+                    <i data-lucide="flag" class="icon icon-sm"></i> 提交举报
+                </button>
             </form>
         </div>
     </div>

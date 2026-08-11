@@ -176,7 +176,7 @@ def change_password(uid, new_password):
 
 
 def update_user(uid, **kwargs):
-    allowed = {'username', 'email', 'avatar', 'bio'}
+    allowed = {'username', 'email', 'avatar', 'bio', 'mood', 'title'}
     fields = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
     if not fields:
         return False

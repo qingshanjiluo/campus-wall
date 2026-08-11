@@ -33,16 +33,16 @@
                 <div class="form-group">
                     <label class="form-label">图标 (选择一个)</label>
                     <select class="input" name="icon">
-                        <option value="school">🏫 学校</option>
-                        <option value="book-open">📚 图书</option>
-                        <option value="gamepad-2">🎮 游戏</option>
-                        <option value="heart"><i data-lucide="heart" class="icon icon-sm"></i> 恋爱</option>
-                        <option value="shopping-bag">🛒 交易</option>
-                        <option value="message-circle"><i data-lucide="message-circle" class="icon icon-sm"></i> 聊天</option>
-                        <option value="code">💻 编程</option>
-                        <option value="music">🎵 音乐</option>
-                        <option value="camera">📷 摄影</option>
-                        <option value="utensils">🍜 美食</option>
+                        <option value="school">学校</option>
+                        <option value="book-open">图书</option>
+                        <option value="gamepad-2">游戏</option>
+                        <option value="heart">恋爱</option>
+                        <option value="shopping-bag">交易</option>
+                        <option value="message-circle">聊天</option>
+                        <option value="code">编程</option>
+                        <option value="music">音乐</option>
+                        <option value="camera">摄影</option>
+                        <option value="utensils">美食</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -71,7 +71,7 @@ function handleCreateStationPage(e) {
     const tags = form.tags.value.split(',').map(t => t.trim()).filter(Boolean);
     const data = {
         name: form.name.value.trim(),
-        icon: form.icon.value.trim() || '🏫',
+        icon: form.icon.value.trim() || 'school',
         description: form.description.value.trim(),
         tags: tags
     };

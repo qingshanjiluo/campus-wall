@@ -21,6 +21,9 @@
 /create-station /pages/create_station.html   200
 /admin        /pages/admin.html   200
 /reset-password /pages/reset_password.html   200
+/about        /pages/about.html   200
+/terms        /pages/terms.html   200
+/privacy      /pages/privacy.html   200
 
 # 兜底：不存在的路径回首页（避免 404 白屏）
 /*    /pages/404.html   404

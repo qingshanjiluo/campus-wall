@@ -11,7 +11,7 @@ function generateDoodles() {
     for (let i = 0; i < 25; i++) {
         const star = document.createElement('div');
         star.className = 'doodle-star';
-        star.innerHTML = Math.random() > 0.5 ? '★' : '✦';
+        star.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;display:block;"><path d="M12 2l2.9 6.26 6.87.6-5.2 4.54 1.55 6.72L12 16.9l-6.12 3.22 1.55-6.72-5.2-4.54 6.87-.6L12 2z"/></svg>';
         star.style.left = Math.random() * 100 + '%';
         star.style.top = Math.random() * 100 + '%';
         star.style.fontSize = (Math.random() * 16 + 8) + 'px';

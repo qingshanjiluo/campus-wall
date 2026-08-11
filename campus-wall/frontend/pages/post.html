@@ -39,6 +39,12 @@
             </div>
             <div id="commentList"><div class="loading">加载中</div></div>
         </div>
+
+        <!-- 相关推荐 -->
+        <div style="margin-top:40px;" id="relatedSection">
+            <h3 class="chapter-title" style="font-size:1.5rem;margin-bottom:16px;"><i data-lucide="sparkles" class="icon"></i> 相关推荐</h3>
+            <div id="relatedList"><div class="loading">加载中</div></div>
+        </div>
     </div>
 </div>
     </main>
@@ -62,8 +68,45 @@ function loadPost() {
             renderPostDetail(data);
         }
         document.title = data.title + ' · 校园墙';
+        loadRelated(data.station_id, data.id);
     }).catch(() => {
         document.getElementById('postDetail').innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="frown" class="icon icon-lg"></i></div><div class="text">帖子不存在或已被删除</div></div>';
+    });
+}
+
+function loadRelated(stationId, currentPostId) {
+    const list = document.getElementById('relatedList');
+    let url = '/api/posts?limit=5&sort=popular';
+    if (stationId) url += '&station_id=' + stationId;
+    api.get(url).then(data => {
+        const posts = (data.posts || []).filter(p => p.id !== currentPostId).slice(0, 5);
+        if (posts.length === 0) {
+            list.innerHTML = '<div class="empty-state"><i data-lucide="sparkles" class="icon empty-icon"></i><div class="text">暂无更多推荐</div></div>';
+            if(typeof lucide!=='undefined') lucide.createIcons();
+            return;
+        }
+        list.innerHTML = posts.map(p => `
+            <div class="post-card reveal" onclick="window.location.href='/post/${p.id}'" style="padding:16px;margin-bottom:12px;">
+                <div class="post-header">
+                    <img class="post-avatar" src="${p.author_avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
+                    <div class="post-meta">
+                        <div class="post-author">${escHtml(p.author_name)}</div>
+                        <div class="post-time">${formatTime(p.created_at)}</div>
+                    </div>
+                    <span class="post-station"><i data-lucide="${getStationIcon(p.station_icon)}" class="icon icon-sm"></i> ${escHtml(p.station_name||'')}</span>
+                </div>
+                <div class="post-title">${escHtml(p.title)}</div>
+                <div class="post-actions">
+                    <span class="post-action"><i data-lucide="heart" class="icon icon-sm"></i> ${p.likes_count||0}</span>
+                    <span class="post-action"><i data-lucide="message-circle" class="icon icon-sm"></i> ${p.comments_count||0}</span>
+                </div>
+            </div>
+        `).join('');
+        if(typeof lucide!=='undefined') lucide.createIcons();
+        initReveal();
+    }).catch(() => {
+        list.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">推荐加载失败</div></div>';
+        if(typeof lucide!=='undefined') lucide.createIcons();
     });
 }
 
@@ -210,16 +253,7 @@ function toggleFav(pid, btn) {
 }
 
 function reportTarget(targetType, targetId) {
-    if (!requireAuth()) return;
-    const reasons = ['广告', '色情低俗', '暴力', '诈骗', '辱骂', '侵权', '其他'];
-    const reason = prompt('请选择举报原因（1-7）:\n1.广告\n2.色情低俗\n3.暴力\n4.诈骗\n5.辱骂\n6.侵权\n7.其他');
-    if (!reason) return;
-    const idx = parseInt(reason) - 1;
-    const reasonText = reasons[idx] || '其他';
-    const detail = prompt('补充说明（可选）:') || '';
-    api.post('/api/reports', { target_type: targetType, target_id: targetId, reason: reasonText, detail })
-        .then(res => showToast(res.message, 'success'))
-        .catch(e => showToast(e.message || '举报失败', 'error'));
+    openReportModal(targetType, targetId);
 }
 </script>
 </body>

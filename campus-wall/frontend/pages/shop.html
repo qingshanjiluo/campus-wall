@@ -146,7 +146,7 @@ function useItemById(itemId) {
         } else if (t === 'anonymous' || t === 'anonymity_card') {
             useItem(itemId, {});
         } else if (t === 'title' || t === 'rainbow_name') {
-            const title = t === 'rainbow_name' ? '🌈' : prompt('输入你的称号:');
+            const title = prompt('输入你的称号（20字符内）:');
             if (!title) return;
             useItem(itemId, { title: title.trim() });
         } else {

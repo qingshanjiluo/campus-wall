@@ -98,7 +98,7 @@ function loadTrades() {
     api.get(url).then(trades => {
         tradeCache = trades || [];
         if (!trades.length) {
-            grid.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><div class="text">暂无商品</div></div>';
+            grid.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="shopping-cart" class="icon icon-lg"></i></div><div class="text">暂无商品</div></div>';
             return;
         }
         grid.innerHTML = trades.map(t => {
@@ -173,7 +173,7 @@ function viewTradeById(el) {
     modal.querySelector('#viewTradeContent').style.cssText = "font-size:0.9rem;line-height:1.6;margin-bottom:16px;white-space:pre-wrap;";
     if (t.contact) {
         const c = modal.querySelector('#viewTradeContact');
-        c.innerHTML = '<div class="speech-bubble pink" style="font-size:0.9rem;">📱 联系方式: <strong></strong></div>';
+        c.innerHTML = '<div class="speech-bubble pink" style="font-size:0.9rem;"><i data-lucide="smartphone" class="icon icon-sm"></i> 联系方式: <strong></strong></div>';
         c.querySelector('strong').textContent = t.contact;
     }
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });

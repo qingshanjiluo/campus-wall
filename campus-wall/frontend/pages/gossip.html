@@ -72,7 +72,7 @@ function loadGossip(append) {
     api.get(`/api/gossip?limit=30&offset=${gossipOffset}&sort=${gossipSort}`).then(data => {
         const list = document.getElementById('gossipList');
         if (!data.length && !append) {
-            list.innerHTML = '<div class="empty-state"><div class="icon">🌳</div><div class="text">还没有爆料，来发第一条吧</div></div>';
+            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="tree-pine" class="icon icon-lg"></i></div><div class="text">还没有爆料，来发第一条吧</div></div>';
             return;
         }
         const html = data.map(g => `

@@ -429,7 +429,7 @@ def use_shop_item(user_id, item_id, extra=None):
     elif item_type in ('title', 'rainbow_name'):
         new_title = (extra.get('title') or '').strip()
         if item_type == 'rainbow_name':
-            new_title = '🌈 ' + (new_title or '彩虹用户')
+            new_title = (new_title or '彩虹用户')
         execute_db('UPDATE users SET title = ? WHERE id = ?', (new_title, user_id))
     else:
         return None, '该道具暂不支持使用'
@@ -789,6 +789,7 @@ def get_favorites(user_id, target_type='post', limit=50, offset=0):
     if target_type == 'post':
         return query_db(
             '''SELECT f.target_id, f.created_at as favorited_at, p.*, u.username as author_name,
+                      u.avatar as author_avatar, u.identity_group as author_identity_group,
                       s.name as station_name, s.icon as station_icon
                FROM favorites f
                JOIN posts p ON f.target_id = p.id AND p.is_deleted = 0

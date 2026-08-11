@@ -84,7 +84,7 @@ def update_me():
         if existing and existing['id'] != uid:
             return jsonify({'error': '邮箱已被使用'}), 409
 
-    update_user(uid, **{k: data[k] for k in ('username', 'email', 'avatar', 'bio') if k in data})
+    update_user(uid, **{k: data[k] for k in ('username', 'email', 'avatar', 'bio', 'mood', 'title') if k in data})
     user = get_user_by_id(uid)
     return jsonify({'message': '更新成功', 'user': _user_dict(user)})
 

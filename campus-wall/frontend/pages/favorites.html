@@ -68,7 +68,7 @@ function loadFavorites() {
             list.innerHTML = items.map(s => `
                 <div class="station-card reveal" style="cursor:pointer;" onclick="window.location.href='/station/${s.id}'">
                     <div class="station-card-header">
-                        <div class="station-icon">${s.icon||'🏫'}</div>
+                        <div class="station-icon"><i data-lucide="${getStationIcon(s.icon)}" class="icon icon-lg"></i></div>
                         <div class="name">${escHtml(s.name)}</div>
                     </div>
                     <div class="desc">${escHtml(s.description||'')}</div>

@@ -67,6 +67,11 @@
             <span class="tag" onclick="filterByTag(this, '音乐')"><i data-lucide="music" class="icon icon-sm"></i> 音乐</span>
             <span class="tag" onclick="filterByTag(this, '社团')"><i data-lucide="users" class="icon icon-sm"></i> 社团</span>
         </div>
+        <div class="tag-bar reveal" id="stationSortBar" style="margin-top:8px;">
+            <span class="tag active" onclick="sortStations(this,'')"><i data-lucide="clock" class="icon icon-sm"></i> 最新</span>
+            <span class="tag" onclick="sortStations(this,'popular')"><i data-lucide="crown" class="icon icon-sm"></i> 最热</span>
+            <span class="tag" onclick="sortStations(this,'posts')"><i data-lucide="file-text" class="icon icon-sm"></i> 帖子最多</span>
+        </div>
         <div id="stationGrid" class="station-grid">
             <div class="loading">加载中</div>
         </div>
@@ -170,11 +175,15 @@ function loadHotPosts() {
         });
 }
 
-function loadStations(tag) {
+let currentStationSort = '';
+let currentStationTag = '';
+
+function loadStations() {
     const grid = document.getElementById('stationGrid');
     grid.innerHTML = '<div class="loading">加载中</div>';
     let url = '/api/stations?limit=20';
-    if (tag) url += '&tag=' + encodeURIComponent(tag);
+    if (currentStationSort) url += '&sort=' + encodeURIComponent(currentStationSort);
+    if (currentStationTag) url += '&tag=' + encodeURIComponent(currentStationTag);
     api.get(url)
         .then(data => renderStations(data))
         .catch(() => { grid.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败，刷新试试</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });
@@ -209,7 +218,15 @@ function renderStations(stations) {
 function filterByTag(el, tag) {
     document.querySelectorAll('#tagBar .tag').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    loadStations(tag);
+    currentStationTag = tag;
+    loadStations();
+}
+
+function sortStations(el, sort) {
+    document.querySelectorAll('#stationSortBar .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentStationSort = sort;
+    loadStations();
 }
 
 function loadPosts(append) {
