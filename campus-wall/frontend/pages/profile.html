@@ -36,6 +36,8 @@
                 <!-- 标签切换 -->
                 <div class="tag-bar reveal" id="profileTabs">
                     <span class="tag active" onclick="switchProfileTab(this,'posts')"><i data-lucide="file-text" class="icon icon-sm"></i> 帖子</span>
+                    <span class="tag" onclick="switchProfileTab(this,'stations')"><i data-lucide="building-2" class="icon icon-sm"></i> 子站</span>
+                    <span class="tag" onclick="switchProfileTab(this,'likes')"><i data-lucide="heart" class="icon icon-sm"></i> 赞过</span>
                     <span class="tag" onclick="switchProfileTab(this,'favorites')"><i data-lucide="bookmark" class="icon icon-sm"></i> 收藏</span>
                     <span class="tag" onclick="switchProfileTab(this,'followers')"><i data-lucide="users" class="icon icon-sm"></i> 粉丝</span>
                     <span class="tag" onclick="switchProfileTab(this,'following')"><i data-lucide="user-plus" class="icon icon-sm"></i> 关注</span>
@@ -157,6 +159,49 @@ function loadProfileTab(tab) {
             }
             content.innerHTML = data.posts.map(p => renderPostCard(p)).join('');
             initReveal();
+            if (window.lucide) lucide.createIcons();
+        });
+    } else if (tab === 'stations') {
+        api.get('/api/stations/mine').then(stations => {
+            if (!stations.length) {
+                content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="building-2" class="icon icon-lg"></i></div><div class="text">还没有加入任何子站</div></div>';
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+            content.innerHTML = '<div class="station-grid">' + stations.map(s => `
+                <div class="station-card reveal" onclick="window.location.href='/station/${s.id}'">
+                    <div class="station-card-header">
+                        <div class="station-icon"><i data-lucide="${getStationIcon(s.icon)}" class="icon icon-lg"></i></div>
+                        <div class="name">${escHtml(s.name)} ${s.role==='owner'?'<span class="profile-badge" style="background:var(--yellow);"><i data-lucide="crown" class="icon icon-sm"></i> 站长</span>':''}</div>
+                    </div>
+                    <div class="desc">${escHtml(s.description||'暂无简介')}</div>
+                    <div class="meta"><span><i data-lucide="users" class="icon icon-sm"></i> ${s.user_count||0}</span><span><i data-lucide="file-text" class="icon icon-sm"></i> ${s.post_count||0}</span></div>
+                </div>
+            `).join('') + '</div>';
+            initReveal();
+            if (window.lucide) lucide.createIcons();
+        }).catch(() => {
+            content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="cloud-off" class="icon icon-lg"></i></div><div class="text">加载失败</div></div>';
+            if (window.lucide) lucide.createIcons();
+        });
+    } else if (tab === 'likes') {
+        if (!currentUser || currentUser.id !== PROFILE_UID) {
+            content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="lock" class="icon icon-lg"></i></div><div class="text">仅自己可见</div></div>';
+            if (window.lucide) lucide.createIcons();
+            return;
+        }
+        api.get('/api/posts/liked').then(res => {
+            const items = res.posts || [];
+            if (items.length === 0) {
+                content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="heart" class="icon icon-lg"></i></div><div class="text">还没有赞过的帖子</div></div>';
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+            content.innerHTML = items.map(p => renderPostCard(p)).join('');
+            initReveal();
+            if (window.lucide) lucide.createIcons();
+        }).catch(() => {
+            content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="cloud-off" class="icon icon-lg"></i></div><div class="text">加载失败</div></div>';
             if (window.lucide) lucide.createIcons();
         });
     } else if (tab === 'favorites') {

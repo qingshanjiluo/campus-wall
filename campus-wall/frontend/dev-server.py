@@ -12,12 +12,18 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app
+from app.models import init_db
+from app.models_ext import init_extended_db
 
 FRONTEND = os.path.join(os.path.dirname(os.path.abspath(__file__)))
 
 app = create_app()
 app.template_folder = os.path.join(FRONTEND, 'pages')
 app.static_folder = os.path.join(FRONTEND, 'static')
+
+with app.app_context():
+    init_db()
+    init_extended_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5001, debug=False)

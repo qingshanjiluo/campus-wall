@@ -3,13 +3,25 @@ import uuid
 from flask import Blueprint, request, jsonify, g, current_app
 from app.models import (
     create_post, get_post_by_id, get_posts, get_post_count,
-    update_post, delete_post, increment_views,
+    update_post, delete_post, increment_views, get_liked_posts,
     create_comment, get_comments, delete_comment,
     toggle_like, is_liked, create_notification, get_station_by_id
 )
 from app.utils.auth import token_required, optional_auth
 
 posts_bp = Blueprint('posts', __name__)
+
+
+@posts_bp.route('/liked', methods=['GET'])
+@token_required
+def liked_posts():
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    posts = get_liked_posts(g.current_user['id'], limit, offset)
+    for p in posts:
+        p['is_liked'] = True
+        _anonymize_post(p, g.current_user)
+    return jsonify({'posts': posts})
 
 
 def _anonymize_post(post, viewer=None):
@@ -93,6 +105,16 @@ def create():
     station = get_station_by_id(station_id)
     if not station:
         return jsonify({'error': '子站不存在'}), 404
+
+    # 仅站长可发帖的子站，普通成员/游客禁止发帖
+    if station.get('only_owner_posts') and station.get('owner_id') != g.current_user['id']:
+        return jsonify({'error': '该子站仅站长可发帖'}), 403
+
+    # 私密切入限制：非成员不能发帖
+    if station.get('is_public') == 0:
+        from app.models import is_station_member
+        if not is_station_member(g.current_user['id'], station_id):
+            return jsonify({'error': '私密子站仅成员可发帖，请先加入'}), 403
 
     pid = create_post(title, content, g.current_user['id'], station_id, image,
                       is_anonymous=1 if is_anonymous else 0)

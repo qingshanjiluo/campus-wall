@@ -61,15 +61,27 @@ def init_db():
         name TEXT NOT NULL,
         description TEXT DEFAULT '',
         cover TEXT DEFAULT '',
-        icon TEXT DEFAULT '🏫',
+        icon TEXT DEFAULT 'school',
         tags TEXT DEFAULT '[]',
         user_count INTEGER DEFAULT 0,
         post_count INTEGER DEFAULT 0,
         owner_id INTEGER REFERENCES users(id),
         is_public INTEGER DEFAULT 1,
+        only_owner_posts INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+
+    # 兼容旧库：补充缺失列
+    for col, coltype, default in [
+        ('cover', 'TEXT', "''"),
+        ('only_owner_posts', 'INTEGER', '0'),
+        ('announcement', 'TEXT', "''"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE stations ADD COLUMN {col} {coltype} DEFAULT {default}")
+        except sqlite3.OperationalError:
+            pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -200,7 +212,7 @@ def create_station(name, description, icon, tags, owner_id):
     tags_str = json.dumps(tags, ensure_ascii=False) if isinstance(tags, list) else tags
     sid = execute_db(
         'INSERT INTO stations (name, description, icon, tags, owner_id) VALUES (?, ?, ?, ?, ?)',
-        (name, description, icon or '🏫', tags_str, owner_id)
+        (name, description, icon or 'school', tags_str, owner_id)
     )
     if sid:
         execute_db('INSERT INTO station_members (user_id, station_id, role) VALUES (?, ?, ?)',
@@ -282,6 +294,37 @@ def get_station_members(station_id):
         (station_id,))
 
 
+def get_user_stations(user_id):
+    """用户加入的子站列表"""
+    return query_db(
+        '''SELECT s.*, sm.role, sm.joined_at
+           FROM station_members sm JOIN stations s ON sm.station_id = s.id
+           WHERE sm.user_id = ?
+           ORDER BY sm.joined_at DESC''',
+        (user_id,))
+
+
+def get_station_stats(sid, days=7):
+    """子站近 days 天发帖趋势与基础指标"""
+    from datetime import datetime, timedelta
+    days = max(1, min(30, int(days)))
+    labels, counts = [], []
+    for i in range(days - 1, -1, -1):
+        d = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+        labels.append(d[5:])
+        counts.append(query_db(
+            "SELECT COUNT(*) as c FROM posts WHERE station_id = ? AND date(created_at) = ? AND is_deleted = 0",
+            (sid, d), one=True)['c'])
+    today_posts = query_db(
+        "SELECT COUNT(*) as c FROM posts WHERE station_id = ? AND date(created_at) = date('now') AND is_deleted = 0",
+        (sid,), one=True)['c']
+    return {
+        'labels': labels,
+        'posts': counts,
+        'today_posts': today_posts,
+    }
+
+
 def remove_station_member(user_id, station_id):
     """从子站移除成员（不能移owner）"""
     conn = get_db()
@@ -318,7 +361,7 @@ def transfer_station_ownership(sid, new_owner_id):
 
 def update_station(sid, **fields):
     """更新子站信息"""
-    allowed = ('name', 'description', 'icon', 'tags', 'is_public')
+    allowed = ('name', 'description', 'icon', 'tags', 'is_public', 'cover', 'only_owner_posts', 'announcement')
     pairs = [(k, fields[k]) for k in allowed if k in fields]
     if not pairs:
         return False
@@ -406,6 +449,21 @@ def get_post_count(station_id=None, author_id=None, post_type=None):
 
 def increment_views(pid):
     execute_db('UPDATE posts SET views = views + 1 WHERE id = ?', (pid,))
+
+
+def get_liked_posts(user_id, limit=50, offset=0):
+    """获取用户赞过的帖子（含作者/子站信息）"""
+    return query_db(
+        '''SELECT p.*, u.username as author_name, u.avatar as author_avatar,
+                  u.identity_group as author_identity_group,
+                  s.name as station_name, s.icon as station_icon
+           FROM likes l
+           JOIN posts p ON l.target_id = p.id AND p.is_deleted = 0
+           JOIN users u ON p.author_id = u.id
+           JOIN stations s ON p.station_id = s.id
+           WHERE l.user_id = ? AND l.target_type = 'post'
+           ORDER BY l.created_at DESC LIMIT ? OFFSET ?''',
+        (user_id, limit, offset))
 
 
 def update_post(pid, **kwargs):

@@ -35,7 +35,7 @@ def create_app():
     from app.routes.extended import (
         identity_bp, checkin_bp, shop_bp, romance_bp, gossip_bp,
         trade_bp, kanban_bp, recommend_bp, admin_bp,
-        favorites_bp, reports_bp
+        favorites_bp, reports_bp, announcements_bp
     )
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -53,6 +53,7 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(favorites_bp, url_prefix='/api/favorites')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
+    app.register_blueprint(announcements_bp, url_prefix='/api/announcements')
     app.register_blueprint(pages_bp)
 
     @app.errorhandler(404)

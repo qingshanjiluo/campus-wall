@@ -36,7 +36,7 @@ def init_extended_db():
     c.execute('''CREATE TABLE IF NOT EXISTS identity_groups (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
-        icon TEXT DEFAULT '🏷️',
+        icon TEXT DEFAULT 'tag',
         color TEXT DEFAULT '#fb6f92',
         description TEXT DEFAULT '',
         permissions TEXT DEFAULT '[]',
@@ -44,6 +44,17 @@ def init_extended_db():
         is_default INTEGER DEFAULT 0,
         sort_order INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # ── 站内公告 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS site_announcements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        content TEXT DEFAULT '',
+        created_by INTEGER REFERENCES users(id),
+        is_active INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
     # ── 签到 ──
@@ -76,7 +87,7 @@ def init_extended_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         description TEXT DEFAULT '',
-        icon TEXT DEFAULT '🎁',
+        icon TEXT DEFAULT 'gift',
         price_coins INTEGER DEFAULT 0,
         price_points INTEGER DEFAULT 0,
         item_type TEXT DEFAULT 'badge',
@@ -581,7 +592,7 @@ def create_trade_post(post_id, user_id, price, original_price=0, condition='good
         (post_id, user_id, price, original_price, condition, category, contact)
     )
 
-def get_trade_posts(category=None, status='available', limit=50, offset=0):
+def get_trade_posts(category=None, status='available', limit=50, offset=0, keyword=None):
     sql = '''SELECT tp.*, p.title, p.content, p.image, u.username, u.avatar
              FROM trade_posts tp
              JOIN posts p ON tp.post_id = p.id
@@ -591,6 +602,10 @@ def get_trade_posts(category=None, status='available', limit=50, offset=0):
     if category:
         sql += ' AND tp.category = ?'
         args.append(category)
+    if keyword:
+        sql += ' AND (p.title LIKE ? OR p.content LIKE ?)'
+        kw = f'%{keyword}%'
+        args += [kw, kw]
     sql += ' ORDER BY tp.created_at DESC LIMIT ? OFFSET ?'
     args += [limit, offset]
     return query_db(sql, args)
@@ -604,22 +619,22 @@ def update_trade_status(trade_id, status):
 # ══════════════════════════════════════════════
 
 KANBAN_GREETINGS = [
-    "欢迎回来！今天也要元气满满哦~ ✨",
-    "主人，你终于来啦！我等你好久了~ 💕",
-    "今天想做些什么呢？发帖？逛子站？还是...和我聊天？😊",
-    "校园墙因为有你而精彩！加油！🌟",
-    "有什么烦恼的话，可以去树洞说说哦~ 🌳",
-    "记得每天签到领金币呀！💰",
-    "听说恋爱情报专区有新动态，要不要去看看？💌",
-    "主人辛苦了！要不要休息一下？☕",
+    "欢迎回来！今天也要元气满满哦~",
+    "主人，你终于来啦！我等你好久了~",
+    "今天想做些什么呢？发帖？逛子站？还是...和我聊天？",
+    "校园墙因为有你而精彩！加油！",
+    "有什么烦恼的话，可以去树洞说说哦~",
+    "记得每天签到领金币呀！",
+    "听说恋爱情报专区有新动态，要不要去看看？",
+    "主人辛苦了！要不要休息一下？来杯咖啡~",
 ]
 
 KANBAN_TIPS = [
-    "💡 小贴士：连续签到可以获得额外奖励哦！",
-    "💡 小贴士：在积分商城可以兑换专属徽章！",
-    "💡 小贴士：发帖时可以选择不同的帖子类型~",
-    "💡 小贴士：恋爱情报专区可以匿名表白！",
-    "💡 小贴士：关注感兴趣的人，不错过他们的动态！",
+    "小贴士：连续签到可以获得额外奖励哦！",
+    "小贴士：在积分商城可以兑换专属徽章！",
+    "小贴士：发帖时可以选择不同的帖子类型~",
+    "小贴士：恋爱情报专区可以匿名表白！",
+    "小贴士：关注感兴趣的人，不错过他们的动态！",
 ]
 
 def get_kanban_message():
@@ -759,6 +774,35 @@ def get_admin_logs(limit=100):
         '''SELECT al.*, u.username as admin_name
            FROM admin_log al LEFT JOIN users u ON al.admin_id = u.id
            ORDER BY al.created_at DESC LIMIT ?''', (limit,))
+
+
+# ── 站内公告 ──
+def get_announcements(active_only=False, limit=20):
+    sql = '''SELECT a.*, u.username as creator_name
+             FROM site_announcements a LEFT JOIN users u ON a.created_by = u.id'''
+    args = []
+    if active_only:
+        sql += ' WHERE a.is_active = 1'
+    sql += ' ORDER BY a.created_at DESC LIMIT ?'
+    args.append(limit)
+    return query_db(sql, args)
+
+def create_announcement(title, content, admin_id):
+    execute_db(
+        'INSERT INTO site_announcements (title, content, created_by) VALUES (?,?,?)',
+        (title, content, admin_id))
+
+def update_announcement(aid, title=None, content=None):
+    if title is not None:
+        execute_db('UPDATE site_announcements SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (title, aid))
+    if content is not None:
+        execute_db('UPDATE site_announcements SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (content, aid))
+
+def toggle_announcement(aid, is_active):
+    execute_db('UPDATE site_announcements SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (1 if is_active else 0, aid))
+
+def delete_announcement(aid):
+    execute_db('DELETE FROM site_announcements WHERE id = ?', (aid,))
 
 
 # ══════════════════════════════════════════════

@@ -19,7 +19,7 @@
         <div class="loading-text" id="loadingText"></div>
     </div>
 
-    <nav class="navbar" id="navbar">
+    <nav class="navbar" id="navbar" role="navigation" aria-label="主导航">
         <a href="/" class="nav-logo">
             <div class="nav-logo-icon">
                 <i data-lucide="school" class="icon icon-lg"></i>
@@ -52,7 +52,7 @@
         </div>
     </footer>
 
-    <div id="toast" class="toast"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="modalContainer"></div>
 
     <div id="kanbanGirl" style="position:fixed;bottom:20px;right:20px;z-index:90;cursor:pointer;" onclick="toggleKanban()">

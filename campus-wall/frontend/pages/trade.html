@@ -28,6 +28,12 @@
             <p class="chapter-sub">闲置好物，低价出给有缘人</p>
         </div>
 
+        <!-- 搜索框 -->
+        <div class="search-box reveal" style="margin-bottom:16px;">
+            <i data-lucide="search" class="icon search-icon"></i>
+            <input class="input" type="text" id="tradeSearch" placeholder="搜索闲置商品...">
+        </div>
+
         <!-- 分类标签 -->
         <div class="tag-bar reveal" id="tradeCategory">
             <span class="tag active" onclick="filterTrade(this,'')"><i data-lucide="flame" class="icon icon-sm"></i> 全部</span>
@@ -77,10 +83,15 @@
 </div>
 <script>
 let tradeCategory = '';
+let tradeQuery = '';
 let tradeCache = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     loadTrades();
+    debouncedSearch('tradeSearch', function(q) {
+        tradeQuery = q.trim();
+        loadTrades();
+    });
 });
 
 function filterTrade(el, cat) {
@@ -95,6 +106,7 @@ function loadTrades() {
     grid.innerHTML = '<div class="loading">加载中</div>';
     let url = '/api/trade?limit=50';
     if (tradeCategory) url += '&category=' + encodeURIComponent(tradeCategory);
+    if (tradeQuery) url += '&q=' + encodeURIComponent(tradeQuery);
     api.get(url).then(trades => {
         tradeCache = trades || [];
         if (!trades.length) {

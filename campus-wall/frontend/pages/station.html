@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
     <script src="/static/js/api.js"></script>
     <script src="/static/js/utils.js"></script>
@@ -45,6 +46,14 @@
         <div style="text-align:center;margin-top:24px;">
             <button class="btn" id="loadMoreStationPosts" onclick="loadMoreStationPosts()" style="display:none;"><i data-lucide="chevrons-down" class="icon icon-sm"></i> 加载更多</button>
         </div>
+
+        <!-- 数据统计 -->
+        <div style="margin-top:40px;" class="reveal">
+            <h3 class="chapter-title" style="font-size:1.3rem;"><i data-lucide="bar-chart-3" class="icon"></i> 数据统计</h3>
+            <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius);padding:20px;margin-top:16px;">
+                <canvas id="stationStatsChart" height="90"></canvas>
+            </div>
+        </div>
     </div>
 </div>
     </main>
@@ -59,8 +68,41 @@ const stationPostLimit = 15;
 onUserReady(function() {
     loadStation();
     loadStationPosts();
+    loadStationStats();
     document.addEventListener('postCreated', () => loadStationPosts());
 });
+
+function loadStationStats() {
+    if (typeof Chart === 'undefined') return;
+    api.get('/api/stations/' + STATION_ID + '/stats?days=7').then(s => {
+        const ctx = document.getElementById('stationStatsChart');
+        if (!ctx) return;
+        if (window._stationChart) window._stationChart.destroy();
+        window._stationChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: s.labels,
+                datasets: [{
+                    label: '发帖数',
+                    data: s.posts,
+                    backgroundColor: 'rgba(255,143,171,0.35)',
+                    borderColor: '#fb6f92',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }).catch(() => {});
+}
 
 function loadStation() {
     api.get('/api/stations/' + STATION_ID)
@@ -89,10 +131,15 @@ function renderStationHeader(s) {
         </div>
     ` : '';
     document.getElementById('stationHeader').innerHTML = `
+        ${s.cover ? `<div class="station-banner" style="background-image:url('${escHtml(s.cover)}');"></div>` : ''}
+        ${s.announcement ? `<div class="station-announcement"><i data-lucide="megaphone" class="icon icon-sm"></i> <span>${escHtml(s.announcement)}</span></div>` : ''}
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
             <div class="station-icon" style="width:56px;height:56px;font-size:1.8rem;border-radius:16px;"><i data-lucide="${getStationIcon(s.icon)}" class="icon"></i></div>
             <div style="flex:1;min-width:200px;">
-                <h2 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.5rem;margin-bottom:4px;">${escHtml(s.name)}</h2>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <h2 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.5rem;margin-bottom:4px;">${escHtml(s.name)}</h2>
+                    ${s.is_public === 0 ? '<span class="profile-badge" style="background:var(--lavender);"><i data-lucide="lock" class="icon icon-sm"></i> 私密</span>' : ''}
+                </div>
                 <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:8px;">${escHtml(s.description||'')}</p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${tags}</div>
                 <div style="font-size:0.8rem;color:var(--text-muted);">
@@ -119,7 +166,17 @@ function openStationSettings() {
                 <input class="input" name="name" placeholder="子站名称" value="${escHtml(s.name||'')}" style="margin-bottom:10px;">
                 <textarea class="input" name="description" placeholder="子站简介" rows="3" style="margin-bottom:10px;">${escHtml(s.description||'')}</textarea>
                 <input class="input" name="icon" placeholder="图标（如 school）" value="${escHtml(s.icon||'school')}" style="margin-bottom:10px;">
+                <input class="input" name="cover" placeholder="封面图 URL（可选）" value="${escHtml(s.cover||'')}" style="margin-bottom:10px;">
+                <input class="input" name="announcement" placeholder="子站公告（可选，显示在顶部）" value="${escHtml(s.announcement||'')}" style="margin-bottom:10px;">
                 <input class="input" name="tags" placeholder="标签，用逗号分隔（最多5个）" value="${escHtml((s.tags||[]).join(','))}" style="margin-bottom:16px;">
+                <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+                    <label class="input" style="width:auto;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" name="is_public" ${s.is_public !== 0 ? 'checked' : ''}> 公开子站
+                    </label>
+                    <label class="input" style="width:auto;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" name="only_owner_posts"> 仅站长可发帖
+                    </label>
+                </div>
                 <div style="display:flex;gap:8px;">
                     <button type="submit" class="btn btn-primary">保存</button>
                     <button type="button" class="btn btn-outline" onclick="transferStation(this)">转让子站</button>
@@ -139,7 +196,11 @@ function updateStationSettings(e, form) {
         name: form.name.value.trim(),
         description: form.description.value.trim(),
         icon: form.icon.value.trim() || 'school',
-        tags: form.tags.value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5)
+        cover: form.cover.value.trim(),
+        announcement: form.announcement.value.trim(),
+        tags: form.tags.value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5),
+        is_public: form.is_public.checked ? 1 : 0,
+        only_owner_posts: form.only_owner_posts.checked ? 1 : 0
     };
     api.put('/api/stations/' + STATION_ID, data)
         .then(() => { showToast('更新成功', 'success'); loadStation(); document.querySelector('.modal-overlay').remove(); })

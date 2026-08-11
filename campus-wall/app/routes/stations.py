@@ -3,8 +3,8 @@ from flask import Blueprint, request, jsonify, g
 from app.models import (
     create_station, get_stations, get_station_by_id, search_stations,
     join_station, leave_station, is_station_member, get_station_member_role,
-    get_station_members, remove_station_member, transfer_station_ownership,
-    update_station, delete_station,
+    get_station_members, get_user_stations, remove_station_member, transfer_station_ownership,
+    update_station, delete_station, get_station_stats,
     get_posts, get_post_count
 )
 from app.utils.auth import token_required, optional_auth
@@ -65,7 +65,7 @@ def create():
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()
     description = (data.get('description') or '').strip()
-    icon = data.get('icon', '🏫')
+    icon = data.get('icon', 'school')
     tags = data.get('tags', [])
 
     if not name or len(name) < 2:
@@ -125,6 +125,24 @@ def search():
     for s in stations:
         s['tags'] = json.loads(s['tags']) if s['tags'] else []
     return jsonify(stations)
+
+
+@stations_bp.route('/mine', methods=['GET'])
+@token_required
+def my_stations():
+    stations = get_user_stations(g.current_user['id'])
+    for s in stations:
+        s['tags'] = json.loads(s['tags']) if s['tags'] else []
+    return jsonify(stations)
+
+
+@stations_bp.route('/<int:sid>/stats', methods=['GET'])
+@optional_auth
+def station_stats(sid):
+    if not get_station_by_id(sid):
+        return jsonify({'error': '子站不存在'}), 404
+    days = request.args.get('days', 7, type=int)
+    return jsonify(get_station_stats(sid, days))
 
 
 @stations_bp.route('/<int:sid>/members', methods=['GET'])

@@ -5,63 +5,63 @@ from app.models import init_db, get_db, create_user, create_station, create_post
 
 USERS = [
     {'username': 'xiaohua', 'email': 'xiaohua@test.com', 'password': '123456',
-     'bio': '大二中文系 / 喜欢拍照和写随笔 ✨', 'avatar': '/static/images/avatars/1.svg'},
+     'bio': '大二中文系 / 喜欢拍照和写随笔', 'avatar': '/static/images/avatars/1.svg'},
     {'username': 'bob', 'email': 'bob@test.com', 'password': '123456',
-     'bio': '计算机科学与技术 / 全栈开发中 💻', 'avatar': '/static/images/avatars/2.svg'},
+     'bio': '计算机科学与技术 / 全栈开发中', 'avatar': '/static/images/avatars/2.svg'},
     {'username': 'xiaolv', 'email': 'xiaolv@test.com', 'password': '123456',
-     'bio': '美术学院 / 画画是第一生产力 🎨', 'avatar': '/static/images/avatars/3.svg'},
+     'bio': '美术学院 / 画画是第一生产力', 'avatar': '/static/images/avatars/3.svg'},
     {'username': 'dapeng', 'email': 'dapeng@test.com', 'password': '123456',
-     'bio': '体育生 / 每天五公里起步 🏃', 'avatar': '/static/images/avatars/4.svg'},
+     'bio': '体育生 / 每天五公里起步', 'avatar': '/static/images/avatars/4.svg'},
     {'username': 'tangtang', 'email': 'tangtang@test.com', 'password': '123456',
-     'bio': '音乐表演 / 吉他🎸+ukulele+钢琴', 'avatar': '/static/images/avatars/5.svg'},
+     'bio': '音乐表演 / 吉他+ukulele+钢琴', 'avatar': '/static/images/avatars/5.svg'},
     {'username': 'xingye', 'email': 'xingye@test.com', 'password': '123456',
-     'bio': '物理系 / 今晚有流星雨！✨', 'avatar': '/static/images/avatars/6.svg'},
+     'bio': '物理系 / 今晚有流星雨！', 'avatar': '/static/images/avatars/6.svg'},
     {'username': 'lanmeijiang', 'email': 'lanmeijiang@test.com', 'password': '123456',
-     'bio': '经济学 / 闲置交易小达人 🛒', 'avatar': '/static/images/avatars/7.svg'},
+     'bio': '经济学 / 闲置交易小达人', 'avatar': '/static/images/avatars/7.svg'},
     {'username': 'admin', 'email': 'admin@test.com', 'password': 'admin123',
      'bio': '系统管理员', 'role': 'admin', 'avatar': '/static/images/avatars/8.svg'},
 ]
 
 STATIONS = [
-    {'name': '表白墙', 'icon': '💌', 'description': '那些说不出口的喜欢，就写在这里吧',
+    {'name': '表白墙', 'icon': 'heart', 'description': '那些说不出口的喜欢，就写在这里吧',
      'tags': ['情感', '表白', '匿名']},
-    {'name': '失物招领', 'icon': '🔍', 'description': '丢了东西？捡到东西？来这里互助',
+    {'name': '失物招领', 'icon': 'search', 'description': '丢了东西？捡到东西？来这里互助',
      'tags': ['互助', '校园']},
-    {'name': '二手交易', 'icon': '🛒', 'description': '闲置好物，低价出给有缘人',
+    {'name': '二手交易', 'icon': 'shopping-cart', 'description': '闲置好物，低价出给有缘人',
      'tags': ['交易', '闲置']},
-    {'name': '学习互助', 'icon': '📚', 'description': '一起学习，一起进步，资料共享',
+    {'name': '学习互助', 'icon': 'book-open', 'description': '一起学习，一起进步，资料共享',
      'tags': ['学习', '互助', '考研']},
-    {'name': '活动招募', 'icon': '🎉', 'description': '校园活动、社团招新、比赛组队',
+    {'name': '活动招募', 'icon': 'party-popper', 'description': '校园活动、社团招新、比赛组队',
      'tags': ['活动', '社团', '组队']},
-    {'name': '树洞', 'icon': '🌳', 'description': '说说那些不敢对别人说的话',
+    {'name': '树洞', 'icon': 'tree-pine', 'description': '说说那些不敢对别人说的话',
      'tags': ['匿名', '倾诉', '情感']},
-    {'name': '食堂测评', 'icon': '🍜', 'description': '干饭人的日常，今天吃什么好呢？',
+    {'name': '食堂测评', 'icon': 'utensils', 'description': '干饭人的日常，今天吃什么好呢？',
      'tags': ['美食', '测评', '食堂']},
-    {'name': '随手拍', 'icon': '📸', 'description': '校园里的每一帧风景，都值得被记录',
+    {'name': '随手拍', 'icon': 'camera', 'description': '校园里的每一帧风景，都值得被记录',
      'tags': ['摄影', '风景', '记录']},
-    {'name': '自习室打卡', 'icon': '📝', 'description': '每天进步一点点，和小伙伴一起监督学习',
+    {'name': '自习室打卡', 'icon': 'pen-line', 'description': '每天进步一点点，和小伙伴一起监督学习',
      'tags': ['学习', '打卡', '自律']},
-    {'name': '深夜树洞', 'icon': '🌙', 'description': '夜晚专属的情绪出口，天亮就好了',
+    {'name': '深夜树洞', 'icon': 'moon', 'description': '夜晚专属的情绪出口，天亮就好了',
      'tags': ['匿名', '情感', '夜晚']},
-    {'name': '晨跑打卡', 'icon': '🏃', 'description': '早起的人先享受世界',
+    {'name': '晨跑打卡', 'icon': 'running', 'description': '早起的人先享受世界',
      'tags': ['运动', '打卡', '健康']},
-    {'name': '电影放映室', 'icon': '🎬', 'description': '周末一起看电影，分享触动心灵的瞬间',
+    {'name': '电影放映室', 'icon': 'film', 'description': '周末一起看电影，分享触动心灵的瞬间',
      'tags': ['影视', '讨论', '推荐']},
-    {'name': '校园猫咪图鉴', 'icon': '🐱', 'description': '记录校园里每一只毛茸茸的小可爱',
+    {'name': '校园猫咪图鉴', 'icon': 'cat', 'description': '记录校园里每一只毛茸茸的小可爱',
      'tags': ['萌宠', '摄影', '猫咪']},
-    {'name': '考研互助站', 'icon': '📝', 'description': '资料共享、经验交流，我们一起上岸',
+    {'name': '考研互助站', 'icon': 'pen-line', 'description': '资料共享、经验交流，我们一起上岸',
      'tags': ['学习', '考研', '互助']},
-    {'name': '吉他社', 'icon': '🎸', 'description': '用音乐连接彼此，弹唱我们的青春',
+    {'name': '吉他社', 'icon': 'music', 'description': '用音乐连接彼此，弹唱我们的青春',
      'tags': ['音乐', '社团', '乐器']},
 ]
 
 POSTS = [
     # 表白墙 (station 1)
     {'title': '图书馆三楼靠窗的那个男生', 'content': '今天在图书馆三楼靠窗的位置看到了一个超级好看的男生！穿着白色卫衣，戴着银色项链，专注看书的样子太迷人了...有人认识他吗？', 'station': 1, 'author': 1},
-    {'title': '二食堂的收银小姐姐', 'content': '每次去二食堂打饭，那个收银小姐姐都会多给我打一点菜，还对我笑。是不是对我有意思？还是我想多了...😂', 'station': 1, 'author': 4},
+    {'title': '二食堂的收银小姐姐', 'content': '每次去二食堂打饭，那个收银小姐姐都会多给我打一点菜，还对我笑。是不是对我有意思？还是我想多了...', 'station': 1, 'author': 4},
     # 失物招领 (station 2)
     {'title': '捡到一只粉色猫耳耳机', 'content': '在体育馆女更衣室捡到一个粉色猫耳头戴式耳机，品牌是Sony的，看起来很新。请失主联系我认领！', 'station': 2, 'author': 6},
-    {'title': '丢了一把透明雨伞', 'content': '昨天下午在教学楼C栋3楼走廊丢了一把透明的雨伞，伞柄上有一个小熊挂件。有看到的同学请联系我，谢谢🙏', 'station': 2, 'author': 3},
+    {'title': '丢了一把透明雨伞', 'content': '昨天下午在教学楼C栋3楼走廊丢了一把透明的雨伞，伞柄上有一个小熊挂件。有看到的同学请联系我，谢谢！', 'station': 2, 'author': 3},
     # 二手交易 (station 3)
     {'title': '出iPad Air 5 64G 星光色', 'content': '九成新iPad Air 5，64G，星光色，带原装Apple Pencil。因为换了Pro所以出掉，价格可议，面交优先~ 有保护壳和钢化膜', 'station': 3, 'author': 7},
     {'title': '出考研数学全套资料', 'content': '张宇全套+李永乐复习全书+660题+真题，几乎全新只做了几页。打包价80元，有需要的同学私聊', 'station': 3, 'author': 2},
@@ -78,14 +78,14 @@ POSTS = [
     {'title': '二食堂新开的麻辣烫绝了！', 'content': '食堂二楼新开的麻辣烫真的绝了！汤底是骨汤熬的，辣度可以自选，而且蔬菜特别新鲜。推荐大家一定要试试那个手工丸子！排队大概15分钟', 'station': 7, 'author': 1},
     {'title': '三食堂早餐煎饼测评', 'content': '三食堂的杂粮煎饼，加蛋加生菜加脆饼，6块钱一个。味道中规中矩，胜在量大实惠。比外面的干净，适合赶早课的同学', 'station': 7, 'author': 4},
     # 随手拍 (station 8)
-    {'title': '图书馆窗外的夕阳 🌅', 'content': '下午在图书馆自习，一抬头就被窗外的景色惊艳到了。金色的阳光洒在银杏树上，整个画面像是一幅油画。忍不住放下笔，静静地看了好一会儿...', 'station': 8, 'author': 1},
+    {'title': '图书馆窗外的夕阳', 'content': '下午在图书馆自习，一抬头就被窗外的景色惊艳到了。金色的阳光洒在银杏树上，整个画面像是一幅油画。忍不住放下笔，静静地看了好一会儿...', 'station': 8, 'author': 1},
     {'title': '雨后的操场 彩虹！', 'content': '傍晚下了一场暴雨，雨停后操场上出现了一道超完整的彩虹！赶紧用手机拍下来了，可惜照片拍不出肉眼看到的那种震撼', 'station': 8, 'author': 6},
     # 自习室打卡 (station 9)
     {'title': 'Day 30 | 坚持一个月啦！', 'content': '从开学到现在，整整30天没有间断过自习打卡。虽然有时候真的很想躺平，但看到打卡记录里满满的一页，就觉得一切都值得。明天继续加油！', 'station': 9, 'author': 2},
-    {'title': '今天效率超高！', 'content': '从早上8点学到了晚上10点，中间只休息了2小时。高数、英语、专业课都推进了不少。给自己点个赞👍 希望明天也能保持', 'station': 9, 'author': 4},
+    {'title': '今天效率超高！', 'content': '从早上8点学到了晚上10点，中间只休息了2小时。高数、英语、专业课都推进了不少。给自己点个赞！希望明天也能保持', 'station': 9, 'author': 4},
     # 深夜树洞 (station 10)
     {'title': '失眠了，感觉好孤独', 'content': '又是一个睡不着的夜晚。室友都睡了，只有我还盯着天花板。不知道为什么，明明身边很多人，却总觉得很孤独。也许这就是大学吧...', 'station': 10, 'author': 3},
-    {'title': '给明年的自己写一封信', 'content': '亲爱的未来的我：希望你已经找到了自己喜欢的事情，不再迷茫。希望你变得更勇敢，更自信。不管怎样，谢谢你一直在努力。晚安🌙', 'station': 10, 'author': 1},
+    {'title': '给明年的自己写一封信', 'content': '亲爱的未来的我：希望你已经找到了自己喜欢的事情，不再迷茫。希望你变得更勇敢，更自信。不管怎样，谢谢你一直在努力。晚安', 'station': 10, 'author': 1},
     # 晨跑打卡 (station 11)
     {'title': '5km PB 23分钟！', 'content': '今天终于突破了个人最好成绩！5公里跑了23分12秒，比上次快了将近一分钟。果然坚持训练是有用的，继续冲！', 'station': 11, 'author': 4},
     # 电影放映室 (station 12)
@@ -101,7 +101,7 @@ POSTS = [
 COMMENTS = [
     {'post': 1, 'author': 2, 'content': '我好像认识！是不是戴黑框眼镜那个？'},
     {'post': 1, 'author': 5, 'content': '哈哈我也看到了，在看《百年孤独》对不对'},
-    {'post': 1, 'author': 3, 'content': '帮顶！祝你找到他 ❤️'},
+    {'post': 1, 'author': 3, 'content': '帮顶！祝你找到他'},
     {'post': 3, 'author': 7, 'content': '是我的！太感谢了！私信你'},
     {'post': 5, 'author': 1, 'content': '多少钱出？有磕碰吗'},
     {'post': 5, 'author': 4, 'content': '3000行不行？可以面交验货'},
@@ -113,7 +113,7 @@ COMMENTS = [
     {'post': 17, 'author': 1, 'content': '加油！我也在坚持打卡'},
     {'post': 20, 'author': 2, 'content': '写得好温暖，希望你一切都好'},
     {'post': 23, 'author': 1, 'content': '好可爱！它叫什么名字'},
-    {'post': 23, 'author': 4, 'content': '大家都叫它"大橘"😂'},
+    {'post': 23, 'author': 4, 'content': '大家都叫它"大橘"'},
     {'post': 25, 'author': 5, 'content': '报名！请问在哪里填表'},
 ]
 
@@ -201,13 +201,13 @@ def seed():
 
     # ── Extended: identity groups ──
     groups = [
-        ('萌新', '🌱', '#B5EAD7', '刚入学的萌新', 1, 1),
-        ('学霸', '📚', '#C9E4F5', 'GPA 3.5+', 5, 0),
-        ('社交达人', '🎉', '#FFB5BA', '粉丝数 > 50', 3, 0),
-        ('恋爱达人', '💕', '#fb6f92', '恋爱专区活跃用户', 3, 0),
-        ('交易达人', '💰', '#FFD6A5', '交易区活跃用户', 3, 0),
-        ('摄影师', '📸', '#E2D5F5', '随手拍区活跃用户', 3, 0),
-        ('元老', '👑', '#ccff00', '注册超过一年', 10, 0),
+        ('萌新', 'sprout', '#B5EAD7', '刚入学的萌新', 1, 1),
+        ('学霸', 'book-open', '#C9E4F5', 'GPA 3.5+', 5, 0),
+        ('社交达人', 'party-popper', '#FFB5BA', '粉丝数 > 50', 3, 0),
+        ('恋爱达人', 'heart', '#fb6f92', '恋爱专区活跃用户', 3, 0),
+        ('交易达人', 'coins', '#FFD6A5', '交易区活跃用户', 3, 0),
+        ('摄影师', 'camera', '#E2D5F5', '随手拍区活跃用户', 3, 0),
+        ('元老', 'crown', '#ccff00', '注册超过一年', 10, 0),
     ]
     for name, icon, color, desc, min_lv, is_def in groups:
         c.execute('INSERT OR IGNORE INTO identity_groups (name, icon, color, description, min_level, is_default) VALUES (?,?,?,?,?,?)',
@@ -221,14 +221,14 @@ def seed():
 
     # ── Extended: shop items ──
     shop_items = [
-        ('初学者徽章', '新手专属徽章', '🏅', 50, 0, 'badge'),
-        ('学霸徽章', '学习区专属徽章', '📖', 100, 0, 'badge'),
-        ('恋心徽章', '恋爱区专属徽章', '💕', 150, 0, 'badge'),
-        ('VIP 头像框', '专属头像装饰', '✨', 200, 0, 'avatar_frame'),
-        ('改名卡', '修改一次用户名', '✏️', 300, 0, 'rename'),
-        ('置顶卡', '帖子置顶24小时', '📌', 500, 0, 'pin'),
-        ('匿名发帖', '匿名发布一次帖子', '🎭', 80, 0, 'anonymous'),
-        ('彩虹昵称', '7天彩虹色昵称', '🌈', 250, 0, 'rainbow_name'),
+        ('初学者徽章', '新手专属徽章', 'medal', 50, 0, 'badge'),
+        ('学霸徽章', '学习区专属徽章', 'book-open', 100, 0, 'badge'),
+        ('恋心徽章', '恋爱区专属徽章', 'heart', 150, 0, 'badge'),
+        ('VIP 头像框', '专属头像装饰', 'sparkles', 200, 0, 'avatar_frame'),
+        ('改名卡', '修改一次用户名', 'pencil', 300, 0, 'rename'),
+        ('置顶卡', '帖子置顶24小时', 'pin', 500, 0, 'pin'),
+        ('匿名发帖', '匿名发布一次帖子', 'mask', 80, 0, 'anonymous'),
+        ('彩虹昵称', '7天彩虹色昵称', 'palette', 250, 0, 'rainbow_name'),
     ]
     for name, desc, icon, coins, points, itype in shop_items:
         c.execute('INSERT OR IGNORE INTO shop_items (name, description, icon, price_coins, price_points, item_type) VALUES (?,?,?,?,?,?)',
@@ -255,7 +255,7 @@ def seed():
 
     # ── Extended: gossip ──
     gossips = [
-        '听说图书馆三楼有人在偷偷准备求婚...👀',
+        '听说图书馆三楼有人在偷偷准备求婚...',
         '食堂阿姨今天心情好，打了满满一勺肉！',
         '有人知道操场那只橘猫去哪了吗？两天没看到了',
         '二教的WiFi密码改了，谁知道新密码？',

@@ -37,6 +37,7 @@
             <span class="tag" onclick="switchAdminTab(this,'groups')"><i data-lucide="shield" class="icon icon-sm"></i> 身份组</span>
             <span class="tag" onclick="switchAdminTab(this,'shop')"><i data-lucide="gift" class="icon icon-sm"></i> 商城管理</span>
             <span class="tag" onclick="switchAdminTab(this,'reports')"><i data-lucide="flag" class="icon icon-sm"></i> 举报中心</span>
+            <span class="tag" onclick="switchAdminTab(this,'announcements')"><i data-lucide="megaphone" class="icon icon-sm"></i> 公告管理</span>
             <span class="tag" onclick="switchAdminTab(this,'logs')"><i data-lucide="scroll" class="icon icon-sm"></i> 操作日志</span>
         </div>
 
@@ -253,6 +254,34 @@ function switchAdminTab(el, tab) {
             `).join('');
             if (window.lucide) lucide.createIcons();
         });
+    } else if (tab === 'announcements') {
+        api.get('/api/admin/announcements').then(list => {
+            content.innerHTML = `
+                <div style="margin-bottom:20px;">
+                    <button class="btn btn-primary" onclick="openCreateAnnouncement()"><i data-lucide="plus-circle" class="icon icon-sm"></i> 发布公告</button>
+                </div>
+                <div id="announcementList">
+                    ${!list.length ? '<div class="empty-state">暂无公告</div>' : list.map(a => `
+                        <div class="post-card" style="padding:16px;margin-bottom:12px;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-size:1.2rem;"><i data-lucide="megaphone" class="icon"></i></span>
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;font-size:0.95rem;">${escHtml(a.title)}</div>
+                                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;">${formatTime(a.created_at)} · 发布者: ${escHtml(a.creator_name||'系统')}</div>
+                                    <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:6px;white-space:pre-wrap;">${escHtml(a.content||'')}</p>
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:6px;">
+                                    <span class="tag ${a.is_active ? '' : 'tag-muted'}" style="justify-content:center;">${a.is_active ? '<i data-lucide="eye" class="icon icon-sm"></i> 显示中' : '<i data-lucide="eye-off" class="icon icon-sm"></i> 已隐藏'}</span>
+                                    <button class="btn btn-ghost btn-sm" style="padding:3px 10px;font-size:0.7rem;" onclick="toggleAnnouncement(${a.id},${a.is_active?0:1})">${a.is_active?'隐藏':'显示'}</button>
+                                    <button class="btn btn-ghost btn-sm" style="padding:3px 10px;font-size:0.7rem;color:var(--danger);" onclick="deleteAnnouncement(${a.id})">删除</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        });
     } else if (tab === 'logs') {
         api.get('/api/admin/logs').then(logs => {
             if (!logs.length) { content.innerHTML = '<div class="empty-state">暂无日志</div>'; return; }
@@ -286,6 +315,46 @@ function handleReport(rid, status) {
     const label = status === 'approved' ? '确认违规' : '驳回';
     if (!confirm('确定' + label + '该举报？')) return;
     api.put('/api/reports/' + rid, { status }).then(() => { showToast('已处理', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'reports'); }).catch(e => showToast(e.message, 'error'));
+}
+
+function openCreateAnnouncement() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay show';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:520px;position:relative;">
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+            <div class="modal-title"><i data-lucide="megaphone" class="icon icon-md"></i> 发布公告</div>
+            <form onsubmit="createAnnouncement(event,this)">
+                <div class="form-group"><label class="form-label">标题</label><input class="input" name="title" required maxlength="100" placeholder="公告标题"></div>
+                <div class="form-group"><label class="form-label">内容</label><textarea class="input" name="content" rows="4" maxlength="2000" placeholder="公告内容"></textarea></div>
+                <button type="submit" class="btn btn-primary btn-lg" style="width:100%;"><i data-lucide="send" class="icon icon-sm"></i> 发布</button>
+            </form>
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    if (window.lucide) lucide.createIcons();
+}
+
+function createAnnouncement(e, form) {
+    e.preventDefault();
+    api.post('/api/admin/announcements', { title: form.title.value.trim(), content: form.content.value.trim() })
+        .then(() => { showToast('公告已发布', 'success'); document.querySelector('.modal-overlay').remove(); switchAdminTab(document.querySelector('#adminTabs .tag'), 'announcements'); })
+        .catch(err => showToast(err.message || '发布失败', 'error'));
+    return false;
+}
+
+function toggleAnnouncement(aid, active) {
+    api.post('/api/admin/announcements/' + aid + '/toggle', { active: active === 1 })
+        .then(() => { showToast('已更新', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'announcements'); })
+        .catch(e => showToast(e.message, 'error'));
+}
+
+function deleteAnnouncement(aid) {
+    if (!confirm('确定删除该公告？')) return;
+    api.delete('/api/admin/announcements/' + aid)
+        .then(() => { showToast('已删除', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'announcements'); })
+        .catch(e => showToast(e.message, 'error'));
 }
 
 function pinPost(pid) {

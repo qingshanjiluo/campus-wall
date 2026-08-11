@@ -21,7 +21,8 @@ from app.models_ext import (
     get_admin_stats, get_admin_stats_series, get_all_users_admin, update_user_admin, admin_log, get_admin_logs,
     toggle_favorite, is_favorited, get_favorites,
     create_report, get_reports, handle_report,
-    get_user_settings, save_user_settings
+    get_user_settings, save_user_settings,
+    get_announcements, create_announcement, update_announcement, toggle_announcement, delete_announcement,
 )
 from app.models import get_user_by_id, query_db
 
@@ -45,7 +46,7 @@ def create_group():
     if not name:
         return jsonify({'error': '名称不能为空'}), 400
     gid = create_identity_group(
-        name, data.get('icon', '🏷️'), data.get('color', '#fb6f92'),
+        name, data.get('icon', 'tag'), data.get('color', '#fb6f92'),
         data.get('description', ''), data.get('permissions', []),
         data.get('min_level', 1), data.get('is_default', 0)
     )
@@ -320,7 +321,8 @@ def list_trades():
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
     category = request.args.get('category')
-    return jsonify(get_trade_posts(category, limit=limit, offset=offset))
+    keyword = (request.args.get('q') or '').strip() or None
+    return jsonify(get_trade_posts(category, limit=limit, offset=offset, keyword=keyword))
 
 @trade_bp.route('', methods=['POST'])
 @token_required
@@ -505,7 +507,7 @@ def create_shop_item():
     from app.models_ext import execute_db
     execute_db(
         'INSERT INTO shop_items (name, description, icon, price_coins, price_points, item_type, item_data, stock) VALUES (?,?,?,?,?,?,?,?)',
-        (data.get('name',''), data.get('description',''), data.get('icon','🎁'),
+        (data.get('name',''), data.get('description',''), data.get('icon','gift'),
          data.get('price_coins',0), data.get('price_points',0),
          data.get('item_type','badge'), json.dumps(data.get('item_data',{}), ensure_ascii=False),
          data.get('stock',-1))
@@ -517,6 +519,63 @@ def create_shop_item():
 @admin_required
 def identity_groups():
     return jsonify(get_identity_groups())
+
+
+@admin_bp.route('/announcements', methods=['GET'])
+@token_required
+@admin_required
+def admin_announcements():
+    return jsonify(get_announcements())
+
+@admin_bp.route('/announcements', methods=['POST'])
+@token_required
+@admin_required
+def admin_create_announcement():
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()
+    content = (data.get('content') or '').strip()
+    if not title:
+        return jsonify({'error': '公告标题不能为空'}), 400
+    if len(title) > 100:
+        return jsonify({'error': '标题最多100字符'}), 400
+    if len(content) > 2000:
+        return jsonify({'error': '内容最多2000字符'}), 400
+    create_announcement(title, content, g.current_user['id'])
+    admin_log(g.current_user['id'], 'create_announcement', 'announcement', 0, title)
+    return jsonify({'message': '公告已发布'}), 201
+
+@admin_bp.route('/announcements/<int:aid>', methods=['PUT'])
+@token_required
+@admin_required
+def admin_update_announcement(aid):
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()
+    content = (data.get('content') or '').strip()
+    update_announcement(aid, title or None, content or None)
+    return jsonify({'message': '已更新'})
+
+@admin_bp.route('/announcements/<int:aid>/toggle', methods=['POST'])
+@token_required
+@admin_required
+def admin_toggle_announcement(aid):
+    data = request.get_json(silent=True) or {}
+    toggle_announcement(aid, data.get('active', True))
+    return jsonify({'message': '已更新状态'})
+
+@admin_bp.route('/announcements/<int:aid>', methods=['DELETE'])
+@token_required
+@admin_required
+def admin_delete_announcement(aid):
+    delete_announcement(aid)
+    return jsonify({'message': '已删除'})
+
+
+# ── 公开公告 ──
+announcements_bp = Blueprint('announcements', __name__)
+
+@announcements_bp.route('', methods=['GET'])
+def public_announcements():
+    return jsonify(get_announcements(active_only=True, limit=5))
 
 
 # ══════════════════════════════════════════════
