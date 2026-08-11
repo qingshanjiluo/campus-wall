@@ -64,6 +64,12 @@
             <i data-lucide="search" class="icon search-icon"></i>
             <input class="input" type="text" id="searchInput" placeholder="搜索感兴趣的子站...">
         </div>
+        <div class="reveal" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <i data-lucide="folder-tree" class="icon icon-sm" style="color:var(--text-muted);"></i>
+            <select class="input" id="categorySelect" style="max-width:260px;" onchange="filterByCategory(this.value)">
+                <option value="">全部分类</option>
+            </select>
+        </div>
         <div class="tag-bar reveal" id="tagBar">
             <span class="tag active" onclick="filterByTag(this, '')"><i data-lucide="flame" class="icon icon-sm"></i> 全部</span>
             <span class="tag" onclick="filterByTag(this, '情感')"><i data-lucide="heart" class="icon icon-sm"></i> 情感</span>
@@ -140,6 +146,7 @@ const postLimit = 10;
 
 onUserReady(function() {
     loadAnnouncements();
+    loadCategories();
     loadHotPosts();
     loadStations();
     loadPosts();
@@ -205,6 +212,30 @@ function loadHotPosts() {
 
 let currentStationSort = '';
 let currentStationTag = '';
+let currentStationCategory = '';
+
+function loadCategories() {
+    api.get('/api/stations/categories').then(cats => {
+        const sel = document.getElementById('categorySelect');
+        if (!sel) return;
+        const seen = new Set();
+        const options = cats.filter(c => {
+            const parent = c.parent || c.path;
+            if (seen.has(parent)) return false;
+            seen.add(parent);
+            return true;
+        });
+        sel.innerHTML = '<option value="">全部分类</option>' +
+            options.map(c => '<option value="' + escHtml(c.parent || c.path) + '">' + escHtml(c.parent || c.path) + '</option>').join('');
+    }).catch(() => {});
+}
+
+function filterByCategory(cat) {
+    currentStationCategory = cat;
+    currentStationTag = '';
+    document.querySelectorAll('#tagBar .tag').forEach(t => t.classList.remove('active'));
+    loadStations();
+}
 
 function loadStations() {
     const grid = document.getElementById('stationGrid');
@@ -212,6 +243,7 @@ function loadStations() {
     let url = '/api/stations?limit=20';
     if (currentStationSort) url += '&sort=' + encodeURIComponent(currentStationSort);
     if (currentStationTag) url += '&tag=' + encodeURIComponent(currentStationTag);
+    if (currentStationCategory) url += '&category=' + encodeURIComponent(currentStationCategory);
     api.get(url)
         .then(data => renderStations(data))
         .catch(() => { grid.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败，刷新试试</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });

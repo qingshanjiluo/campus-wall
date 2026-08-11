@@ -1,10 +1,12 @@
 import json
-from flask import Blueprint, request, jsonify, g
+import os
+import uuid
+from flask import Blueprint, request, jsonify, g, current_app
 from app.models import (
     create_station, get_stations, get_station_by_id, search_stations,
     join_station, leave_station, is_station_member, get_station_member_role,
     get_station_members, get_user_stations, remove_station_member, transfer_station_ownership,
-    update_station, delete_station, get_station_stats,
+    update_station, delete_station, get_station_stats, get_station_categories,
     get_posts, get_post_count
 )
 from app.utils.auth import token_required, optional_auth
@@ -30,8 +32,9 @@ def list_stations():
     offset = request.args.get('offset', 0, type=int)
     sort = request.args.get('sort', 'newest')
     tag = request.args.get('tag', '').strip() or None
+    category = request.args.get('category', '').strip() or None
 
-    stations = get_stations(limit=limit, offset=offset, sort=sort, tag=tag)
+    stations = get_stations(limit=limit, offset=offset, sort=sort, tag=tag, category=category)
     for s in stations:
         s['tags'] = json.loads(s['tags']) if s['tags'] else []
         if g.current_user:
@@ -41,6 +44,11 @@ def list_stations():
             s['is_member'] = False
             s['is_owner'] = False
     return jsonify(stations)
+
+
+@stations_bp.route('/categories', methods=['GET'])
+def categories():
+    return jsonify(get_station_categories())
 
 
 @stations_bp.route('/<int:sid>', methods=['GET'])
@@ -71,7 +79,8 @@ def create():
     if not name or len(name) < 2:
         return jsonify({'error': '子站名称至少2个字符'}), 400
 
-    sid = create_station(name, description, icon, tags, g.current_user['id'])
+    sid = create_station(name, description, icon, tags, g.current_user['id'],
+                         category=(data.get('category') or '').strip())
     if not sid:
         return jsonify({'error': '创建失败'}), 500
 
@@ -134,6 +143,25 @@ def my_stations():
     for s in stations:
         s['tags'] = json.loads(s['tags']) if s['tags'] else []
     return jsonify(stations)
+
+
+@stations_bp.route('/upload-cover', methods=['POST'])
+@token_required
+def upload_cover():
+    if 'file' not in request.files:
+        return jsonify({'error': '请选择文件'}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': '请选择文件'}), 400
+
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
+        return jsonify({'error': '不支持的格式'}), 400
+
+    filename = f"cover_{g.current_user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+    return jsonify({'url': f'/static/uploads/{filename}'})
 
 
 @stations_bp.route('/<int:sid>/stats', methods=['GET'])

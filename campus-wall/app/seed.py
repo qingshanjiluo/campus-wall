@@ -23,35 +23,35 @@ USERS = [
 ]
 
 STATIONS = [
-    {'name': '表白墙', 'icon': 'heart', 'description': '那些说不出口的喜欢，就写在这里吧',
+    {'name': '表白墙', 'icon': 'heart', 'description': '那些说不出口的喜欢，就写在这里吧', 'category': '情感/表白',
      'tags': ['情感', '表白', '匿名']},
-    {'name': '失物招领', 'icon': 'search', 'description': '丢了东西？捡到东西？来这里互助',
+    {'name': '失物招领', 'icon': 'search', 'description': '丢了东西？捡到东西？来这里互助', 'category': '校园生活/互助',
      'tags': ['互助', '校园']},
-    {'name': '二手交易', 'icon': 'shopping-cart', 'description': '闲置好物，低价出给有缘人',
+    {'name': '二手交易', 'icon': 'shopping-cart', 'description': '闲置好物，低价出给有缘人', 'category': '校园生活/交易',
      'tags': ['交易', '闲置']},
-    {'name': '学习互助', 'icon': 'book-open', 'description': '一起学习，一起进步，资料共享',
+    {'name': '学习互助', 'icon': 'book-open', 'description': '一起学习，一起进步，资料共享', 'category': '学习/互助',
      'tags': ['学习', '互助', '考研']},
-    {'name': '活动招募', 'icon': 'party-popper', 'description': '校园活动、社团招新、比赛组队',
+    {'name': '活动招募', 'icon': 'party-popper', 'description': '校园活动、社团招新、比赛组队', 'category': '校园生活/活动',
      'tags': ['活动', '社团', '组队']},
-    {'name': '树洞', 'icon': 'tree-pine', 'description': '说说那些不敢对别人说的话',
+    {'name': '树洞', 'icon': 'tree-pine', 'description': '说说那些不敢对别人说的话', 'category': '情感/倾诉',
      'tags': ['匿名', '倾诉', '情感']},
-    {'name': '食堂测评', 'icon': 'utensils', 'description': '干饭人的日常，今天吃什么好呢？',
+    {'name': '食堂测评', 'icon': 'utensils', 'description': '干饭人的日常，今天吃什么好呢？', 'category': '生活/美食',
      'tags': ['美食', '测评', '食堂']},
-    {'name': '随手拍', 'icon': 'camera', 'description': '校园里的每一帧风景，都值得被记录',
+    {'name': '随手拍', 'icon': 'camera', 'description': '校园里的每一帧风景，都值得被记录', 'category': '兴趣/摄影',
      'tags': ['摄影', '风景', '记录']},
-    {'name': '自习室打卡', 'icon': 'pen-line', 'description': '每天进步一点点，和小伙伴一起监督学习',
+    {'name': '自习室打卡', 'icon': 'pen-line', 'description': '每天进步一点点，和小伙伴一起监督学习', 'category': '学习/自律',
      'tags': ['学习', '打卡', '自律']},
-    {'name': '深夜树洞', 'icon': 'moon', 'description': '夜晚专属的情绪出口，天亮就好了',
+    {'name': '深夜树洞', 'icon': 'moon', 'description': '夜晚专属的情绪出口，天亮就好了', 'category': '情感/倾诉',
      'tags': ['匿名', '情感', '夜晚']},
-    {'name': '晨跑打卡', 'icon': 'running', 'description': '早起的人先享受世界',
+    {'name': '晨跑打卡', 'icon': 'running', 'description': '早起的人先享受世界', 'category': '运动/健身',
      'tags': ['运动', '打卡', '健康']},
-    {'name': '电影放映室', 'icon': 'film', 'description': '周末一起看电影，分享触动心灵的瞬间',
+    {'name': '电影放映室', 'icon': 'film', 'description': '周末一起看电影，分享触动心灵的瞬间', 'category': '兴趣/影视',
      'tags': ['影视', '讨论', '推荐']},
-    {'name': '校园猫咪图鉴', 'icon': 'cat', 'description': '记录校园里每一只毛茸茸的小可爱',
+    {'name': '校园猫咪图鉴', 'icon': 'cat', 'description': '记录校园里每一只毛茸茸的小可爱', 'category': '兴趣/萌宠',
      'tags': ['萌宠', '摄影', '猫咪']},
-    {'name': '考研互助站', 'icon': 'pen-line', 'description': '资料共享、经验交流，我们一起上岸',
+    {'name': '考研互助站', 'icon': 'pen-line', 'description': '资料共享、经验交流，我们一起上岸', 'category': '学习/考研',
      'tags': ['学习', '考研', '互助']},
-    {'name': '吉他社', 'icon': 'music', 'description': '用音乐连接彼此，弹唱我们的青春',
+    {'name': '吉他社', 'icon': 'music', 'description': '用音乐连接彼此，弹唱我们的青春', 'category': '兴趣/音乐',
      'tags': ['音乐', '社团', '乐器']},
 ]
 
@@ -147,8 +147,8 @@ def seed():
     for s in STATIONS:
         tags_str = json.dumps(s['tags'], ensure_ascii=False)
         c.execute(
-            'INSERT INTO stations (name, description, icon, tags, owner_id) VALUES (?, ?, ?, ?, ?)',
-            (s['name'], s['description'], s['icon'], tags_str, user_ids[0])
+            'INSERT INTO stations (name, description, icon, tags, owner_id, category) VALUES (?, ?, ?, ?, ?, ?)',
+            (s['name'], s['description'], s['icon'], tags_str, user_ids[0], s.get('category', ''))
         )
         sid = c.lastrowid
         station_ids.append(sid)

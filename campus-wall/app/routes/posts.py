@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, g, current_app
 from app.models import (
     create_post, get_post_by_id, get_posts, get_post_count,
     update_post, delete_post, increment_views, get_liked_posts,
+    record_post_version, get_post_versions,
     create_comment, get_comments, delete_comment,
     toggle_like, is_liked, create_notification, get_station_by_id
 )
@@ -58,6 +59,17 @@ def list_posts():
         for p in posts:
             _anonymize_post(p)
     return jsonify({'posts': posts, 'total': total})
+
+
+@posts_bp.route('/<int:pid>/versions', methods=['GET'])
+@token_required
+def post_versions(pid):
+    post = get_post_by_id(pid)
+    if not post:
+        return jsonify({'error': '帖子不存在'}), 404
+    if post['author_id'] != g.current_user['id'] and g.current_user['role'] != 'admin':
+        return jsonify({'error': '无权查看'}), 403
+    return jsonify({'versions': get_post_versions(pid)})
 
 
 @posts_bp.route('/<int:pid>', methods=['GET'])
@@ -144,6 +156,9 @@ def update(pid):
         update_fields['is_pinned'] = data['is_pinned']
     if not update_fields:
         return jsonify({'error': '没有可更新的字段'}), 400
+    # 记录编辑历史（保存编辑前的旧版本）
+    if any(k in update_fields for k in ('title', 'content', 'image')):
+        record_post_version(pid, post['title'], post['content'], post.get('image') or '', g.current_user['id'])
     update_post(pid, **update_fields)
     return jsonify({'message': '更新成功'})
 

@@ -77,6 +77,7 @@ def init_db():
         ('cover', 'TEXT', "''"),
         ('only_owner_posts', 'INTEGER', '0'),
         ('announcement', 'TEXT', "''"),
+        ('category', 'TEXT', "''"),
     ]:
         try:
             c.execute(f"ALTER TABLE stations ADD COLUMN {col} {coltype} DEFAULT {default}")
@@ -107,6 +108,16 @@ def init_db():
         parent_id INTEGER REFERENCES comments(id),
         likes_count INTEGER DEFAULT 0,
         is_deleted INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS post_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER REFERENCES posts(id),
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        image TEXT DEFAULT '',
+        edited_by INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
@@ -207,12 +218,12 @@ def get_user_stats(uid):
 
 # ── Station helpers ──
 
-def create_station(name, description, icon, tags, owner_id):
+def create_station(name, description, icon, tags, owner_id, category=''):
     import json
     tags_str = json.dumps(tags, ensure_ascii=False) if isinstance(tags, list) else tags
     sid = execute_db(
-        'INSERT INTO stations (name, description, icon, tags, owner_id) VALUES (?, ?, ?, ?, ?)',
-        (name, description, icon or 'school', tags_str, owner_id)
+        'INSERT INTO stations (name, description, icon, tags, owner_id, category) VALUES (?, ?, ?, ?, ?, ?)',
+        (name, description, icon or 'school', tags_str, owner_id, category)
     )
     if sid:
         execute_db('INSERT INTO station_members (user_id, station_id, role) VALUES (?, ?, ?)',
@@ -221,12 +232,15 @@ def create_station(name, description, icon, tags, owner_id):
     return sid
 
 
-def get_stations(limit=20, offset=0, sort='newest', tag=None):
+def get_stations(limit=20, offset=0, sort='newest', tag=None, category=None):
     sql = 'SELECT * FROM stations WHERE 1=1'
     args = []
     if tag:
         sql += ' AND tags LIKE ?'
         args.append(f'%{tag}%')
+    if category:
+        sql += ' AND (category = ? OR category LIKE ?)'
+        args += [category, f'{category}/%']
     if sort == 'popular':
         sql += ' ORDER BY user_count DESC'
     elif sort == 'posts':
@@ -240,6 +254,22 @@ def get_stations(limit=20, offset=0, sort='newest', tag=None):
 
 def get_station_by_id(sid):
     return query_db('SELECT * FROM stations WHERE id = ?', (sid,), one=True)
+
+
+def get_station_categories():
+    """返回所有使用的分类（含层级，按 / 分隔）"""
+    rows = query_db(
+        "SELECT DISTINCT category FROM stations WHERE category != '' ORDER BY category")
+    cats = []
+    for r in rows:
+        parts = r['category'].split('/')
+        cats.append({
+            'path': r['category'],
+            'parent': parts[0] if len(parts) > 1 else '',
+            'name': parts[-1],
+            'depth': len(parts) - 1,
+        })
+    return cats
 
 
 def search_stations(keyword):
@@ -361,7 +391,7 @@ def transfer_station_ownership(sid, new_owner_id):
 
 def update_station(sid, **fields):
     """更新子站信息"""
-    allowed = ('name', 'description', 'icon', 'tags', 'is_public', 'cover', 'only_owner_posts', 'announcement')
+    allowed = ('name', 'description', 'icon', 'tags', 'is_public', 'cover', 'only_owner_posts', 'announcement', 'category')
     pairs = [(k, fields[k]) for k in allowed if k in fields]
     if not pairs:
         return False
@@ -475,6 +505,22 @@ def update_post(pid, **kwargs):
     vals = list(fields.values()) + [pid]
     execute_db(f'UPDATE posts SET {sets}, updated_at = CURRENT_TIMESTAMP WHERE id = ?', vals)
     return True
+
+
+def record_post_version(post_id, title, content, image, editor_id):
+    """记录帖子编辑历史（每次编辑前保存旧版本）"""
+    execute_db(
+        'INSERT INTO post_versions (post_id, title, content, image, edited_by) VALUES (?,?,?,?,?)',
+        (post_id, title, content, image, editor_id))
+
+
+def get_post_versions(post_id, limit=20):
+    return query_db(
+        '''SELECT pv.*, u.username as editor_name
+           FROM post_versions pv LEFT JOIN users u ON pv.edited_by = u.id
+           WHERE pv.post_id = ?
+           ORDER BY pv.created_at DESC LIMIT ?''',
+        (post_id, limit))
 
 
 def delete_post(pid):

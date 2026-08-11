@@ -118,6 +118,7 @@ function renderPostDetail(p) {
     if (isAuthor || isAdmin) {
         actionBtns = `
             <button class="btn btn-sm btn-ghost" onclick="openEditPost(${p.id})" title="编辑"><i data-lucide="pencil" class="icon icon-sm"></i></button>
+            <button class="btn btn-sm btn-ghost" onclick="showEditHistory(${p.id})" title="编辑历史"><i data-lucide="history" class="icon icon-sm"></i></button>
             <button class="btn btn-sm btn-ghost" onclick="deletePost(${p.id})" title="删除" style="color:var(--text-muted);"><i data-lucide="trash-2" class="icon icon-sm"></i></button>
         `;
     }
@@ -254,6 +255,33 @@ function toggleFav(pid, btn) {
 
 function reportTarget(targetType, targetId) {
     openReportModal(targetType, targetId);
+}
+
+function showEditHistory(pid) {
+    api.get('/api/posts/' + pid + '/versions').then(res => {
+        const versions = res.versions || [];
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay show';
+        modal.innerHTML = `
+            <div class="modal" style="max-width:640px;position:relative;max-height:80vh;overflow-y:auto;">
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                <div class="modal-title"><i data-lucide="history" class="icon icon-md"></i> 编辑历史</div>
+                ${versions.length === 0 ? '<div class="empty-state" style="padding:20px;"><i data-lucide="history" class="icon empty-icon"></i><div class="text">暂无编辑历史</div></div>' : versions.map((v, idx) => `
+                    <div class="post-card" style="padding:16px;margin-bottom:12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <span class="tag">版本 ${versions.length - idx}</span>
+                            <span style="font-size:0.75rem;color:var(--text-muted);">${formatTime(v.created_at)} · ${escHtml(v.editor_name||'未知')}</span>
+                        </div>
+                        <div style="font-weight:700;font-size:0.95rem;margin-bottom:6px;">${escHtml(v.title)}</div>
+                        <div style="font-size:0.85rem;color:var(--text-secondary);white-space:pre-wrap;max-height:120px;overflow-y:auto;">${renderContent(v.content, false)}</div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+        if (window.lucide) lucide.createIcons();
+    }).catch(e => showToast(e.message || '加载失败', 'error'));
 }
 </script>
 </body>

@@ -166,7 +166,12 @@ function openStationSettings() {
                 <input class="input" name="name" placeholder="子站名称" value="${escHtml(s.name||'')}" style="margin-bottom:10px;">
                 <textarea class="input" name="description" placeholder="子站简介" rows="3" style="margin-bottom:10px;">${escHtml(s.description||'')}</textarea>
                 <input class="input" name="icon" placeholder="图标（如 school）" value="${escHtml(s.icon||'school')}" style="margin-bottom:10px;">
-                <input class="input" name="cover" placeholder="封面图 URL（可选）" value="${escHtml(s.cover||'')}" style="margin-bottom:10px;">
+                <input class="input" name="category" placeholder="分类（如 情感/表白，支持层级）" value="${escHtml(s.category||'')}" style="margin-bottom:10px;">
+                <input class="input" name="cover" placeholder="封面图 URL（可选）" value="${escHtml(s.cover||'')}" style="margin-bottom:6px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <button type="button" class="btn btn-sm" onclick="uploadStationCover(this)"><i data-lucide="upload" class="icon icon-sm"></i> 上传封面</button>
+                    <input type="file" accept="image/*" style="display:none;" onchange="handleCoverFile(this)">
+                </div>
                 <input class="input" name="announcement" placeholder="子站公告（可选，显示在顶部）" value="${escHtml(s.announcement||'')}" style="margin-bottom:10px;">
                 <input class="input" name="tags" placeholder="标签，用逗号分隔（最多5个）" value="${escHtml((s.tags||[]).join(','))}" style="margin-bottom:16px;">
                 <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
@@ -196,6 +201,7 @@ function updateStationSettings(e, form) {
         name: form.name.value.trim(),
         description: form.description.value.trim(),
         icon: form.icon.value.trim() || 'school',
+        category: form.category.value.trim(),
         cover: form.cover.value.trim(),
         announcement: form.announcement.value.trim(),
         tags: form.tags.value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5),
@@ -215,6 +221,30 @@ function transferStation(btn) {
     api.post('/api/stations/' + STATION_ID + '/transfer', { new_owner_id: parseInt(uid) })
         .then(data => { showToast(data.message, 'success'); document.querySelector('.modal-overlay').remove(); loadStation(); })
         .catch(e => showToast(e.message || '转让失败', 'error'));
+}
+
+function uploadStationCover(btn) {
+    const input = btn.parentElement.querySelector('input[type=file]');
+    if (input) input.click();
+}
+
+function handleCoverFile(input) {
+    if (!input.files || !input.files[0]) return;
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    fetch('/api/stations/upload-cover', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + (api.getToken() || '') },
+        body: fd
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { showToast(data.error, 'error'); return; }
+        const coverInput = input.closest('.modal').querySelector('input[name=cover]');
+        if (coverInput) coverInput.value = data.url;
+        showToast('封面已上传', 'success');
+    })
+    .catch(() => showToast('上传失败', 'error'));
 }
 
 function deleteStationConfirm(btn) {
