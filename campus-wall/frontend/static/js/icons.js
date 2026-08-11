@@ -29,7 +29,7 @@ const ICON_MAP = {
   '🔑': 'key',
   '↩️': 'reply',
   '📎': 'paperclip',
-  '🎭': 'mask',
+  '🎭': 'venetian-mask',
   '🏗️': 'building-2',
   '⚙️': 'settings',
   '🔒': 'lock',

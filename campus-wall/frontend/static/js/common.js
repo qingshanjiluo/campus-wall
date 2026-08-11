@@ -184,7 +184,7 @@
                 </div>
                 <div class="form-group">
                     <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-secondary);cursor:pointer;">
-                        <input type="checkbox" name="is_anonymous" value="1"> <i data-lucide="mask" class="icon icon-sm"></i> 匿名发布
+                        <input type="checkbox" name="is_anonymous" value="1"> <i data-lucide="venetian-mask" class="icon icon-sm"></i> 匿名发布
                     </label>
                 </div>
                 <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">

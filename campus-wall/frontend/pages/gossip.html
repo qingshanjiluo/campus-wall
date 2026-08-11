@@ -34,7 +34,7 @@
             <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
                 <button class="btn btn-primary btn-sm" onclick="postGossip()"><i data-lucide="send" class="icon icon-sm"></i> 匿名发布</button>
                 <label style="font-size:0.8rem;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:4px;">
-                    <input type="checkbox" id="gossipAnon" checked> <i data-lucide="mask" class="icon icon-sm"></i> 匿名
+                    <input type="checkbox" id="gossipAnon" checked> <i data-lucide="venetian-mask" class="icon icon-sm"></i> 匿名
                 </label>
             </div>
         </div>
@@ -78,7 +78,7 @@ function loadGossip(append) {
         const html = data.map(g => `
             <div class="post-card reveal" style="padding:20px;" onclick="viewGossip(${g.id})">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                    <span style="font-size:1.2rem;"><i data-lucide="mask" class="icon"></i></span>
+                    <span style="font-size:1.2rem;"><i data-lucide="venetian-mask" class="icon"></i></span>
                     <span style="font-weight:600;font-size:0.9rem;">匿名</span>
                     ${g.is_hot ? '<span style="font-size:0.7rem;background:var(--yellow);padding:2px 6px;border-radius:8px;"><i data-lucide="flame" class="icon icon-sm"></i> 热门</span>' : ''}
                 </div>

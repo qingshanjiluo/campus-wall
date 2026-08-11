@@ -1,16 +1,10 @@
 /**
  * 应用主逻辑 — 用户状态、模态框、表单处理、全部交互功能
+ *
+ * 注意：currentUser / _userReady / _userReadyCbs / onUserReady / loadCurrentUser
+ * 等全局状态与函数由 auth.js（先加载）提供，此处不得重复声明，否则 let/const
+ * 重复声明会触发 SyntaxError 导致整个脚本不执行。
  */
-
-let currentUser = null;
-let _userReady = false;
-const _userReadyCbs = [];
-
-// 用户状态就绪后回调（解决 DOMContentLoaded 异步加载竞态）
-function onUserReady(cb) {
-    if (_userReady) { cb(); return; }
-    _userReadyCbs.push(cb);
-}
 
 // ── 初始化 ──
 document.addEventListener('DOMContentLoaded', async function() {
@@ -29,49 +23,6 @@ window.addEventListener('scroll', () => {
     const nav = document.getElementById('navbar');
     if (nav) nav.classList.toggle('scrolled', window.scrollY > 60);
 }, { passive: true });
-
-// ── 用户状态 ──
-async function loadCurrentUser() {
-    const token = api.getToken();
-    if (!token) return;
-    try {
-        const data = await api.get('/api/auth/me');
-        currentUser = data;
-    } catch (e) {
-        api.setToken(null);
-        currentUser = null;
-    }
-}
-
-function toggleUserMenu() {
-    const menu = document.getElementById('userMenu');
-    if (menu) menu.style.display = menu.style.display === 'none' ? '' : 'none';
-}
-
-// 点击外部关闭菜单
-document.addEventListener('click', function(e) {
-    const menu = document.getElementById('userMenu');
-    const chip = e.target.closest('.user-chip');
-    if (menu && !chip && !menu.contains(e.target)) {
-        menu.style.display = 'none';
-    }
-});
-
-async function updateNotifBadge() {
-    if (!currentUser) return;
-    try {
-        const data = await api.get('/api/social/notifications/unread-count');
-        const badge = document.getElementById('notifBadge');
-        if (badge) {
-            if (data.count > 0) {
-                badge.textContent = data.count > 99 ? '99+' : data.count;
-                badge.style.display = '';
-            } else {
-                badge.style.display = 'none';
-            }
-        }
-    } catch (e) {}
-}
 
 // ── 模态框 ──
 function openModal(id) {
@@ -134,61 +85,6 @@ document.addEventListener('keydown', function(e) {
         document.body.style.overflow = '';
     }
 });
-
-// ── 认证表单 ──
-function handleLogin(e) {
-    e.preventDefault();
-    const form = e.target;
-    api.post('/api/auth/login', {
-        username: form.username.value.trim(),
-        password: form.password.value
-    }).then(res => {
-        api.setToken(res.token);
-        currentUser = res.user;
-        closeModal('loginModal');
-        updateNavRight();
-        showToast('欢迎回来，' + res.user.username + '！', 'success');
-        form.reset();
-    }).catch(err => showToast(err.message || '登录失败', 'error'));
-    return false;
-}
-
-function handleRegister(e) {
-    e.preventDefault();
-    const form = e.target;
-    api.post('/api/auth/register', {
-        username: form.username.value.trim(),
-        email: form.email.value.trim(),
-        password: form.password.value
-    }).then(res => {
-        api.setToken(res.token);
-        currentUser = res.user;
-        closeModal('registerModal');
-        updateNavRight();
-        showToast('注册成功，欢迎 ' + res.user.username + '！', 'success');
-        form.reset();
-    }).catch(err => showToast(err.message || '注册失败', 'error'));
-    return false;
-}
-
-function handleLogout() {
-    api.setToken(null);
-    currentUser = null;
-    updateNavRight();
-    showToast('已退出登录');
-    if (window.location.pathname.startsWith('/profile/') ||
-        window.location.pathname.startsWith('/notifications')) {
-        window.location.href = '/';
-    }
-}
-
-function requireAuth() {
-    if (!currentUser) {
-        openModal('loginModal');
-        return false;
-    }
-    return true;
-}
 
 // ── 发帖表单 ──
 function handleCreatePost(e) {
