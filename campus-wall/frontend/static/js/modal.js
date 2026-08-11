@@ -34,7 +34,19 @@ function openEditProfile() {
         if (form.mood) form.mood.value = user.mood || '';
         if (form.title) form.title.value = user.title || '';
     }
+    const preview = document.getElementById('editAvatarPreview');
+    if (preview && user.avatar) preview.src = user.avatar;
     openModal('editProfileModal');
+}
+
+function previewAvatar(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const preview = document.getElementById('editAvatarPreview');
+        if (preview) preview.src = e.target.result;
+    };
+    reader.readAsDataURL(input.files[0]);
 }
 
 function openChangePassword() {
@@ -55,6 +67,19 @@ async function handleEditProfile(event) {
         return false;
     }
     try {
+        // 若选择了头像文件，先上传获取 URL
+        const avatarInput = form.avatar;
+        if (avatarInput && avatarInput.files && avatarInput.files[0]) {
+            const fd = new FormData();
+            fd.append('file', avatarInput.files[0]);
+            const avRes = await fetch('/api/auth/avatar', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + (api.getToken() || '') },
+                body: fd
+            });
+            const avData = await avRes.json();
+            if (avData.url) data.avatar = avData.url;
+        }
         await api.put('/api/auth/me', data);
         CampusUtils.showToast('资料更新成功', 'success');
         await window.CampusAuth.loadCurrentUser();
@@ -155,6 +180,7 @@ async function handleReport(event) {
 window.openReportModal = openReportModal;
 window.selectReportReason = selectReportReason;
 window.handleReport = handleReport;
+window.previewAvatar = previewAvatar;
 
 // 点击遮罩关闭模态框
 document.addEventListener('click', function(e) {

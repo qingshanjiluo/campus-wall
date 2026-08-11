@@ -271,7 +271,7 @@
                 <div class="form-group">
                     <label class="form-label">头像</label>
                     <img id="editAvatarPreview" src="/static/images/default-avatar.svg" style="width:60px;height:60px;border-radius:50%;display:block;margin-bottom:8px;">
-                    <input class="input" type="file" name="avatar" accept="image/*">
+                    <input class="input" type="file" name="avatar" accept="image/*" onchange="previewAvatar(this)">
                 </div>
                 <div class="form-group">
                     <label class="form-label">用户名</label>

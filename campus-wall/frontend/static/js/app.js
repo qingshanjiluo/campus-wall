@@ -272,45 +272,16 @@ function handleCreateStation(e) {
 }
 
 // ── 编辑资料 ──
+// 编辑资料：委托给 modal.js 的实现（支持头像/签名/称号）
 function openEditProfile() {
     if (!requireAuth()) return;
-    const modal = document.getElementById('editProfileModal');
-    if (!modal) return;
     closeUserMenu();
-    modal.querySelector('[name="username"]').value = currentUser.username;
-    modal.querySelector('[name="bio"]').value = currentUser.bio || '';
-    const avatarPreview = document.getElementById('editAvatarPreview');
-    if (avatarPreview) avatarPreview.src = currentUser.avatar || '/static/images/default-avatar.svg';
-    openModal('editProfileModal');
+    window.CampusModal.openEditProfile();
 }
 
-function handleEditProfile(e) {
-    e.preventDefault();
-    const form = e.target;
-    const data = {
-        username: form.username.value.trim(),
-        bio: form.bio.value.trim()
-    };
-    // Handle avatar upload if file selected
-    const fileInput = form.avatar;
-    if (fileInput && fileInput.files.length > 0) {
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        fetch('/api/auth/avatar', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + api.getToken() },
-            body: formData
-        }).then(r => r.json()).then(res => {
-            if (res.url) {
-                data.avatar = res.url;
-                saveProfile(data, form);
-            } else {
-                showToast(res.error || '头像上传失败', 'error');
-            }
-        }).catch(() => showToast('头像上传失败', 'error'));
-    } else {
-        saveProfile(data, form);
-    }
+async function handleEditProfile(event) {
+    const done = await window.CampusModal.handleEditProfile(event);
+    if (done !== false && typeof loadProfile === 'function') loadProfile();
     return false;
 }
 
@@ -365,26 +336,11 @@ function handleForgotPassword(e) {
 function openChangePassword() {
     if (!requireAuth()) return;
     closeUserMenu();
-    const form = document.getElementById('changePasswordForm');
-    if (form) form.reset();
-    openModal('changePasswordModal');
+    window.CampusModal.openChangePassword();
 }
 
 function handleChangePassword(e) {
-    e.preventDefault();
-    const form = e.target;
-    const oldPw = form.old_password.value;
-    const newPw = form.new_password.value;
-    const confirmPw = form.confirm_password.value;
-    if (newPw !== confirmPw) { showToast('两次密码不一致', 'error'); return false; }
-    api.post('/api/auth/change-password', {
-        old_password: oldPw,
-        new_password: newPw
-    }).then(res => {
-        closeModal('changePasswordModal');
-        showToast('密码修改成功！', 'success');
-        form.reset();
-    }).catch(err => showToast(err.message || '修改失败', 'error'));
+    window.CampusModal.handleChangePassword(e);
     return false;
 }
 

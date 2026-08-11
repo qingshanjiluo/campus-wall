@@ -53,3 +53,10 @@ Pages 项目 → **Custom domains** → **Set up a custom domain** → 填 `camp
 | `API_BASE` | 后端 API 根地址。设置后 `/api/*` 和 `/static/uploads/*` 请求被代理到该地址 |
 
 > 若不设置 `API_BASE`，前端会请求同源的 `/api/*`（用于本地联调或前端后端同源部署）。
+
+## 相关文档
+
+- [项目 README](../README.md) — 项目总览与快速开始
+- [使用文档](../USAGE.md) — 用户操作指南
+- [API 文档](../API.md) — REST 接口说明
+- [部署指南](../DEPLOYMENT.md) — 详细部署步骤
