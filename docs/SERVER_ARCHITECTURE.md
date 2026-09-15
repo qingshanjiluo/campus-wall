@@ -45,15 +45,28 @@
 - `scripts/backup.sh`（sqlite3 .backup + uploads tar，滚动 7 份）
 - docs/DEPLOYMENT-SERVER.md（从零到 HTTPS 全流程，含 certbot）
 
-## 4. 里程碑
+## 4. 里程碑（执行结果）
 
-- **M1 契约对齐**：10 项缺口全修，本地 `e2e_live.ps1 -BaseUrl :8000` 38/38 ✅
-- **M2 图片+安全**：uploads 磁盘化+压缩、limiter、CORS 收敛、Nginx 头
-- **M3 审核**：敏感词 + pending 队列 + admin UI Tab
-- **M4 私信**：后端两张表三端点 + 前端 messages 页 + 通知
-- **M5 UI**：深色模式、页面打磨、JS 门禁与爬检工具适配本地全栈
-- **M6 部署包**：deploy/ 产物 + 文档 + 本地 docker compose 冒烟（若本机无 Docker 则以 compose config/语法校验 + gunicorn 裸跑等效验证并说明）
-- **M7 收尾**：README/PLAN/LAUNCH_CHECKLIST 重定位（CF→服务器主线），归档 Cloudflare 章节
+- **M1 契约对齐** ✅：10 项缺口全修（vote/link/shape/batch/by-uid/romance…），
+  本地 `e2e_live.ps1 -BaseUrl :5000` **38/38** 全绿
+- **M2 图片+安全** ✅：上传内容校验+Pillow 压缩+EXIF 剥离、Flask-Limiter 全端点
+  （register 8/h、login 12/min、发帖 20/min、私信 30/min…，`RATELIMIT_ENABLED=1` 生产开）、
+  CORS/JWT 强制经 env；429 中文 JSON 实测生效
+- **M3 审核** ✅：敏感词三级（block/review/approved）+ posts.status 零迁移 ALTER +
+  可见性闸（作者/管理员例外）+ `/api/admin/review` + admin「帖子审核」Tab + 作者徽标；
+  E2E +6 步
+- **M4 私信** ✅：dm_messages 双索引表 + 4 端点（聚合 threads 单 SQL）+ messages.html
+  双栏聊天（移动适配/未读/深链/8s 轮询）+ profile 私信按钮 + 通知联动；E2E +5 步 → **49/49**
+- **M5 UI** ✅：深色模式（localStorage + prefers-color-scheme + 导航开关，全页覆盖）、
+  页面路由矩阵 11/11、静态资源统一到 frontend/static（uploads 同盘）、JS 门 0 失败
+- **M6 部署包** ✅：deploy/（Dockerfile/compose 四服务/nginx cache 分级/backup.py 实跑/
+  deploy.sh/systemd/手册 docs/DEPLOYMENT-SERVER.md）；本机 Docker daemon 不可用，
+  compose YAML/脚本语法与 backup 链路均本地验证，容器整备冒烟留待目标服务器执行
+- **M7 收尾** ✅：README/DEPLOYMENT/LAUNCH_CHECKLIST 重定位为服务器主线，Cloudflare 轨
+  标注演示+契约蓝本；seed 已是 lucide 图标与前端一致
+
+剩余人工项（需外部资源）：真实服务器 `docker compose up -d --build` →
+对线上域名跑 49 步 E2E → 改 admin 密码 → 浏览器 22 页双主题走查 → 公告。
 
 ## 5. 风险与对策
 - 旧 templates 版仍在工作目录：保留但文档声明冻结，避免误改双份。

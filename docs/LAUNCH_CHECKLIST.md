@@ -1,89 +1,77 @@
-# CampusWall 上线检查清单（Launch Checklist）
+# CampusWall 上线检查清单（R4 · 服务器自托管主线）
 
-> 状态图例：`[x]` 已验证 · `[~]` 进行中 · `[ ]` 待办
-> 更新时间：见 git log（本文件随里程碑推进更新）
+> 状态图例：`[x]` 已验证 · `[~]` 进行中 · `[ ]` 待办（需要真实服务器/域名等外部资源）
+> GO 门 = 第 1、2 节全绿 + 第 3 节在目标服务器完成。
 
-## 0. 架构总览（实际落地形态）
+## 0. 架构（正式方案）
 
 ```
-浏览器
-  └─ https://campus-wall-673.pages.dev          Cloudflare Pages（静态前端 + Functions）
-       ├─ /pages/*.html 等 21 页静态资源
-       ├─ _redirects：/ → index，/post/:id → post.html …（干净路由）
-       └─ functions/api/[[path]].ts  反代  ── API_BASE ──┐
-                                                          ▼
-                       https://campus-wall-api.sifangzhiji.workers.dev   Cloudflare Python Worker
-                         ├─ src/entry.py：103 条正则路由
-                         ├─ 数据层 src/db.py：双后端
-                         │    • KV（当前上线）：分片 SQL 快照（puresql/sqlite3 引擎）
-                         │    • D1（升级路径）：token 获得 D1:Edit 后切回，migrations 保留
-                         └─ uploads：图片 base64 存 KV uploads 分片
+Nginx(80/443, TLS, gzip, uploads 直出, /api 透传真实IP)
+  └─ Gunicorn 4w×2t --preload :8000
+       └─ Flask app（campus-wall/app · 18 蓝图 · JWT/bcrypt/限流/敏感词审核）
+            └─ SQLite WAL（/data volume · DATABASE_PATH 可指任意盘 · 单点可换 PG）
+前端 = campus-wall/frontend 静态 22 页（Flask 页路由 + Nginx 静态直出双通道）
+部署资产 = campus-wall/deploy/（Dockerfile · compose · nginx · systemd · backup · deploy.sh）
 ```
 
-- CI 全部走 GitHub Actions（本机无 wrangler 登录态）：
-  - `deploy-cloudflare-worker.yml`：建/对齐 KV → 注入 JWT secret → 部署 Worker
-  - `deploy-cloudflare-pages.yml`：push `campus-wall/frontend/**` → Pages Direct Upload
-- 密钥：`JWT_SECRET` 仅存在于 Worker secrets；`.dev.vars` 本地开发（已 gitignore）
+Cloudflare Pages/Worker 轨降级为演示环境（backend-worker 保留作 API 契约蓝本），
+运维复现见 campus-wall/DEPLOYMENT.md（文件头已声明定位）。
 
-## 1. 后端正确性（本地可证明的全部）
+## 1. 后端与契约（本地全栈可证明）
 
-- [x] 原生测试套件（sqlite3 驱动 D1-shim，真 handler 链路）：**96/96 断言全绿**
-  - 覆盖：注册/登录/JWT、子站 CRUD+成员+转让、发帖/编辑/删除/置顶、点赞、评论（含楼中楼）、
-    签到/等级/商店/道具使用、交易、恋爱档案（含 hobbies 数组回归）、树洞、举报、
-    管理后台（stats/users/posts 审核）、通知、搜索、推荐、上传（base64 往返）
-  - 新增（本轮审计修复）：投票一人一票全链路、link 帖 scheme 过滤、trade 价格/成色校验、
-    admin today_* 字段、station_posts 匿名脱敏
-- [x] Windows miniflare 不稳定问题定性为平台问题，以原生套件为业务权威证明
-- [~] KV 后端移植 + 双模式（D1Shim / KVShim）套件全绿 —— 子代理进行中
+- [x] Flask 主线 E2E **49/49 全绿**（tools/e2e_live.ps1 -BaseUrl http://127.0.0.1:5000）：
+  注册/登录/资料 · 子站(加入/退出/成员) · 帖子四类型（**vote 一人一票/重投拒/link 消毒/
+  images 数组**）· 点赞/收藏 · 评论 · 签到 · 商店/金币 · 恋爱档案（含 UPDATE 回归）·
+  树洞 · 二手 · 搜索/推荐 · **私信 5 步**（发送/会话/已读/未读/坏参数拒）·
+  **审核 6 步**（review 入队/公开隐藏/作者可见/approve 发布/block 拒/重复处理拒）·
+  上传（multipart→落盘→可访问往返）· admin 统计/用户 · 通知
+- [x] Worker 契约蓝本原生断言 205 绿（--mode all --budget），差异已全部移植回 Flask
+- [x] 热路径批量化：feed/子站帖列表 is_liked_batch、子站列表 membership 批量、admin stats 4 查询+memo
+- [x] 隐私闸：匿名帖在 列表/详情/子站页/搜索 全通道脱敏；pending/rejected 对外 404
+- [x] 安全：上传内容校验(PIL verify 防伪扩展名)+EXIF 剥离+长边压缩 · 生产限流
+  （register 8/h、login 12/min、发帖 20/min、上传 10-15/min、私信 30/min、树洞/交易 10/min）
+  · CORS 经 env 收紧 · JWT 生产强制密钥（缺失拒启动）
+- [x] 页面路由矩阵（/、干净路由、/post|station|profile/<id>、未知 404）11/11
 
-## 2. 前端契约（docs/frontend-audit.md 逐项）
+## 2. 前端
 
-- [x] P0-1 waterfall `{posts,total}` 解包
-- [x] P0-2 投票/链接帖整链（后端补齐 + 契约对齐，前端零改动即工作）
-- [x] P1 toast 不可见（`.toast.show` 体系）
-- [x] P1 存储型 XSS：escHtml 全局加引号转义 + `safeUrl`；avatar/cover/price/condition 点位收敛
-- [x] P1 弹窗误删 `#loginModal`（5 处 `closest` 定位）
-- [x] P1 admin 仪表盘 today_posts/today_users undefined
-- [x] P1 /create 页图片选择器不匹配
-- [x] P1 移动端 toggleNavMenu 未挂 window
-- [x] P1 romance hobbies 数组二次保存 500（后端 json.dumps）
-- [x] P2 getStationIcon lucide 直通 / profile EXP 读 exp / only_owner_posts 回填 / 上传限制对齐 5MB
-- [ ] P2 重复函数收敛（openModal/showToast/escHtml 多处声明）——低风险重构，上线后做
-- [ ] P2 后端已有但前端未接：`PUT /api/trade/:id/status`、identity 认证、interests 推荐调权、transactions 页
-- [ ] P2 lucide 固定版本 + 本地兜底
-- [ ] 线上浏览器冒烟（真实数据下 21 页走查）——Pages 部署完成后
+- [x] 审核 Tab（admin.html）：队列卡片 + 通过/驳回(prompt 理由) + 空态
+- [x] 私信页 messages.html：双栏/移动单栏切换、未读徽标、?with= 深链、Enter 发送、
+  profile「私信」按钮、导航菜单项、通知 dm 图标+跳转
+- [x] 发帖 202 pending 文案（create.html + app.js 快速发帖）、作者视角状态徽标（列表卡+详情横幅）
+- [x] 深色模式：`[data-theme]` 双表覆盖 + localStorage + prefers-color-scheme + 导航开关
+- [x] XSS/toast/路由门禁/编辑历史等（见 frontend-audit.md 处置表）
+- [x] JS 语法门：29 外链 + 全页面内联 node --check 0 失败
+- [ ] 真实浏览器 22 页走查（桌面+移动宽度、明暗双主题）——部署完成后执行
+- [ ] P2 遗留（低优先）：重复函数收敛、trade 状态机前端接入、lucide 版本锁定
 
-## 3. 部署与运维
+## 3. 部署与运维（目标服务器执行）
 
-- [x] Workers 部署权限验证（probe worker 成功上线又删除）
-- [x] KV 建/写/删权限验证
-- [x] Pages 生产 = 项目 `campus-wall`（域名 `campus-wall-673.pages.dev`，CI 一直正确）
-- [x] CI：workers.dev 子域自动保障；KV namespace create-or-get；secret 注入
-- [ ] Worker 首次部署成功（KV 模式）→ 线上 `/api/stations` 返回 seed 数据
-- [ ] Pages 设置 `API_BASE`（CI curl PATCH env_vars 或手动一次性）→ `/api` 不再 501
-- [ ] 线上 E2E：注册→发帖→投票→上传图片→建子站→签到→兑换→交易→后台
-- [ ] `wrangler tail` 无异常；错误率观察
-- [ ] 删除临时 debug workflows（debug-cf-token.yml / debug-cf-pages.yml）
+- [x] 部署包入库：compose 缺密钥**直接拒启**；app 健康检查驱动 nginx 依赖
+- [x] 备份链路：backup.py sqlite3.backup() 在线一致快照 + uploads tar + 滚动 7 份（本地实跑 ✓）
+- [x] 发布脚本：deploy.sh（拉码→build→滚动重启→5 次冒烟）
+- [x] HTTPS 路径：certbot webroot + 443 段样例 + 自动续期 sidecar
+- [x] 无 Docker 备选：systemd 单元（ProtectSystem/PrivateTmp/降权用户）
+- [ ] 购买/准备服务器 + 域名备案（如需大陆访问）
+- [ ] 服务器上 `docker compose up -d --build` 成功 → 本机跑
+      `tools/e2e_live.ps1 -BaseUrl https://域名` **49/49** → GO
+- [ ] 改演示 admin 密码 / 或清 instance 库重新种子（手册 §3）
+- [ ] 首日观察：`docker compose logs`、备份文件生成、429 是否误伤
 
-## 4. 已知限制与升级路径（上线时如实声明)
+## 4. 如实声明的限制（上线公告口径）
 
-1. **D1 未启用**：当前 API token 无 `Account | D1 | Read+Edit` 权限，数据层运行在 KV 分片快照上
-   （写多 shard 同步最终一致；单校 demo 规模内可靠）。拿到权限后升级：
-   - 给 token 勾选 D1 权限 → wrangler.toml 恢复 `[[d1_databases]]`（文件内有标记）
-   - CI 跑 `d1 execute --file migrations/0001_init.sql` → `tools/export_kv_to_sql.py` 生成数据迁移 SQL → 灌入
-   - `d1 execute --remote` 验证行数一致后重新部署 Worker（DB binding 优先于 KV）
-2. **workers.dev 在中国大陆连通性受限**：正式对外需绑定自定义域名（CF 面板 Worker & Pages 各绑一个，
-   10 分钟操作；不影响功能验证与 demo）。
-3. **KV 一致性**：读己之写有毫秒~秒级延迟窗口；论坛类交互（点赞/投票）UI 以本地状态回填兜底。
-4. uploads 单文件 ≤5MB；全站无 CDN 级图片处理（缩放/水印未做）。
-5. 匿名/审核为轻量规则（无敏感词库、无验证码、无速率限制——Worker CPU/配额内安全，但需上线后观察）。
+1. SQLite 单写者：WAL+批量化设计目标为千级日活；更高并发按 models.py 单点切 PostgreSQL。
+2. 限流 storage 默认 memory：gunicorn 4 worker 各自计数（近似值）；多机时 env 指 redis。
+3. 敏感词为子串规则库（内置 50+，`SENSITIVE_WORDS_FILE` 热扩展），非语义级——
+   需配合管理端审核队列人工兜底（已具备）。
+4. 图片上传 ≤16MB/张、长边压至 1600px；无 CDN 水印/缩略图矩阵（规模上来后再议）。
+5. demo 种子账号 admin/admin123 上线**必须**改密（手册已置顶警告）。
 
 ## 5. 演示账号（seed）
 
 | 账号 | 密码 | 角色 |
 |------|------|------|
-| admin | admin123 | 管理员 |
+| admin | admin123 | 管理员（审核/后台全权限） |
 | xiaohua | 123456 | 普通用户 |
 
-种子数据：8 用户 / 15 子站 / 25 帖子 / 16 评论 + 商店/签到/交易样例。
-上线后如需清场：删除 KV `db-shard:*` 键即可自动重建（生产环境慎用）。
+种子：8 用户 / 15 子站(lucide 图标) / 25 帖 / 16 评论 + 商店/签到/交易/身份组样例。

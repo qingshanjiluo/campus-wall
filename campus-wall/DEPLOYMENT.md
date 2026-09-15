@@ -1,6 +1,14 @@
-# 校园墙 · 生产部署指南（Cloudflare Pages + Python Worker）
+# 校园墙 · Cloudflare 演示轨部署指南（已降级，非正式方案）
 
-> **当前生产架构（2026-09 起，本文件为权威）**
+> ⚠️ **定位变更（R4）**：正式部署方案已切换为**普通服务器自托管**
+> （Nginx + Gunicorn + Flask + SQLite/Docker），见
+> **[docs/DEPLOYMENT-SERVER.md](../docs/DEPLOYMENT-SERVER.md)** 与
+> **[docs/SERVER_ARCHITECTURE.md](../docs/SERVER_ARCHITECTURE.md)**。
+> 本文件保留：① Pages/Worker 演示环境的部署复现步骤；② Worker 作为
+> **API 契约蓝本**的运维参考（免费演示可用，D1 免费层有 50k 读/天限额）。
+> 以下内容为历史操作手册，按原样执行得到的是演示站，不是正式站。
+
+> **原生产架构（2026-09 起，本文件为权威）**
 >
 > ```
 > 浏览器

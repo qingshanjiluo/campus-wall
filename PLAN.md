@@ -7,6 +7,21 @@
 
 ## 一、决策
 
+### 1.0′ R4 修订：转向普通服务器完整部署（用户拍板，2026-09-16）
+
+**放弃 Cloudflare 作为正式部署目标**（D1 免费层 50k 读/天、workers.dev 大陆可达性、
+token 权限缺口三座大山），切换为：**Nginx + Gunicorn + Flask(campus-wall/app) + SQLite WAL
+(+可选 Postgres)，Docker Compose 一键化**，落 `campus-wall/deploy/`，
+主线架构定案见 `docs/SERVER_ARCHITECTURE.md`、操作手册 `docs/DEPLOYMENT-SERVER.md`。
+
+- Flask 版从"参考实现"**升级为生产主线**；backend-worker 降级为演示轨 + API 契约蓝本（代码保留）。
+- 新功能（投票/链接契约、审核队列、私信、限流、上传压缩）全部落 Flask；已对 worker 实现做逐项移植。
+- 前端 `campus-wall/frontend` 静态 22 页 = 唯一线上前端（templates 旧 SSR 冻结存档）；
+  uploads 与静态统一到 `frontend/static`，Nginx volume 直出。
+- GO 门 = 本地全栈 E2E 49/49（`tools/e2e_live.ps1 -BaseUrl :5000`）+ 目标服务器 compose 起来后对
+  线上域名复跑同脚本。
+- 下文 R2 的 KV/D1 章节仅对演示轨有意义。
+
 ### 1.0 R2 修订：数据层 KV 化（权限现实驱动，2026-09-16）
 
 CI 权限探测结论（token = sifangzhiji@qq.com 账户 API token）：
