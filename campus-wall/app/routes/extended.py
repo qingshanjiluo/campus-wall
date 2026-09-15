@@ -27,6 +27,7 @@ from app.models_ext import (
     get_announcements, create_announcement, update_announcement, toggle_announcement, delete_announcement,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
+from app.models import shape_post, is_liked_batch
 
 # ══════════════════════════════════════════════
 # 身份组
@@ -401,6 +402,12 @@ def recommended_posts():
         g.current_user['id'] if g.current_user else None,
         limit, offset
     )
+    # 与 /api/posts 对齐：匿名脱敏（owner/admin 例外）+ vote/link 展开 + 批量点赞态
+    liked = is_liked_batch(g.current_user['id'], 'post', [p['id'] for p in posts]) if (g.current_user and posts) else set()
+    for p in posts:
+        if g.current_user:
+            p['is_liked'] = p['id'] in liked
+        shape_post(p, g.current_user)
     return jsonify(posts)
 
 @recommend_bp.route('/interests', methods=['GET'])
@@ -414,7 +421,11 @@ def search():
     keyword = (request.args.get('q') or '').strip()
     if not keyword:
         return jsonify({'stations': [], 'posts': [], 'users': []})
-    return jsonify(smart_search(keyword, g.current_user['id'] if g.current_user else None))
+    results = smart_search(keyword, g.current_user['id'] if g.current_user else None)
+    # 搜索结果同样过匿名脱敏/展开闸（防匿名作者经搜索泄露真名）
+    for p in results.get('posts', []):
+        shape_post(p, g.current_user)
+    return jsonify(results)
 
 
 # ══════════════════════════════════════════════

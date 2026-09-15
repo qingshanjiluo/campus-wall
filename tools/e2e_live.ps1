@@ -83,6 +83,7 @@ Step "dm bad to rejected" {
 # ---- content review pipeline (R4-M3) ----
 $W_RV1 = [regex]::Unescape('\u8fd9\u662f\u4e00\u4e2a\u50bb\u903c\u6d4b\u8bd5\u5e16\u5b50')
 $W_RV2 = [regex]::Unescape('\u516d\u5408\u5f69\u5f00\u76d8')
+$W_RV3 = [regex]::Unescape('\u5ba1\u6838')
 Step "review queue hit" {
   $r = Api POST "/api/posts" @{station_id=1; title="e2e rv $Suffix"; content=$W_RV1} $atk
   Assert($r.status -eq "pending") "not pending: got $($r.status)"
@@ -102,6 +103,28 @@ Step "review visible after" {
 Step "block word rejected" {
   try { Api POST "/api/posts" @{station_id=1; title="e2e blk $Suffix"; content=$W_RV2} $atk; throw "expected HTTP 400" }
   catch [System.Net.WebException] { Assert($_.Exception.Response.StatusCode.value__ -eq 400) "wrong code for block word" } }
+Step "edit bypass blocked" {
+  try { Api PUT "/api/posts/$pid1" @{content=$W_RV2} $atk; throw "expected HTTP 400" }
+  catch [System.Net.WebException] { Assert($_.Exception.Response.StatusCode.value__ -eq 400) "edit bypass not caught" } }
+Step "edit triggers review + search leak" {
+  $uniq = "e2ebyp$Suffix"
+  $z = Api PUT "/api/posts/$pid1" @{title=$uniq; content=$W_RV1} $atk
+  Assert($z.message -like "*$($W_RV3)*") "edit did not re-enter review"
+  $s = Api GET "/api/recommend/search?q=$uniq"
+  Assert(-not (@($s.posts | Where-Object { $_.id -eq $pid1 }).Count)) "pending post leaked via search"
+  Api POST "/api/admin/review" @{post_id=$pid1; action="approve"} $atk | Out-Null }
+Step "review reject flow" {
+  $rr = Api POST "/api/posts" @{station_id=1; title="e2e rj $Suffix"; content=$W_RV1} $atk
+  $script:pidrj = $rr.post_id
+  $x = Api POST "/api/admin/review" @{post_id=$pidrj; action="reject"} $atk
+  Assert($x) "reject fail"
+  $y = Api GET "/api/posts/$pidrj" $null $atk
+  Assert($y.status -eq "rejected") "status not rejected" }
+Step "rejected edit resubmits" {
+  $z = Api PUT "/api/posts/$pidrj" @{content=($W_RV1 + " edit$Suffix")} $atk
+  Assert($z.message -like "*$($W_RV3)*") "no re-review on edit"
+  $q2 = Api GET "/api/admin/review" $null $atk
+  Assert(@($q2.posts | Where-Object { $_.id -eq $pidrj }).Count -ge 1) "rejected edit not back in queue" }
 Step "upload post image" {
   Assert($tk) "no auth token (earlier steps failed)"
   $png = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")

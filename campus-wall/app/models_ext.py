@@ -667,7 +667,8 @@ def get_kanban_message():
 # ══════════════════════════════════════════════
 
 def get_recommended_posts(user_id=None, limit=20, offset=0):
-    """推流算法：综合热度、时间、用户兴趣"""
+    """推流算法：综合热度、时间、用户兴趣。
+    审核闸：仅 approved；脱敏交 handler 层 shape_post（保留 owner/admin 例外）。"""
     sql = '''
         SELECT p.*, u.username as author_name, u.avatar as author_avatar,
                s.name as station_name, s.icon as station_icon,
@@ -675,7 +676,7 @@ def get_recommended_posts(user_id=None, limit=20, offset=0):
         FROM posts p
         JOIN users u ON p.author_id = u.id
         JOIN stations s ON p.station_id = s.id
-        WHERE p.is_deleted = 0
+        WHERE p.is_deleted = 0 AND p.status = 'approved'
         ORDER BY
             p.is_pinned DESC,
             (p.likes_count * 3 + p.comments_count * 5 + p.views * 0.1) * 0.6
@@ -720,7 +721,7 @@ def smart_search(keyword, user_id=None):
         '''SELECT p.*, u.username as author_name, u.avatar as author_avatar,
                   s.name as station_name, s.icon as station_icon
            FROM posts p JOIN users u ON p.author_id = u.id JOIN stations s ON p.station_id = s.id
-           WHERE p.is_deleted = 0 AND (p.title LIKE ? OR p.content LIKE ?)
+           WHERE p.is_deleted = 0 AND p.status = 'approved' AND (p.title LIKE ? OR p.content LIKE ?)
            ORDER BY p.likes_count DESC LIMIT 15''',
         (f'%{keyword}%', f'%{keyword}%')
     )

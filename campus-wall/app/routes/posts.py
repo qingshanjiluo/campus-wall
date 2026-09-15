@@ -190,10 +190,22 @@ def update(pid):
         update_fields['is_pinned'] = data['is_pinned']
     if not update_fields:
         return jsonify({'error': '没有可更新的字段'}), 400
+    # 防"先发干净帖再编辑塞违规内容"绕过：内容编辑一律复扫；
+    # review 级命中或作者修改被驳回帖 → 重新进审核队列
+    if 'title' in update_fields or 'content' in update_fields:
+        _t = update_fields.get('title', post['title'])
+        _c = update_fields.get('content', post['content'])
+        level = scan_text(_t) or scan_text(_c)
+        if level == 'block':
+            return jsonify({'error': '内容包含违规信息，无法保存'}), 400
+        if level == 'review' or post.get('status') == 'rejected':
+            update_fields['status'] = 'pending'
     # 记录编辑历史（保存编辑前的旧版本）
     if any(k in update_fields for k in ('title', 'content', 'image')):
         record_post_version(pid, post['title'], post['content'], post.get('image') or '', g.current_user['id'])
     update_post(pid, **update_fields)
+    if update_fields.get('status') == 'pending':
+        return jsonify({'message': '已保存，内容重新进入审核'})
     return jsonify({'message': '更新成功'})
 
 

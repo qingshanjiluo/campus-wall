@@ -214,7 +214,10 @@ def update_user(uid, **kwargs):
 
 
 def get_user_stats(uid):
-    posts = query_db('SELECT COUNT(*) as c FROM posts WHERE author_id = ?', (uid,), one=True)['c']
+    # 口径=对外可见：排除已删除与未过审（此前连 is_deleted 都没过滤）
+    posts = query_db(
+        "SELECT COUNT(*) as c FROM posts WHERE author_id = ? AND is_deleted = 0 AND status = 'approved'",
+        (uid,), one=True)['c']
     followers = query_db('SELECT COUNT(*) as c FROM follows WHERE following_id = ?', (uid,), one=True)['c']
     following = query_db('SELECT COUNT(*) as c FROM follows WHERE follower_id = ?', (uid,), one=True)['c']
     return {'posts': posts, 'followers': followers, 'following': following}
@@ -624,7 +627,7 @@ def get_liked_posts(user_id, limit=50, offset=0):
 
 
 def update_post(pid, **kwargs):
-    allowed = {'title', 'content', 'image', 'is_pinned', 'post_type', 'extra', 'images'}
+    allowed = {'title', 'content', 'image', 'is_pinned', 'post_type', 'extra', 'images', 'status'}
     fields = {k: v for k, v in kwargs.items() if k in allowed}
     if not fields:
         return False
