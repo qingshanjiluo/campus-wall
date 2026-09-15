@@ -186,6 +186,33 @@ def seed():
         )
         c.execute('UPDATE posts SET comments_count = comments_count + 1 WHERE id = ?', (pid,))
 
+    # ── R4 演示样例：投票帖 / 链接帖 / 私信 / 审核队列（新库首启即呈完整功能形态）──
+    import json as _json
+    vote_extra = _json.dumps({'options': ['肖申克的救赎', '千与千寻', '星际穿越'],
+                              'counts': {'0': 3, '1': 1, '2': 2}, 'voters': {}}, ensure_ascii=False)
+    c.execute('INSERT INTO posts (title, content, author_id, station_id, post_type, extra, views, likes_count, status) '
+              'VALUES (?, ?, ?, ?, ?, ?, 88, 15, ?)',
+              ('周末放映室投票：这周看哪部？', '老规矩，票数最高的周末放映，评论区补充片源', user_ids[2], station_ids[11], 'vote', vote_extra, 'approved'))
+    c.execute('UPDATE stations SET post_count = post_count + 1 WHERE id = ?', (station_ids[11],))
+
+    link_extra = _json.dumps({'link_url': 'https://example.com/kaoyan-notes-2026'}, ensure_ascii=False)
+    c.execute('INSERT INTO posts (title, content, author_id, station_id, post_type, extra, views, likes_count, status) '
+              'VALUES (?, ?, ?, ?, ?, ?, 120, 33, ?)',
+              ('上岸前辈的考研资料库（免费）', '历年真题+笔记整理，自取，记得回来还愿', user_ids[3], station_ids[13], 'link', link_extra, 'approved'))
+    c.execute('UPDATE stations SET post_count = post_count + 1 WHERE id = ?', (station_ids[13],))
+
+    # 待审核演示帖（review 级词命中，管理员"帖子审核"Tab 首启即有活可干）
+    c.execute('INSERT INTO posts (title, content, author_id, station_id, status, views, likes_count) '
+              'VALUES (?, ?, ?, ?, ?, 0, 0)',
+              ('求助：这种靠谱吗', '有人让我加微私下交易转账买四级答案，说是内部渠道', user_ids[4], station_ids[3], 'pending'))
+    c.execute('UPDATE stations SET post_count = post_count + 1 WHERE id = ?', (station_ids[3],))
+
+    # 私信演示：一问一答（含一条未读）
+    c.execute('INSERT INTO dm_messages (sender_id, receiver_id, content) VALUES (?,?,?)',
+              (user_ids[1], user_ids[0], '同学你好，看到你在失物招领发的钥匙串，是我捡到的！'))
+    c.execute('INSERT INTO dm_messages (sender_id, receiver_id, content, is_read) VALUES (?,?,?,?)',
+              (user_ids[0], user_ids[1], '太好了！明天食堂门口当面取，谢谢你', 0))
+
     # Some follows
     follows = [(0, 1), (0, 2), (1, 0), (1, 3), (2, 0), (3, 0), (4, 0), (5, 1), (6, 0)]
     for f, t in follows:
