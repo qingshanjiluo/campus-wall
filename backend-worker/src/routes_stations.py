@@ -169,6 +169,21 @@ async def my_stations(request, params):
     return httpmod.jsonify(stations)
 
 
+async def user_stations(request, params):
+    """GET /api/stations/by/<uid>：他人主页的子站 Tab。
+    隐私：仅返回公开子站的加入关系。"""
+    uid = int(params['uid'])
+    stations = await get_user_stations(uid)
+    out = []
+    for s in stations:
+        if s.get('is_public') == 0:
+            continue
+        s['tags'] = json.loads(s['tags']) if s.get('tags') else []
+        s.pop('role', None)
+        out.append(s)
+    return httpmod.jsonify(out)
+
+
 async def upload_cover(request, params):
     user, resp = await _require_user(request)
     if resp:
@@ -283,5 +298,6 @@ ROUTES = [
     (HTTPMethod.POST, r'^/api/stations/(?P<sid>\d+)/transfer$', transfer),
     (HTTPMethod.GET, r'^/api/stations/search$', search),
     (HTTPMethod.GET, r'^/api/stations/mine$', my_stations),
+    (HTTPMethod.GET, r'^/api/stations/by/(?P<uid>\d+)$', user_stations),
     (HTTPMethod.POST, r'^/api/stations/upload-cover$', upload_cover),
 ]

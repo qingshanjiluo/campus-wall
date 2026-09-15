@@ -162,7 +162,9 @@ function loadProfileTab(tab) {
             if (window.lucide) lucide.createIcons();
         });
     } else if (tab === 'stations') {
-        api.get('/api/stations/mine').then(stations => {
+        const _stationsUrl = (currentUser && currentUser.id === PROFILE_UID)
+            ? '/api/stations/mine' : '/api/stations/by/' + PROFILE_UID;
+        api.get(_stationsUrl).then(stations => {
             if (!stations.length) {
                 content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="building-2" class="icon icon-lg"></i></div><div class="text">还没有加入任何子站</div></div>';
                 if (window.lucide) lucide.createIcons();

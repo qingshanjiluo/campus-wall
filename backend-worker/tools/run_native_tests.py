@@ -364,6 +364,10 @@ async def main():
     await check('update station', h.call('PUT', f'/api/stations/{sid}', body={'description': 'new desc'}, token=token))
     await check('update station by non-owner denied or ok', h.call('PUT', f'/api/stations/{sid}', body={'description': 'x'}, token=atoken))
     await check('stations mine', h.call('GET', '/api/stations/mine', token=token))
+    await check('stations by/uid public-only', h.call('GET', '/api/stations/by/1'),
+                extract=lambda r: None if isinstance(r, list) and all(
+                    s.get('is_public') != 0 and 'role' not in s for s in r)
+                else (_ for _ in ()).throw(AssertionError('private station or role leak')))
     await check('join station', h.call('POST', f'/api/stations/{sid}/leave', token=atoken))
     await check('rejoin', h.call('POST', f'/api/stations/{sid}/join', token=atoken))
 
