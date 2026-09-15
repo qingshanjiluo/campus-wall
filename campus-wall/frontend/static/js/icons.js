@@ -212,7 +212,7 @@ const ICON_MAP = {
 };
 
 // Lucide CDN 基础路径
-const LUCIDE_CDN = 'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js';
+const LUCIDE_CDN = 'https://unpkg.com/lucide@1.46.0/dist/umd/lucide.min.js';
 
 /**
  * 加载 Lucide Icons
