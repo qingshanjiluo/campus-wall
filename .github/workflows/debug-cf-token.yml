@@ -27,11 +27,7 @@ jobs:
           echo "-- Workers script UPLOAD probe (dry, tiny js worker) --"
           cd "$(mktemp -d)"
           printf 'export default{fetch(){return new Response("ok")}}' > worker.mjs
-          cat > wrangler.toml <<EOF
-name = "campuswall-probe-del"
-main = "worker.mjs"
-compatibility_date = "2025-01-01"
-EOF
+          printf 'name = "campuswall-probe-del"\nmain = "worker.mjs"\ncompatibility_date = "2025-01-01"\n' > wrangler.toml
           echo "npx wrangler deploy..."
           npx --yes wrangler@4.131.2 deploy 2>&1 | tail -8 || true
           echo "-- cleanup probe worker --"
