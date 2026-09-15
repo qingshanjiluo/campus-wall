@@ -75,7 +75,8 @@ function renderProfileCard(u) {
     const stats = u.stats || {};
     let followBtn = '';
     if (!isMe && currentUser) {
-        followBtn = `<button class="btn btn-primary btn-sm" id="followBtn" onclick="toggleFollow(${u.id})" style="margin-top:12px;"><i data-lucide="user-plus" class="icon icon-sm"></i> 关注</button>`;
+        followBtn = `<button class="btn btn-primary btn-sm" id="followBtn" onclick="toggleFollow(${u.id})" style="margin-top:12px;"><i data-lucide="user-plus" class="icon icon-sm"></i> 关注</button>
+        <button class="btn btn-sm" id="dmBtn" onclick="window.location.href='/messages?with=${u.id}'" style="margin-top:12px;"><i data-lucide="mail" class="icon icon-sm"></i> 私信</button>`;
         checkFollowing(u.id);
     }
     const badges = [];

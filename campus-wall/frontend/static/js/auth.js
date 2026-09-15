@@ -146,6 +146,9 @@ function updateNavRight() {
                 <a href="/notifications" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius-md);font-size:0.85rem;color:var(--text-primary);text-decoration:none;">
                     <i data-lucide="bell" class="icon icon-sm"></i> 通知
                 </a>
+                <a href="/messages" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius-md);font-size:0.85rem;color:var(--text-primary);text-decoration:none;">
+                    <i data-lucide="mail" class="icon icon-sm"></i> 私信
+                </a>
                 <a href="/favorites" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius-md);font-size:0.85rem;color:var(--text-primary);text-decoration:none;">
                     <i data-lucide="bookmark" class="icon icon-sm"></i> 我的收藏
                 </a>

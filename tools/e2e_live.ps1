@@ -72,6 +72,14 @@ Step "admin login"  { $r = Api POST "/api/auth/login" @{username="admin"; passwo
 Step "admin stats today fields" { $r = Api GET "/api/admin/stats" $null $atk; Assert($r.users -ge 1) "no users count"; Assert($r.PSObject.Properties.Name -contains "today_posts") "missing today_posts" }
 Step "admin users"  { $r = Api GET "/api/admin/users?limit=5" $null $atk; Assert($r) "fail" }
 Step "notifications"{ $r = Api GET "/api/social/notifications" $null $tk; Assert($null -ne $r) "fail" }
+# ---- direct messages (R4-M4) ----
+Step "dm send"       { $r = Api POST "/api/dm" @{to=1; content="e2e hello dm"} $tk; Assert($r.id) "send fail" }
+Step "dm threads"    { $r = Api GET "/api/dm/threads" $null $tk; Assert(@($r | Where-Object { $_.peer_id -eq 1 }).Count -ge 1) "thread missing" }
+Step "dm read thread"{ $r = Api GET "/api/dm/1" $null $tk; Assert($r.peer.username) "no peer info"; Assert(@($r.messages).Count -ge 1) "no messages" }
+Step "dm unread seen"{ $r = Api GET "/api/dm/unread" $null $atk; Assert($null -ne $r.count) "no count field" }
+Step "dm bad to rejected" {
+  try { Api POST "/api/dm" @{to=$null; content="x"} $tk; throw "expected 400" }
+  catch [System.Net.WebException] { Assert($_.Exception.Response.StatusCode.value__ -eq 400) "wrong code" } }
 # ---- content review pipeline (R4-M3) ----
 $W_RV1 = [regex]::Unescape('\u8fd9\u662f\u4e00\u4e2a\u50bb\u903c\u6d4b\u8bd5\u5e16\u5b50')
 $W_RV2 = [regex]::Unescape('\u516d\u5408\u5f69\u5f00\u76d8')

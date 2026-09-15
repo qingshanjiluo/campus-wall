@@ -49,6 +49,7 @@ def create_app():
     from app.routes.stations import stations_bp
     from app.routes.posts import posts_bp
     from app.routes.social import social_bp
+    from app.routes.dm import dm_bp
     from app.routes.pages import pages_bp
     from app.routes.extended import (
         identity_bp, checkin_bp, shop_bp, romance_bp, gossip_bp,
@@ -60,6 +61,7 @@ def create_app():
     app.register_blueprint(stations_bp, url_prefix='/api/stations')
     app.register_blueprint(posts_bp, url_prefix='/api/posts')
     app.register_blueprint(social_bp, url_prefix='/api/social')
+    app.register_blueprint(dm_bp, url_prefix='/api/dm')
     app.register_blueprint(identity_bp, url_prefix='/api/identity')
     app.register_blueprint(checkin_bp, url_prefix='/api/checkin')
     app.register_blueprint(shop_bp, url_prefix='/api/shop')

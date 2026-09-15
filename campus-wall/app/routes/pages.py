@@ -22,6 +22,7 @@ ROUTES = {
     '/checkin': 'checkin.html',
     '/favorites': 'favorites.html',
     '/notifications': 'notifications.html',
+    '/messages': 'messages.html',
     '/create': 'create.html',
     '/create-station': 'create_station.html',
     '/admin': 'admin.html',

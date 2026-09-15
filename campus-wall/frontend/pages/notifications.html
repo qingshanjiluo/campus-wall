@@ -55,7 +55,7 @@ function renderNotifications(notifs) {
         return;
     }
     list.innerHTML = notifs.map(n => {
-        const icon = n.type === 'like' ? 'heart' : n.type === 'comment' ? 'message-circle' : n.type === 'follow' ? 'user-plus' : 'bell';
+        const icon = n.type === 'like' ? 'heart' : n.type === 'comment' ? 'message-circle' : n.type === 'follow' ? 'user-plus' : n.type === 'dm' ? 'mail' : 'bell';
         return `
             <div class="post-card" style="padding:16px;${n.is_read?'':'border-left:3px solid var(--pink-4);'}${n.link?'cursor:pointer;':''}" data-link="${n.link?escHtml(n.link):''}" onclick="openNotifLink(this)">
                 <div style="display:flex;align-items:center;gap:12px;">

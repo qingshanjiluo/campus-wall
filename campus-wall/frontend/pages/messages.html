@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私信 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+    
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+    <style>
+        .dm-wrap{display:flex;gap:16px;height:calc(100vh - 130px);min-height:420px;}
+        .dm-side{width:280px;flex-shrink:0;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius);overflow-y:auto;padding:8px;}
+        .dm-main{flex:1;display:flex;flex-direction:column;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius);min-width:0;}
+        .dm-thread{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-md);cursor:pointer;transition:background .15s;}
+        .dm-thread:hover,.dm-thread.active{background:var(--pink-1);}
+        .dm-thread img{width:38px;height:38px;border-radius:50%;flex-shrink:0;}
+        .dm-thread .t-info{flex:1;min-width:0;}
+        .dm-thread .t-name{font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .dm-thread .t-last{font-size:.74rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .dm-thread .t-badge{background:var(--danger);color:#fff;font-size:.65rem;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 5px;flex-shrink:0;}
+        .dm-head{padding:12px 16px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:10px;}
+        .dm-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+        .dm-msg{max-width:72%;padding:9px 13px;border-radius:14px;font-size:.88rem;line-height:1.5;word-break:break-word;white-space:pre-wrap;}
+        .dm-msg.mine{align-self:flex-end;background:var(--pink-2);color:#fff;border-bottom-right-radius:4px;}
+        .dm-msg.theirs{align-self:flex-start;background:var(--bg-card,var(--glass-bg));border:1px solid var(--glass-border);border-bottom-left-radius:4px;}
+        .dm-msg .m-time{display:block;font-size:.64rem;opacity:.6;margin-top:3px;text-align:right;}
+        .dm-inputbar{display:flex;gap:8px;padding:12px;border-top:1px solid var(--glass-border);}
+        .dm-inputbar textarea{flex:1;resize:none;height:44px;border-radius:12px;border:1px solid var(--glass-border);background:var(--bg-input,var(--glass-bg));color:var(--text-primary);padding:10px 12px;font-size:.88rem;font-family:inherit;outline:none;}
+        .dm-inputbar textarea:focus{border-color:var(--pink-3);}
+        .dm-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);gap:10px;}
+        .dm-back{display:none;}
+        @media (max-width:760px){
+            .dm-side{width:100%;}
+            .dm-wrap.chatting .dm-side{display:none;}
+            .dm-wrap:not(.chatting) .dm-main{display:none;}
+            .dm-back{display:inline-flex;}
+        }
+    </style>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:96px;">
+    <div class="container" style="max-width:960px;">
+        <div class="section-header reveal" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h2 class="chapter-title" style="margin:0;"><i data-lucide="message-square-heart" class="icon"></i> 私信</h2>
+            <button class="btn btn-sm" onclick="composeDm()"><i data-lucide="pen-line" class="icon icon-sm"></i> 发起私信</button>
+        </div>
+        <div class="dm-wrap" id="dmWrap">
+            <div class="dm-side" id="dmSide"><div class="loading">加载中</div></div>
+            <div class="dm-main" id="dmMain">
+                <div class="dm-empty" id="dmEmpty">
+                    <i data-lucide="messages-square" class="icon" style="width:44px;height:44px;"></i>
+                    <div>选择左侧会话，或从他人主页发起私信</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+let dmPeer = null;         // {id, username, avatar}
+let dmTimer = null;
+
+onUserReady(function() {
+    if (!requireAuth()) return;
+    const withUid = new URLSearchParams(location.search).get('with');
+    loadThreads().then(() => {
+        if (withUid) openChat(parseInt(withUid));
+    });
+    // 停留页面时轻量轮询会话列表
+    dmTimer = setInterval(() => { if (!document.hidden && !dmPeer) loadThreads(); }, 8000);
+});
+
+function loadThreads() {
+    return api.get('/api/dm/threads')
+        .then(ts => {
+            const side = document.getElementById('dmSide');
+            if (!ts.length) {
+                side.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:.82rem;">还没有私信会话<br>去别人主页点个「私信」吧</div>';
+                return;
+            }
+            side.innerHTML = ts.map(t => `
+                <div class="dm-thread ${dmPeer && dmPeer.id === t.peer_id ? 'active' : ''}" onclick="openChat(${t.peer_id})">
+                    <img src="${CampusUtils.safeUrl(t.peer_avatar, '/static/images/default-avatar.svg')}" onerror="this.src='/static/images/default-avatar.svg'" alt="">
+                    <div class="t-info">
+                        <div class="t-name">${CampusUtils.escHtml(t.peer_name)}</div>
+                        <div class="t-last">${CampusUtils.escHtml((t.last_content || '').slice(0, 30))} · ${formatTime(t.last_at)}</div>
+                    </div>
+                    ${t.unread > 0 ? `<span class="t-badge">${t.unread > 99 ? '99+' : t.unread}</span>` : ''}
+                </div>`).join('');
+        })
+        .catch(() => { document.getElementById('dmSide').innerHTML = '<div class="loading">加载失败</div>'; });
+}
+
+function openChat(uid) {
+    if (!uid || isNaN(uid)) return;
+    api.get('/api/dm/' + uid).then(d => {
+        dmPeer = d.peer;
+        document.getElementById('dmWrap').classList.add('chatting');
+        history.replaceState(null, '', '/messages?with=' + uid);
+        renderChat(d.messages);
+        loadThreads();
+    }).catch(e => showToast(e.message || '会话加载失败', 'error'));
+}
+
+function renderChat(msgs) {
+    const main = document.getElementById('dmMain');
+    main.innerHTML = `
+        <div class="dm-head">
+            <button class="btn btn-ghost btn-sm dm-back" onclick="backToList()"><i data-lucide="arrow-left" class="icon icon-sm"></i></button>
+            <img src="${CampusUtils.safeUrl(dmPeer.avatar, '/static/images/default-avatar.svg')}" onerror="this.src='/static/images/default-avatar.svg'" style="width:32px;height:32px;border-radius:50%;">
+            <a href="/profile/${dmPeer.id}" style="font-weight:600;font-size:.9rem;color:var(--text-primary);text-decoration:none;">${CampusUtils.escHtml(dmPeer.username)}</a>
+            ${dmPeer.identity_group ? `<span style="font-size:.68rem;color:var(--text-muted);border:1px solid var(--glass-border);border-radius:8px;padding:1px 7px;">${CampusUtils.escHtml(dmPeer.identity_group)}</span>` : ''}
+        </div>
+        <div class="dm-body" id="dmBody"></div>
+        <div class="dm-inputbar">
+            <textarea id="dmInput" maxlength="1000" placeholder="输入消息，Enter 发送，Shift+Enter 换行"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDm();}"></textarea>
+            <button class="btn btn-primary" onclick="sendDm()"><i data-lucide="send" class="icon icon-sm"></i> 发送</button>
+        </div>`;
+    const body = document.getElementById('dmBody');
+    body.innerHTML = (msgs || []).map(m => `
+        <div class="dm-msg ${m.sender_id === currentUser.id ? 'mine' : 'theirs'}">${CampusUtils.escHtml(m.content)}
+            <span class="m-time">${formatTime(m.created_at)}</span>
+        </div>`).join('') || '<div style="margin:auto;color:var(--text-muted);font-size:.82rem;">打个招呼，友谊开始 ✨</div>';
+    body.scrollTop = body.scrollHeight;
+    if (window.lucide) lucide.createIcons();
+}
+
+function sendDm() {
+    const input = document.getElementById('dmInput');
+    const content = (input.value || '').trim();
+    if (!content || !dmPeer) return;
+    input.value = '';
+    api.post('/api/dm', { to: dmPeer.id, content })
+        .then(() => api.get('/api/dm/' + dmPeer.id))
+        .then(d => { renderChat(d.messages); loadThreads(); })
+        .catch(e => { input.value = content; showToast(e.message || '发送失败', 'error'); });
+}
+
+function backToList() {
+    dmPeer = null;
+    document.getElementById('dmWrap').classList.remove('chatting');
+    history.replaceState(null, '', '/messages');
+    document.getElementById('dmMain').innerHTML = `
+        <div class="dm-empty" id="dmEmpty">
+            <i data-lucide="messages-square" class="icon" style="width:44px;height:44px;"></i>
+            <div>选择左侧会话，或从他人主页发起私信</div>
+        </div>`;
+    if (window.lucide) lucide.createIcons();
+    loadThreads();
+}
+
+function composeDm() {
+    const v = prompt('输入对方的用户 ID（可在其主页地址栏查看 /profile/ID）：');
+    const uid = parseInt(v);
+    if (!uid) return;
+    openChat(uid);
+}
+</script>
+</body>
+</html>

@@ -248,6 +248,9 @@ def init_extended_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # ── 私信 ──
+    init_dm_tables(c)
+
     conn.commit()
     conn.close()
 
@@ -902,6 +905,70 @@ def handle_report(report_id, handler_id, status, note=''):
         'UPDATE reports SET status = ?, handler_id = ?, handled_at = CURRENT_TIMESTAMP WHERE id = ?',
         (status, handler_id, report_id))
     return True
+
+
+# ══════════════════════════════════════════════
+# 私信（R4-M4）
+# ══════════════════════════════════════════════
+
+def init_dm_tables(c):
+    c.execute('''CREATE TABLE IF NOT EXISTS dm_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(sender_id, receiver_id, id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_dm_recv ON dm_messages(receiver_id, is_read)')
+
+
+def send_dm(sender_id, receiver_id, content):
+    return execute_db(
+        'INSERT INTO dm_messages (sender_id, receiver_id, content) VALUES (?,?,?)',
+        (sender_id, receiver_id, content))
+
+
+def get_dm_threads(user_id, limit=30):
+    """会话列表：每人最后一条消息 + 未读数 + 对方身份（一条 SQL）。"""
+    return query_db(
+        '''SELECT m.id AS last_id,
+                  CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END AS peer_id,
+                  u.username AS peer_name, u.avatar AS peer_avatar, u.identity_group AS peer_identity,
+                  m.content AS last_content, m.created_at AS last_at,
+                  (SELECT COUNT(*) FROM dm_messages d
+                    WHERE d.sender_id = u.id AND d.receiver_id = ? AND d.is_read = 0) AS unread
+           FROM dm_messages m
+           JOIN users u ON u.id = CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
+           WHERE m.id IN (
+             SELECT MAX(id) FROM dm_messages
+             WHERE sender_id = ? OR receiver_id = ?
+             GROUP BY CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END
+           )
+           ORDER BY m.id DESC LIMIT ?''',
+        (user_id, user_id, user_id, user_id, user_id, user_id, limit))
+
+
+def get_dm_thread(me_id, peer_id, limit=100, offset=0):
+    return query_db(
+        '''SELECT id, sender_id, receiver_id, content, is_read, created_at
+           FROM dm_messages
+           WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+           ORDER BY id DESC LIMIT ? OFFSET ?''',
+        (me_id, peer_id, peer_id, me_id, limit, offset))
+
+
+def mark_dm_read(me_id, peer_id):
+    execute_db('UPDATE dm_messages SET is_read = 1 WHERE receiver_id = ? AND sender_id = ? AND is_read = 0',
+               (me_id, peer_id))
+    return True
+
+
+def dm_unread_total(user_id):
+    row = query_db('SELECT COUNT(*) AS c FROM dm_messages WHERE receiver_id = ? AND is_read = 0',
+                   (user_id,), one=True)
+    return row['c'] if row else 0
 
 
 # ══════════════════════════════════════════════
