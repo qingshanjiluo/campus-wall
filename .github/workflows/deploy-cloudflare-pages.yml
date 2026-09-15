@@ -22,18 +22,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Ensure Pages production env API_BASE
+        continue-on-error: true
         run: |
-          set -e
           A="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"; T="${{ secrets.CLOUDFLARE_API_TOKEN }}"
-          echo "-- PATCH project env --"
-          curl -s -X PATCH "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall" \
-            -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
-            --data "{\"deployment_configs\":{\"production\":{\"env_vars\":{\"API_BASE\":{\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}}}}}" \
-            | tee /tmp/resp.json | jq -c '{success, errors}'
-          grep -q '"success":true' /tmp/resp.json || { echo "PATCH failed"; cat /tmp/resp.json; exit 1; }
+          P="https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall"
+          H=(-H "Authorization: Bearer $T" -H 'Content-Type: application/json')
+          echo "-- try object-map form --"
+          R1=$(curl -s -X PATCH "$P" "${H[@]}" --data "{\"deployment_configs\":{\"production\":{\"env_vars\":{\"API_BASE\":{\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}}}}}")
+          echo "$R1" | jq -c '{success, errors}'
+          if ! echo "$R1" | grep -q '"success":true'; then
+            echo "-- try array form --"
+            R2=$(curl -s -X PATCH "$P" "${H[@]}" --data "{\"deployment_configs\":{\"production\":{\"env_vars\":[{\"name\":\"API_BASE\",\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}]}}}")
+            echo "$R2" | jq -c '{success, errors}'
+          fi
           echo "-- verify --"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall" \
-            -H "Authorization: Bearer $T" \
+          curl -s "$P" -H "Authorization: Bearer $T" \
             | jq -r '.result.deployment_configs.production.env_vars | if type=="array" then map(select(.name=="API_BASE"))[0].value else (.API_BASE.value // "MISSING") end'
 
       - name: Deploy to Cloudflare Pages

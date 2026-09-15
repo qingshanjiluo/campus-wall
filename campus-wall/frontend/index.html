@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校园墙 · 连接校园 分享青春</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏫</text></svg>">
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+<!-- Hero -->
+<section class="hero-section" id="hero">
+    <div class="giant-deco" style="top:8%;left:-8%;opacity:0.08;">
+        <i data-lucide="sparkles" style="width:100%;height:100%;color:var(--primary);"></i>
+    </div>
+    <div class="giant-deco" style="bottom:5%;right:-5%;opacity:0.06;">
+        <i data-lucide="heart" style="width:80%;height:80%;color:var(--secondary);"></i>
+    </div>
+    <h1>连接校园<br>分享青春</h1>
+    <p>创建属于你的校园墙，让每一个声音都被听见</p>
+    <div class="hero-btns">
+        <button class="btn btn-primary btn-lg" onclick="requireAuth() && openModal('createPostModal')">
+            <i data-lucide="pencil" class="icon icon-md"></i> 发帖
+        </button>
+        <button class="btn btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">
+            <i data-lucide="arrow-down" class="icon icon-md"></i> 浏览子站
+        </button>
+    </div>
+    <div class="scroll-hint">
+        <span class="scroll-hint-text">向下滚动探索</span>
+        <div class="scroll-hint-arrow"><i data-lucide="chevrons-down" class="icon icon-lg"></i></div>
+    </div>
+</section>
+
+<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament"><i data-lucide="flower-2" class="icon icon-lg"></i></div></div>
+
+<!-- 站内公告 -->
+<section class="section" id="siteAnnouncements" style="padding:32px 0 8px;display:none;">
+    <div class="container" style="max-width:1100px;">
+        <div id="announcementBanner"></div>
+    </div>
+</section>
+
+<!-- 子站市场 -->
+<section class="section" id="stations">
+    <div class="container" style="max-width:1100px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">子站市场</h2>
+            <p class="chapter-sub">发现更多有趣的角落，找到属于你的同好圈子</p>
+        </div>
+        <div class="search-box reveal" style="margin-bottom:24px;">
+            <i data-lucide="search" class="icon search-icon"></i>
+            <input class="input" type="text" id="searchInput" placeholder="搜索感兴趣的子站...">
+        </div>
+        <div class="reveal" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <i data-lucide="folder-tree" class="icon icon-sm" style="color:var(--text-muted);"></i>
+            <select class="input" id="categorySelect" style="max-width:260px;" onchange="filterByCategory(this.value)">
+                <option value="">全部分类</option>
+            </select>
+        </div>
+        <div class="tag-bar reveal" id="tagBar">
+            <span class="tag active" onclick="filterByTag(this, '')"><i data-lucide="flame" class="icon icon-sm"></i> 全部</span>
+            <span class="tag" onclick="filterByTag(this, '情感')"><i data-lucide="heart" class="icon icon-sm"></i> 情感</span>
+            <span class="tag" onclick="filterByTag(this, '学习')"><i data-lucide="book-open" class="icon icon-sm"></i> 学习</span>
+            <span class="tag" onclick="filterByTag(this, '美食')"><i data-lucide="utensils" class="icon icon-sm"></i> 美食</span>
+            <span class="tag" onclick="filterByTag(this, '摄影')"><i data-lucide="camera" class="icon icon-sm"></i> 摄影</span>
+            <span class="tag" onclick="filterByTag(this, '运动')"><i data-lucide="activity" class="icon icon-sm"></i> 运动</span>
+            <span class="tag" onclick="filterByTag(this, '音乐')"><i data-lucide="music" class="icon icon-sm"></i> 音乐</span>
+            <span class="tag" onclick="filterByTag(this, '社团')"><i data-lucide="users" class="icon icon-sm"></i> 社团</span>
+        </div>
+        <div class="tag-bar reveal" id="stationSortBar" style="margin-top:8px;">
+            <span class="tag active" onclick="sortStations(this,'')"><i data-lucide="clock" class="icon icon-sm"></i> 最新</span>
+            <span class="tag" onclick="sortStations(this,'popular')"><i data-lucide="crown" class="icon icon-sm"></i> 最热</span>
+            <span class="tag" onclick="sortStations(this,'posts')"><i data-lucide="file-text" class="icon icon-sm"></i> 帖子最多</span>
+        </div>
+        <div id="stationGrid" class="station-grid">
+            <div class="loading">加载中</div>
+        </div>
+    </div>
+</section>
+
+<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament" style="animation-delay:-1.5s;"><i data-lucide="leaf" class="icon icon-lg"></i></div></div>
+
+<!-- 今日热帖 -->
+<section class="section" id="hotPosts">
+    <div class="container" style="max-width:800px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title"><i data-lucide="flame" class="icon" style="width:28px;height:28px;color:var(--secondary);"></i> 今日热帖</h2>
+            <p class="chapter-sub">大家都在讨论的热门话题</p>
+        </div>
+        <div id="hotPostList" class="hot-post-list">
+            <div class="loading">加载中</div>
+        </div>
+    </div>
+</section>
+
+<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament" style="animation-delay:-2s;"><i data-lucide="sparkles" class="icon icon-lg"></i></div></div>
+
+<!-- 最新动态 -->
+<section class="section" id="posts" style="padding-bottom:100px;">
+    <div class="container" style="max-width:800px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title">最新动态</h2>
+            <p class="chapter-sub">看看大家都在聊些什么</p>
+        </div>
+        <div class="tag-bar reveal" id="postSortBar">
+            <span class="tag active" onclick="sortPosts(this, 'newest')"><i data-lucide="clock" class="icon icon-sm"></i> 最新</span>
+            <span class="tag" onclick="sortPosts(this, 'popular')"><i data-lucide="trending-up" class="icon icon-sm"></i> 热门</span>
+            <span class="tag" onclick="sortPosts(this, 'comments')"><i data-lucide="message-circle" class="icon icon-sm"></i> 最多评论</span>
+        </div>
+        <div class="tag-bar reveal" id="postTypeBar" style="margin-top:8px;">
+            <span class="tag active" onclick="filterByType(this, '')">全部</span>
+            <span class="tag" onclick="filterByType(this, 'text')"><i data-lucide="file-text" class="icon icon-sm"></i> 图文</span>
+            <span class="tag" onclick="filterByType(this, 'link')"><i data-lucide="link" class="icon icon-sm"></i> 链接</span>
+            <span class="tag" onclick="filterByType(this, 'vote')"><i data-lucide="bar-chart-2" class="icon icon-sm"></i> 投票</span>
+        </div>
+        <div id="postList">
+            <div class="loading">加载中</div>
+        </div>
+        <div style="text-align:center;margin-top:32px;">
+            <button class="btn" id="loadMoreBtn" onclick="loadMorePosts()" style="display:none;">
+                <i data-lucide="arrow-down" class="icon icon-sm"></i> 加载更多
+            </button>
+        </div>
+    </div>
+</section>
+    </main>
+</div>
+<script>
+let currentPostSort = 'newest';
+let currentPostType = '';
+let postOffset = 0;
+const postLimit = 10;
+
+onUserReady(function() {
+    loadAnnouncements();
+    loadCategories();
+    loadHotPosts();
+    loadStations();
+    loadPosts();
+    debouncedSearch('searchInput', function(q) {
+        if (!q) { loadStations(); return; }
+        api.get('/api/stations/search?q=' + encodeURIComponent(q)).then(data => renderStations(data)).catch(() => CampusUtils.showToast('搜索失败','error'));
+    });
+    document.addEventListener('postCreated', () => { loadHotPosts(); loadPosts(); });
+});
+
+function loadAnnouncements() {
+    api.get('/api/announcements').then(list => {
+        const section = document.getElementById('siteAnnouncements');
+        if (!list || !list.length) return;
+        document.getElementById('announcementBanner').innerHTML = `
+            <div class="speech-bubble yellow" style="padding:16px 20px;">
+                ${list.map(a => `
+                    <div class="announcement-item">
+                        <span><i data-lucide="megaphone" class="icon icon-sm" style="color:var(--orange);"></i></span>
+                        <span style="font-weight:700;font-size:0.9rem;">${escHtml(a.title)}</span>
+                        ${a.content ? '<span style="color:var(--text-secondary);font-size:0.85rem;">: ${escHtml(a.content)}</span>' : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        section.style.display = '';
+        if(typeof lucide!=='undefined') lucide.createIcons();
+    }).catch(() => {});
+}
+
+function loadHotPosts() {
+    const list = document.getElementById('hotPostList');
+    list.innerHTML = '<div class="loading">加载中</div>';
+    api.get('/api/posts?limit=5&sort=popular')
+        .then(data => {
+            if (!data.posts || data.posts.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i data-lucide="flame" class="icon empty-icon"></i><div class="text">还没有热帖，快来抢沙发！</div></div>';
+                if(typeof lucide!=='undefined') lucide.createIcons();
+                return;
+            }
+            list.innerHTML = data.posts.map((p, i) => {
+                const rankClass = i < 3 ? 'hot-rank hot-rank-top' : 'hot-rank';
+                return `<div class="hot-post-item reveal" onclick="window.location.href='/post/${p.id}'">
+                    <span class="${rankClass}">${i + 1}</span>
+                    <div class="hot-post-info">
+                        <div class="hot-post-title">${escHtml(p.title)}</div>
+                        <div class="hot-post-meta">
+                            <span><i data-lucide="heart" class="icon icon-sm"></i> ${p.likes_count || 0}</span>
+                            <span><i data-lucide="message-circle" class="icon icon-sm"></i> ${p.comments_count || 0}</span>
+                            <span><i data-lucide="eye" class="icon icon-sm"></i> ${p.views || 0}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            if(typeof lucide!=='undefined') lucide.createIcons();
+            initReveal();
+        })
+        .catch(() => {
+            list.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败</div></div>';
+            if(typeof lucide!=='undefined') lucide.createIcons();
+        });
+}
+
+let currentStationSort = '';
+let currentStationTag = '';
+let currentStationCategory = '';
+
+function loadCategories() {
+    api.get('/api/stations/categories').then(cats => {
+        const sel = document.getElementById('categorySelect');
+        if (!sel) return;
+        const seen = new Set();
+        const options = cats.filter(c => {
+            const parent = c.parent || c.path;
+            if (seen.has(parent)) return false;
+            seen.add(parent);
+            return true;
+        });
+        sel.innerHTML = '<option value="">全部分类</option>' +
+            options.map(c => '<option value="' + escHtml(c.parent || c.path) + '">' + escHtml(c.parent || c.path) + '</option>').join('');
+    }).catch(() => {});
+}
+
+function filterByCategory(cat) {
+    currentStationCategory = cat;
+    currentStationTag = '';
+    document.querySelectorAll('#tagBar .tag').forEach(t => t.classList.remove('active'));
+    loadStations();
+}
+
+function loadStations() {
+    const grid = document.getElementById('stationGrid');
+    grid.innerHTML = '<div class="loading">加载中</div>';
+    let url = '/api/stations?limit=20';
+    if (currentStationSort) url += '&sort=' + encodeURIComponent(currentStationSort);
+    if (currentStationTag) url += '&tag=' + encodeURIComponent(currentStationTag);
+    if (currentStationCategory) url += '&category=' + encodeURIComponent(currentStationCategory);
+    api.get(url)
+        .then(data => renderStations(data))
+        .catch(() => { grid.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败，刷新试试</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });
+}
+
+function renderStations(stations) {
+    const grid = document.getElementById('stationGrid');
+    if (!stations || stations.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><i data-lucide="building-2" class="icon empty-icon"></i><div class="text">还没有子站，来创建第一个吧！</div></div>';
+        if(typeof lucide!=='undefined') lucide.createIcons();
+        return;
+    }
+    grid.innerHTML = stations.map(s => `
+        <div class="station-card reveal" onclick="window.location.href='/station/${s.id}'">
+            ${safeUrl(s.cover) ? '<div class="station-cover" style="background-image:url(\'' + safeUrl(s.cover) + '\')"></div>' : ''}
+            <div class="station-card-header">
+                <div class="station-icon"><i data-lucide="${getStationIcon(s.icon)}" class="icon icon-lg"></i></div>
+                <div class="name">${escHtml(s.name)}</div>
+            </div>
+            <div class="desc">${escHtml(s.description || '暂无简介')}</div>
+            <div class="tags">${(s.tags||[]).map(t => '<span class="tag">#' + escHtml(t) + '</span>').join('')}</div>
+            <div class="meta">
+                <span><i data-lucide="users" class="icon icon-sm"></i> ${s.user_count||0}</span>
+                <span><i data-lucide="file-text" class="icon icon-sm"></i> ${s.post_count||0}</span>
+            </div>
+        </div>
+    `).join('');
+    if(typeof lucide!=='undefined') lucide.createIcons();
+    initReveal();
+}
+
+function filterByTag(el, tag) {
+    document.querySelectorAll('#tagBar .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentStationTag = tag;
+    loadStations();
+}
+
+function sortStations(el, sort) {
+    document.querySelectorAll('#stationSortBar .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentStationSort = sort;
+    loadStations();
+}
+
+function loadPosts(append) {
+    if (!append) postOffset = 0;
+    const list = document.getElementById('postList');
+    if (!append) list.innerHTML = '<div class="loading">加载中</div>';
+    let url = '/api/posts?limit=' + postLimit + '&offset=' + postOffset + '&sort=' + currentPostSort;
+    if (currentPostType) url += '&type=' + currentPostType;
+    api.get(url)
+        .then(data => {
+            renderPosts(data.posts, append);
+            const btn = document.getElementById('loadMoreBtn');
+            if (data.posts.length >= postLimit) {
+                btn.style.display = '';
+                postOffset += postLimit;
+            } else {
+                btn.style.display = 'none';
+            }
+        })
+        .catch(() => { if (!append) { list.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); } });
+}
+
+function renderPosts(posts, append) {
+    const list = document.getElementById('postList');
+    if (!posts || posts.length === 0) {
+        if (!append) { list.innerHTML = '<div class="empty-state"><i data-lucide="file-text" class="icon empty-icon"></i><div class="text">还没有帖子，来发第一帖吧！</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); }
+        return;
+    }
+    const html = posts.map(p => renderPostCard(p)).join('');
+    if (append) {
+        list.insertAdjacentHTML('beforeend', html);
+    } else {
+        list.innerHTML = html;
+    }
+    if(typeof lucide!=='undefined') lucide.createIcons();
+    initReveal();
+}
+
+function sortPosts(el, sort) {
+    document.querySelectorAll('#postSortBar .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentPostSort = sort;
+    loadPosts();
+}
+
+function filterByType(el, type) {
+    document.querySelectorAll('#postTypeBar .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentPostType = type;
+    loadPosts();
+}
+
+function loadMorePosts() {
+    loadPosts(true);
+}
+</script>
+</body>
+</html>
