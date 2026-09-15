@@ -4,26 +4,26 @@
  *
  * 环境变量：
  *   API_BASE   后端基础地址，如 https://campus-wall-api.sifangzhiji.workers.dev
- *              不设置时回退到相对路径 /api（适用于同源部署）
+ *              未设置时返回 501 明确报错（不做同源回环，避免自我循环）
  */
-const API_BASE = (typeof API_BASE !== 'undefined' && API_BASE)
-  ? API_BASE.replace(/\/+$/, '')
-  : '';
-
 export async function onRequest(context) {
   const { request, env, params } = context;
   let target = '';
   try {
-    // 优先用 Pages 环境变量，其次构建期变量
-    const base = (env.API_BASE && env.API_BASE.replace(/\/+$/, '')) || API_BASE;
+    const base = (env.API_BASE && env.API_BASE.replace(/\/+$/, '')) || '';
 
     const url = new URL(request.url);
     const rest = (params.path || []).join('/');
     const query = url.search;
 
-    target = base
-      ? `${base}/api/${rest}${query}`
-      : `${url.origin}/api/${rest}${query}`;
+    if (!base) {
+      // 明确失败优于自我回环（origin 再进本函数会无限循环）
+      return new Response(JSON.stringify({
+        error: 'API_NOT_CONFIGURED',
+        message: 'Pages 环境变量 API_BASE 未设置（Settings → Environment variables）'
+      }), { status: 501, headers: { 'Content-Type': 'application/json' } });
+    }
+    target = `${base}/api/${rest}${query}`;
 
     // 复制请求头（去掉 hop-by-hop 头）
     const headers = new Headers(request.headers);
