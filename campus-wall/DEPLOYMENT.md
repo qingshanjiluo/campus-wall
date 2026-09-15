@@ -62,6 +62,9 @@ Pages → Settings → Environment variables；CI 会尝试同步为 `text`，�
 ## 四、验证清单（部署后必做）
 
 ```bash
+# 前端 JS 语法门禁（21 页内联 + 公共模块 + _worker.js；已挂 Pages CI 防回归）
+python tools/check_frontend_js.py
+
 # 本地全量回归（97 断言）
 cd backend-worker && python tools/run_native_tests.py
 

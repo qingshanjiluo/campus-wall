@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Frontend JS syntax gate (29 scripts)
+        run: python3 tools/check_frontend_js.py
+
       - name: Ensure Pages production env API_BASE
         continue-on-error: true
         run: |
