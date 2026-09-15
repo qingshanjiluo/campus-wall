@@ -2,11 +2,11 @@
 
 Runs the REAL route handlers / models / SQL locally — no miniflare, no workerd.
 
-Modes (launch build = D1 per parent ruling; KV is the parallel experiment track;
-both modes must stay green):
-    python tools/run_native_tests.py                  # all modes (d1 + kv)
-    python tools/run_native_tests.py --mode d1        # routes vs D1Shim(sqlite3)
-    python tools/run_native_tests.py --mode kv        # routes vs KVShim + sharded engine (src/_kv.py)
+Usage — DEFAULT = d1 mode, 97 assertions (unchanged baseline; KV/budget are opt-in):
+    python tools/run_native_tests.py                  # d1 mode (D1Shim on sqlite3)
+    python tools/run_native_tests.py --mode kv        # + KV storage layer (src/_kv.py) [+8 assertions]
+    python tools/run_native_tests.py --mode all       # d1 + kv
+    python tools/run_native_tests.py --budget         # opt-in per-endpoint statement-budget gate
     python tools/run_native_tests.py -v               # print each result line
 
 KV mode additionally asserts: shard-blob creation, payload shape, per-request
@@ -27,6 +27,7 @@ import types
 from pathlib import Path
 from urllib.parse import urlparse
 
+import budgeted
 from kv_shim import KVShim
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -638,27 +639,40 @@ async def suite_kv(h):
     await check_fn('kv export dump reloads with counts matching live stats', _export_dump)
 
 
+BUDGET = '--budget' in sys.argv
+
+
 async def run_mode(mode):
     global PASS, FAIL
     print(f'\n================ mode: {mode} ================')
     p0, f0 = PASS, FAIL
     tmp = tempfile.mkdtemp(prefix='cw-test-')
     h = Harness(mode, db_path=os.path.join(tmp, 'test.sqlite'))
+    import db as dbmod
+    budgeted.install(dbmod)  # before boot(): probe + seed count toward totals
     await h.boot()
     await suite(h)
     if mode == 'kv':
         await suite_kv(h)
+    if BUDGET:
+        await check_fn(f'budget caps {mode}', lambda: budgeted.gate(h, mode))
     print(f'---------------- mode {mode}: pass={PASS - p0} fail={FAIL - f0}')
 
 
 async def main():
     argv = sys.argv[1:]
-    modes = ['d1', 'kv']
+    modes = ['d1']  # 默认 = 原单模式基线（97 断言不变）
     if '--mode' in argv:
         m = argv[argv.index('--mode') + 1]
-        modes = [m] if m in ('d1', 'kv') else ['d1', 'kv']
+        modes = ['d1', 'kv'] if m == 'all' else ([m] if m in ('d1', 'kv') else ['d1'])
     for mode in modes:
         await run_mode(mode)
+    if BUDGET:
+        async def _cap():
+            t = budgeted.total()
+            assert t <= budgeted.SUITE_TOTAL_MAX, f'cumulative {t}'
+        await check_fn(f'cumulative statements <= {budgeted.SUITE_TOTAL_MAX} (actual {budgeted.total()})',
+                       _cap)
     print()
     print(f'================ native suite: modes={"+".join(modes)} '
           f'total={PASS + FAIL} pass={PASS} fail={FAIL} ================')

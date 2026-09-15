@@ -4,7 +4,7 @@ import json
 import web as httpmod
 import auth as authmod
 import db as _db
-from models import get_user_by_id, create_post, get_post_by_id, is_liked
+from models import get_user_by_id, create_post, get_post_by_id, is_liked, is_liked_batch
 from models_ext import (
     get_identity_groups, create_identity_group, assign_user_group, get_user_group,
     do_checkin, get_checkin_history, get_checkin_today,
@@ -297,8 +297,10 @@ async def list_gossip(request, params):
     station_id = int(q['station_id']) if q.get('station_id') and q['station_id'].isdigit() else None
     sort = q.get('sort', 'newest')
     items = await get_gossip(station_id, limit, offset, sort)
+    liked = await is_liked_batch(user['id'], 'gossip', [i['id'] for i in items]) \
+        if (user and items) else set()
     for item in items:
-        item['is_liked'] = await is_liked(user['id'], 'gossip', item['id']) if user else False
+        item['is_liked'] = item['id'] in liked if user else False
     return httpmod.jsonify(items)
 
 

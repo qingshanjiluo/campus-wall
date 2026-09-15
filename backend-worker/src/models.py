@@ -478,6 +478,18 @@ async def is_liked(user_id, target_type, target_id):
                            (user_id, target_type, target_id), one=True)) is not None
 
 
+async def is_liked_batch(user_id, target_type, target_ids):
+    """is_liked 批量版：返回已点赞的 target_id 集合（列表热路径的 D1 读行数从 N 降为 1）。"""
+    ids = [i for i in target_ids if i is not None]
+    if not ids:
+        return set()
+    ph = ', '.join('?' for _ in ids)
+    rows = await db.query(
+        'SELECT target_id FROM likes WHERE user_id = ? AND target_type = ? AND target_id IN (%s)' % ph,
+        [user_id, target_type] + list(ids))
+    return {r['target_id'] for r in rows}
+
+
 # ── Follow helpers ──
 
 async def toggle_follow(follower_id, following_id):

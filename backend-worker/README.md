@@ -4,7 +4,10 @@
 → `router` → 各 `routes_*.py`；数据层 `models*.py` 只依赖 `db.py` 的
 `query / execute / execute_script / IntegrityError` 契约。
 
-测试：`python tools/run_native_tests.py`（默认跑 `d1` + `kv` 两个模式，全部本地内存，零网络）。
+测试：
+- `python tools/run_native_tests.py` —— 默认 D1 模式、97 条断言（基线）。
+- `--mode kv` / `--mode all` —— 追加 KV 分片存储层断言（+8，共 105）。
+- `--budget` —— opt-in 语句数预算门（见下）。全部本地内存，零网络。
 
 ## Storage backend: KV (launch) / D1 (upgrade path)
 
@@ -76,7 +79,7 @@ npx wrangler d1 execute campus-wall-db --remote --file=migrations/9001_data_from
 - KV 模式下 schema 只增不改：新增迁移需让 `bootstrap.SCHEMA_SQL` 更新后清一次
   `db-shard:*`（或临时清空分片缓存），DDL 广播路径才生效。
 
-### 读预算优化（两模式共用，响应形状不变）
+### 读预算优化与门槛（两模式共用，响应形状不变）
 
 - `admin/stats`：28 条查询 → 1 条 UNION ALL 总量 + 3 条 GROUP BY 趋势，另加
   每 isolate 60s TTL 记忆（`models_ext.reset_stats_cache()` 供测试）。
@@ -85,3 +88,16 @@ npx wrangler d1 execute campus-wall-db --remote --file=migrations/9001_data_from
 - 子站详情：membership 与 role 两次同行扫描 → 1 条（`get_station_membership`）。
 - 子站列表：每站 2 条成员查询 → 1 条批量 `IN`（`get_station_memberships`）。
 - 子站统计：days+1 条 COUNT → 1 条 GROUP BY。
+- 四个列表热路径的逐行 `is_liked` N+1 → 每条列表 1 次批量 `IN`
+  （feed/子站帖/评论/树洞；`models.is_liked_batch`）。
+
+预算门槛（`tools/budgeted.py`，monkeypatch 计数，生产零侵入；口径 = D1 模式每请求语句数）：
+
+| 端点 | auth | 匿名/暖 | 帽 |
+|---|---|---|---|
+| admin stats | 5（冷） | 1（memo 命中） | 5 / 1 |
+| stations 列表 | 3 | 1 | 3 / 2 |
+| 详情（子站/帖子取大） | 4 | 2 | 8 / 2 |
+| posts feed | 4 | 2 | 4 / 2 |
+
+全套 suite（含 seed）累计 ≤100k：实测约 1.5k。运行：`python tools/run_native_tests.py --mode all --budget`。

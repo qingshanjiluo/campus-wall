@@ -10,7 +10,7 @@ from models import (
     get_station_members, get_user_stations, remove_station_member,
     transfer_station_ownership, update_station, delete_station,
     get_station_stats, get_station_categories, get_posts, get_post_count,
-    is_liked, shape_post,
+    is_liked, is_liked_batch, shape_post,
 )
 from uploads import save_upload
 
@@ -143,9 +143,10 @@ async def station_posts(request, params):
     user = await authmod.optional_user(request)
     posts = await get_posts(station_id=sid, limit=limit, offset=offset, sort=sort)
     total = await get_post_count(station_id=sid)
+    liked = await is_liked_batch(user['id'], 'post', [p['id'] for p in posts]) if (user and posts) else set()
     for p in posts:
         if user:
-            p['is_liked'] = await is_liked(user['id'], 'post', p['id'])
+            p['is_liked'] = p['id'] in liked
         shape_post(p, user)  # 匿名脱敏 + vote/link 展开
     return httpmod.jsonify({'posts': posts, 'total': total})
 

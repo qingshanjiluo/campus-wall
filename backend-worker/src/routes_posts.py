@@ -9,7 +9,7 @@ from models import (
     update_post, delete_post, increment_views, get_liked_posts,
     record_post_version, get_post_versions,
     create_comment, get_comments, delete_comment,
-    toggle_like, is_liked, create_notification, get_station_by_id,
+    toggle_like, is_liked, is_liked_batch, create_notification, get_station_by_id,
     is_station_member,
     parse_post_extra, build_post_extra, shape_post,
 )
@@ -125,9 +125,11 @@ async def list_posts(request, params):
                             limit=limit, offset=offset, sort=sort, post_type=post_type)
     total = await get_post_count(station_id=station_id, author_id=author_id, post_type=post_type)
 
+    # 批量点赞状态：一条 IN 查询取代逐帖扫描（列表热路径 O(N)→O(1)，响应形状不变）
+    liked = await is_liked_batch(user['id'], 'post', [p['id'] for p in posts]) if (user and posts) else set()
     for p in posts:
         if user:
-            p['is_liked'] = await is_liked(user['id'], 'post', p['id'])
+            p['is_liked'] = p['id'] in liked
         _anonymize_post(p, user)
         _shape_post(p, user)
     return httpmod.jsonify({'posts': posts, 'total': total})
@@ -302,8 +304,10 @@ async def list_comments(request, params):
     limit = int(q.get('limit', 50))
     offset = int(q.get('offset', 0))
     comments = await get_comments(pid, limit=limit, offset=offset)
+    liked = await is_liked_batch(user['id'], 'comment', [c['id'] for c in comments]) \
+        if (user and comments) else set()
     for c in comments:
-        c['is_liked'] = await is_liked(user['id'], 'comment', c['id']) if user else False
+        c['is_liked'] = c['id'] in liked if user else False
     return httpmod.jsonify(comments)
 
 
