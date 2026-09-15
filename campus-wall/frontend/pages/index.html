@@ -258,9 +258,9 @@ function renderStations(stations) {
     }
     grid.innerHTML = stations.map(s => `
         <div class="station-card reveal" onclick="window.location.href='/station/${s.id}'">
-            ${s.cover ? '<div class="station-cover" style="background-image:url(\'' + s.cover + '\')"></div>' : ''}
+            ${safeUrl(s.cover) ? '<div class="station-cover" style="background-image:url(\'' + safeUrl(s.cover) + '\')"></div>' : ''}
             <div class="station-card-header">
-                <div class="station-icon"><i data-lucide="${s.icon || 'school'}" class="icon icon-lg"></i></div>
+                <div class="station-icon"><i data-lucide="${getStationIcon(s.icon)}" class="icon icon-lg"></i></div>
                 <div class="name">${escHtml(s.name)}</div>
             </div>
             <div class="desc">${escHtml(s.description || '暂无简介')}</div>

@@ -2,36 +2,30 @@
  * CampusWall 工具函数模块
  */
 
-// HTML 转义
+// HTML 转义（含引号，可安全用于双引号包裹的属性插值）
 function escHtml(str) {
+    if (str === 0) return '0';
     if (!str) return '';
     const div = document.createElement('div');
     div.textContent = str;
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// 显示 Toast
+// URL 属性守卫：仅允许站内路径与 http(s)
+function safeUrl(url, fallback = '') {
+    const s = String(url || '');
+    if (/^(\/|https?:\/\/)/i.test(s) && !/^https?:\/\/javascript/i.test(s)) return escHtml(s);
+    return fallback;
+}
+
+// 显示 Toast（复用 style.css 的 .toast / .toast.show / .toast.success|error 体系）
 function showToast(msg, type = 'info', duration = 3000) {
     const toast = document.getElementById('toast');
     if (!toast) return;
-    const colors = {
-        success: 'var(--success)',
-        error: 'var(--danger)',
-        warning: 'var(--warning)',
-        info: 'var(--info)'
-    };
     toast.textContent = msg;
-    toast.style.cssText = `
-        position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-        padding: 12px 24px; border-radius: 12px; font-size: 0.9rem; font-weight: 500;
-        background: ${colors[type] || colors.info}; color: white;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;
-        animation: toast-in 0.3s ease;
-    `;
+    toast.className = 'toast show' + (type && type !== 'info' ? ' ' + type : '');
     clearTimeout(toast._timer);
-    toast._timer = setTimeout(() => {
-        toast.style.animation = 'toast-out 0.3s ease forwards';
-    }, duration);
+    toast._timer = setTimeout(() => toast.classList.remove('show'), duration);
 }
 
 // 防抖
@@ -101,6 +95,7 @@ function truncate(str, maxLen = 100) {
 
 window.CampusUtils = {
     escHtml,
+    safeUrl,
     showToast,
     debounce,
     throttle,

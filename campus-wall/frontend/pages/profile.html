@@ -85,7 +85,7 @@ function renderProfileCard(u) {
     document.getElementById('profileCard').innerHTML = `
         <div class="avatar-container">
             <div class="avatar-ring"></div>
-            <img class="avatar" src="${u.avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
+            <img class="avatar" src="${safeUrl(u.avatar, '/static/images/default-avatar.svg')}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
         </div>
         <div class="profile-name">${escHtml(u.username)}</div>
         ${badges.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:6px;">'+badges.join('')+'</div>' : ''}
@@ -99,7 +99,7 @@ function renderProfileCard(u) {
         <div class="level-progress-wrap">
             ${(() => {
                 const level = u.level || 1;
-                const xp = u.experience || 0;
+                const xp = (u.exp !== undefined ? u.exp : (u.experience || 0)) || 0;
                 const xpNeeded = level * 100;
                 const pct = Math.min(100, Math.round((xp / xpNeeded) * 100));
                 return '<div class="level-progress-bar"><div class="level-progress-fill" style="width:' + pct + '%;"></div></div>' +
@@ -239,7 +239,7 @@ function renderUserList(container, users) {
     container.innerHTML = users.map(u => `
         <div class="post-card reveal" onclick="window.location.href='/profile/${u.id}'" style="padding:16px;">
             <div style="display:flex;align-items:center;gap:12px;">
-                <img src="${u.avatar||'/static/images/default-avatar.svg'}" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--glass-border);" onerror="this.src='/static/images/default-avatar.svg'">
+                <img src="${safeUrl(u.avatar, '/static/images/default-avatar.svg')}" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--glass-border);" onerror="this.src='/static/images/default-avatar.svg'">
                 <div>
                     <div style="font-weight:600;font-size:0.9rem;">${escHtml(u.username)}</div>
                     <div style="font-size:0.8rem;color:var(--text-muted);">${escHtml(u.bio||'')}</div>

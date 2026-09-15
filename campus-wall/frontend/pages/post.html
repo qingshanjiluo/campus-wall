@@ -88,7 +88,7 @@ function loadRelated(stationId, currentPostId) {
         list.innerHTML = posts.map(p => `
             <div class="post-card reveal" onclick="window.location.href='/post/${p.id}'" style="padding:16px;margin-bottom:12px;">
                 <div class="post-header">
-                    <img class="post-avatar" src="${p.author_avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
+                    <img class="post-avatar" src="${safeUrl(p.author_avatar, '/static/images/default-avatar.svg')}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
                     <div class="post-meta">
                         <div class="post-author">${escHtml(p.author_name)}</div>
                         <div class="post-time">${formatTime(p.created_at)}</div>
@@ -128,7 +128,7 @@ function renderPostDetail(p) {
     document.getElementById('postDetail').innerHTML = `
         <article class="speech-bubble reveal" style="position:relative;">
             <div class="post-header" style="margin-bottom:16px;">
-                <img class="post-avatar" src="${p.author_avatar||'/static/images/default-avatar.svg'}" alt="" onclick="window.location.href='/profile/${p.author_id}'" style="cursor:pointer;" onerror="this.src='/static/images/default-avatar.svg'">
+                <img class="post-avatar" src="${safeUrl(p.author_avatar, '/static/images/default-avatar.svg')}" alt="" onclick="window.location.href='/profile/${p.author_id}'" style="cursor:pointer;" onerror="this.src='/static/images/default-avatar.svg'">
                 <div class="post-meta">
                     <div class="post-author" style="cursor:pointer;" onclick="window.location.href='/profile/${p.author_id}'">${escHtml(p.author_name)}</div>
                     <div class="post-time">${time}</div>
@@ -183,7 +183,7 @@ function renderComments(comments) {
 
     const renderComment = (c) => `
         <div class="comment-item">
-            <img class="comment-avatar" src="${c.author_avatar||'/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'" onclick="window.location.href='/profile/${c.author_id}'" style="cursor:pointer;">
+            <img class="comment-avatar" src="${safeUrl(c.author_avatar, '/static/images/default-avatar.svg')}" alt="" onerror="this.src='/static/images/default-avatar.svg'" onclick="window.location.href='/profile/${c.author_id}'" style="cursor:pointer;">
             <div class="comment-body">
                 <div class="comment-author">
                     <span onclick="window.location.href='/profile/${c.author_id}'" style="cursor:pointer;">${escHtml(c.author_name)}</span>

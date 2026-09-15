@@ -1,4 +1,4 @@
-﻿"""帖子路由：列表 / 详情 / 发布 / 编辑 / 删除 / 点赞 / 评论 / 上传图片。"""
+"""帖子路由：列表 / 详情 / 发布 / 编辑 / 删除 / 点赞 / 评论 / 上传图片。"""
 import json
 
 import web as httpmod
@@ -11,6 +11,7 @@ from models import (
     create_comment, get_comments, delete_comment,
     toggle_like, is_liked, create_notification, get_station_by_id,
     is_station_member,
+    parse_post_extra, build_post_extra, shape_post,
 )
 from uploads import save_upload
 
@@ -41,6 +42,60 @@ def _anonymize_post(post, viewer=None):
     return post
 
 
+ALLOWED_POST_TYPES = ('text', 'image', 'link', 'vote')
+
+
+def _parse_extra(post):
+    return parse_post_extra(post)
+
+
+def _build_extra(post_type, data):
+    return build_post_extra(post_type, data)
+
+
+def _shape_post(post, viewer=None):
+    """models.shape_post 统一实现（含匿名脱敏 + vote/link 展开）。"""
+    return shape_post(post, viewer)
+
+
+async def vote(request, params):
+    """POST /api/posts/<pid>/vote  {option_index:int}，一人一票。"""
+    user, resp = await _require_user(request)
+    if resp:
+        return resp
+    pid = int(params['pid'])
+    post = await get_post_by_id(pid)
+    if not post:
+        return httpmod.error('帖子不存在', 404)
+    if post.get('post_type') != 'vote':
+        return httpmod.error('该帖子不是投票帖', 400)
+    extra = _parse_extra(post)
+    options = extra.get('options') or []
+    if not options:
+        return httpmod.error('投票选项缺失', 400)
+    data = await httpmod.get_json_body(request) or {}
+    try:
+        idx = int(data.get('option_index'))
+    except (TypeError, ValueError):
+        return httpmod.error('选项无效', 400)
+    if idx < 0 or idx >= len(options):
+        return httpmod.error('选项无效', 400)
+    voters = extra.get('voters') or {}
+    if str(user['id']) in voters:
+        return httpmod.error('你已经投过票了', 400)
+    counts = extra.get('counts') or {}
+    counts[str(idx)] = int(counts.get(str(idx), 0)) + 1
+    voters[str(user['id'])] = idx
+    extra['counts'] = counts
+    extra['voters'] = voters
+    await _db.execute('UPDATE posts SET extra = ? WHERE id = ?',
+                      (json.dumps(extra, ensure_ascii=False), pid))
+    shaped = _shape_post(dict(post, extra=json.dumps(extra, ensure_ascii=False)), user)
+    return httpmod.jsonify({'message': '投票成功',
+                            'vote_counts': shaped.get('vote_counts'),
+                            'user_voted': True})
+
+
 async def liked_posts(request, params):
     user, resp = await _require_user(request)
     if resp:
@@ -52,6 +107,7 @@ async def liked_posts(request, params):
     for p in posts:
         p['is_liked'] = True
         _anonymize_post(p, user)
+        _shape_post(p, user)
     return httpmod.jsonify({'posts': posts})
 
 
@@ -73,6 +129,7 @@ async def list_posts(request, params):
         if user:
             p['is_liked'] = await is_liked(user['id'], 'post', p['id'])
         _anonymize_post(p, user)
+        _shape_post(p, user)
     return httpmod.jsonify({'posts': posts, 'total': total})
 
 
@@ -100,6 +157,7 @@ async def get_post(request, params):
     post['views'] += 1
     post['is_liked'] = await is_liked(user['id'], 'post', pid) if user else False
     _anonymize_post(post, user)
+    _shape_post(post, user)
     return httpmod.jsonify(post)
 
 
@@ -142,17 +200,27 @@ async def create(request, params):
         if not await is_station_member(user['id'], station_id):
             return httpmod.error('私密子站仅成员可发帖，请先加入', 403)
 
+    post_type = data.get('post_type', 'text')
+    if post_type not in ALLOWED_POST_TYPES:
+        post_type = 'text'
+    extra = _build_extra(post_type, data)
+    if post_type == 'vote' and 'options' not in extra:
+        return httpmod.error('投票至少需要2个选项', 400)
+    if post_type == 'link' and not extra.get('link_url'):
+        return httpmod.error('请填写有效链接', 400)
     pid = await create_post(
         title, content, user['id'], station_id, image,
         is_anonymous=1 if is_anonymous else 0,
-        post_type=data.get('post_type', 'text'),
+        post_type=post_type,
         images=images if isinstance(images, list) else [],
+        extra=extra,
     )
     if not pid:
         return httpmod.error('发帖失败', 500)
 
     post = await get_post_by_id(pid)
     _anonymize_post(post, user)
+    _shape_post(post, user)
     return httpmod.jsonify({'message': '发帖成功', 'post': post}, status=201)
 
 
@@ -171,6 +239,14 @@ async def update(request, params):
     update_fields = {k: data[k] for k in ('title', 'content', 'image') if k in data}
     if 'images' in data and isinstance(data['images'], list):
         update_fields['images'] = json.dumps(data['images'], ensure_ascii=False)
+    # 编辑时允许重建 link/vote 载荷；选项变化则重置票数
+    if post.get('post_type') in ('link', 'vote') and ('link_url' in data or 'vote_options' in data):
+        new_extra = _build_extra(post['post_type'], data)
+        old_extra = _parse_extra(post)
+        if post['post_type'] == 'vote' and new_extra.get('options') == old_extra.get('options'):
+            new_extra['counts'] = old_extra.get('counts') or {}
+            new_extra['voters'] = old_extra.get('voters') or {}
+        update_fields['extra'] = json.dumps(new_extra, ensure_ascii=False)
     if 'is_pinned' in data:
         if user['role'] != 'admin':
             return httpmod.error('无权置顶帖子', 403)
@@ -292,6 +368,7 @@ ROUTES = [
     (HTTPMethod.GET, r'^/api/posts/(?P<pid>\d+)/versions$', post_versions),
     (HTTPMethod.GET, r'^/api/posts/(?P<pid>\d+)$', get_post),
     (HTTPMethod.POST, r'^/api/posts$', create),
+    (HTTPMethod.POST, r'^/api/posts/(?P<pid>\d+)/vote$', vote),
     (HTTPMethod.PUT, r'^/api/posts/(?P<pid>\d+)$', update),
     (HTTPMethod.DELETE, r'^/api/posts/(?P<pid>\d+)$', delete),
     (HTTPMethod.POST, r'^/api/posts/(?P<pid>\d+)/like$', like_post),

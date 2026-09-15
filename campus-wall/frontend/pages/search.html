@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:20px 0 12px;"><i data-lucide="building-2" class="icon icon-md"></i> 子站 (' + data.stations.length + ')</h3><div class="station-grid">' + data.stations.map(s => {
                     return '<div class="station-card" onclick="window.location.href=\'/station/' + s.id + '\'">' +
                         '<div class="station-card-header">' +
-                        '<div class="station-icon"><i data-lucide="' + (s.icon || 'school') + '" class="icon icon-lg"></i></div>' +
+                        '<div class="station-icon"><i data-lucide="' + getStationIcon(s.icon) + '" class="icon icon-lg"></i></div>' +
                         '<div class="name">' + CampusUtils.escHtml(s.name) + '</div>' +
                         '</div>' +
                         '<div class="desc">' + CampusUtils.escHtml(s.description || '') + '</div>' +
@@ -94,12 +94,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += data.posts.map(p => {
                     return '<article class="post-card reveal" onclick="window.location.href=\'/post/' + p.id + '\'">' +
                         '<div class="post-header">' +
-                        '<img class="post-avatar" src="' + (p.author_avatar || '/static/images/default-avatar.svg') + '" alt="" onerror="this.src=\'/static/images/default-avatar.svg\'">' +
+                        '<img class="post-avatar" src="' + CampusUtils.safeUrl(p.author_avatar, '/static/images/default-avatar.svg') + '" alt="" onerror="this.src=\'/static/images/default-avatar.svg\'">' +
                         '<div class="post-meta">' +
                         '<div class="post-author">' + CampusUtils.escHtml(p.author_name) + '</div>' +
                         '<div class="post-time">' + CampusUtils.formatTime(p.created_at) + '</div>' +
                         '</div>' +
-                        '<span class="post-station"><i data-lucide="' + (p.station_icon || 'school') + '" class="icon icon-sm"></i> ' + CampusUtils.escHtml(p.station_name || '') + '</span>' +
+                        '<span class="post-station"><i data-lucide="' + getStationIcon(p.station_icon) + '" class="icon icon-sm"></i> ' + CampusUtils.escHtml(p.station_name || '') + '</span>' +
                         '</div>' +
                         '<div class="post-title">' + CampusUtils.escHtml(p.title) + '</div>' +
                         '<div class="post-content">' + renderContent(p.content, false) + '</div>' +

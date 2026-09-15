@@ -227,12 +227,70 @@ async def delete_station(sid):
 
 # ── Post helpers ──
 
-async def create_post(title, content, author_id, station_id, image='', is_anonymous=0, post_type='text', images=None):
+ALLOWED_POST_TYPES = ('text', 'image', 'link', 'vote')
+
+
+def parse_post_extra(post):
+    try:
+        extra = json.loads((post or {}).get('extra') or '{}')
+        return extra if isinstance(extra, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
+def build_post_extra(post_type, data):
+    """按帖子类型构建 extra JSON（link/vote 的类型化载荷）。"""
+    data = data or {}
+    extra = {}
+    if post_type == 'link':
+        url = str(data.get('link_url') or '').strip()[:500]
+        if url and not url.lower().startswith(('javascript:', 'data:', 'vbscript:')):
+            extra['link_url'] = url
+    elif post_type == 'vote':
+        raw = data.get('vote_options') or []
+        if isinstance(raw, str):
+            raw = raw.split('\n')
+        options = [str(o).strip()[:100] for o in raw if str(o).strip()][:10]
+        if len(options) >= 2:
+            extra['options'] = options
+            extra['counts'] = {}
+            extra['voters'] = {}
+    return extra
+
+
+def shape_post(post, viewer=None):
+    """展开 extra 到前端消费字段：vote_options(换行串)/vote_counts(索引为键)/user_voted/link_url。
+    同时做匿名帖脱敏（与 _anonymize_post 合并，供多路由复用）。"""
+    if not post:
+        return post
+    # 匿名脱敏
+    if post.get('is_anonymous'):
+        is_owner = viewer and post.get('author_id') == viewer.get('id')
+        is_admin = viewer and viewer.get('role') == 'admin'
+        if not is_owner and not is_admin:
+            post['author_name'] = '匿名用户'
+            post['author_avatar'] = '/static/images/default-avatar.svg'
+    extra = parse_post_extra(post)
+    ptype = post.get('post_type')
+    if ptype == 'vote' and extra.get('options'):
+        options = extra['options']
+        post['vote_options'] = '\n'.join(options)
+        counts = extra.get('counts') or {}
+        post['vote_counts'] = {str(i): int(counts.get(str(i), 0)) for i in range(len(options))}
+        voters = extra.get('voters') or {}
+        post['user_voted'] = bool(viewer and str(viewer.get('id')) in voters)
+    elif ptype == 'link':
+        post['link_url'] = extra.get('link_url', '')
+    return post
+
+
+async def create_post(title, content, author_id, station_id, image='', is_anonymous=0, post_type='text', images=None, extra=None):
     pid = await db.execute(
-        'INSERT INTO posts (title, content, author_id, station_id, image, is_anonymous, post_type, images) '
-        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO posts (title, content, author_id, station_id, image, is_anonymous, post_type, images, extra) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         (title, content, author_id, station_id, image, 1 if is_anonymous else 0,
-         post_type, json.dumps(images or [], ensure_ascii=False)))
+         post_type, json.dumps(images or [], ensure_ascii=False),
+         json.dumps(extra or {}, ensure_ascii=False)))
     if pid:
         await db.execute('UPDATE stations SET post_count = post_count + 1 WHERE id = ?', (station_id,))
     return pid
@@ -314,7 +372,7 @@ async def get_liked_posts(user_id, limit=50, offset=0):
 
 
 async def update_post(pid, **kwargs):
-    allowed = {'title', 'content', 'image', 'is_pinned'}
+    allowed = {'title', 'content', 'image', 'is_pinned', 'extra'}
     fields = {k: v for k, v in kwargs.items() if k in allowed}
     if not fields:
         return False

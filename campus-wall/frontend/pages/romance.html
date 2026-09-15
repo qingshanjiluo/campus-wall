@@ -69,7 +69,7 @@ function loadRomanceTab(tab) {
                 profiles.map(p => `
                     <div class="station-card reveal">
                         <div style="text-align:center;">
-                            <img src="${p.avatar || '/static/images/default-avatar.svg'}" style="width:64px;height:64px;border-radius:50%;border:3px solid ${p.gender==='female'?'var(--pink-3)':'var(--blue)'};object-fit:cover;" onerror="this.src='/static/images/default-avatar.svg'">
+                            <img src="${safeUrl(p.avatar, '/static/images/default-avatar.svg')}" style="width:64px;height:64px;border-radius:50%;border:3px solid ${p.gender==='female'?'var(--pink-3)':'var(--blue)'};object-fit:cover;" onerror="this.src='/static/images/default-avatar.svg'">
                             <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.1rem;margin-top:8px;">${escHtml(p.nickname || p.username)}</div>
                             <div style="font-size:0.75rem;color:var(--text-muted);"><i data-lucide="${p.gender==='female'?'user-round':'user-round'}" class="icon icon-sm"></i> ${p.age ? p.age+'岁' : ''} · ${escHtml(p.department||'')}</div>
                         </div>

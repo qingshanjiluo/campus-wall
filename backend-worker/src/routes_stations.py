@@ -1,4 +1,4 @@
-﻿"""子站路由：列表 / 详情 / 创建 / 加入 / 退出 / 成员管理 / 统计。"""
+"""子站路由：列表 / 详情 / 创建 / 加入 / 退出 / 成员管理 / 统计。"""
 import json
 
 import web as httpmod
@@ -9,6 +9,7 @@ from models import (
     get_station_members, get_user_stations, remove_station_member,
     transfer_station_ownership, update_station, delete_station,
     get_station_stats, get_station_categories, get_posts, get_post_count,
+    is_liked, shape_post,
 )
 from uploads import save_upload
 
@@ -137,8 +138,13 @@ async def station_posts(request, params):
     limit = int(q.get('limit', 20))
     offset = int(q.get('offset', 0))
     sort = q.get('sort', 'newest')
+    user = await authmod.optional_user(request)
     posts = await get_posts(station_id=sid, limit=limit, offset=offset, sort=sort)
     total = await get_post_count(station_id=sid)
+    for p in posts:
+        if user:
+            p['is_liked'] = await is_liked(user['id'], 'post', p['id'])
+        shape_post(p, user)  # 匿名脱敏 + vote/link 展开
     return httpmod.jsonify({'posts': posts, 'total': total})
 
 

@@ -160,7 +160,7 @@ function commentGossip(id) {
     api.post('/api/gossip/' + id + '/comment', { content, is_anonymous: true }).then(() => {
         showToast('评论成功', 'success');
         input.value = '';
-        document.querySelector('.modal-overlay').remove();
+        const m = input.closest('.modal-overlay'); if (m) m.remove();
         loadGossip();
     }).catch(e => showToast(e.message || '评论失败', 'error'));
 }

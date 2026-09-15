@@ -179,7 +179,7 @@ function openStationSettings() {
                         <input type="checkbox" name="is_public" ${s.is_public !== 0 ? 'checked' : ''}> 公开子站
                     </label>
                     <label class="input" style="width:auto;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
-                        <input type="checkbox" name="only_owner_posts"> 仅站长可发帖
+                        <input type="checkbox" name="only_owner_posts" ${s.only_owner_posts ? 'checked' : ''}> 仅站长可发帖
                     </label>
                 </div>
                 <div style="display:flex;gap:8px;">
@@ -209,7 +209,7 @@ function updateStationSettings(e, form) {
         only_owner_posts: form.only_owner_posts.checked ? 1 : 0
     };
     api.put('/api/stations/' + STATION_ID, data)
-        .then(() => { showToast('更新成功', 'success'); loadStation(); document.querySelector('.modal-overlay').remove(); })
+        .then(() => { showToast('更新成功', 'success'); loadStation(); const m = form.closest('.modal-overlay'); if (m) m.remove(); })
         .catch(err => showToast(err.message || '更新失败', 'error'));
     return false;
 }
@@ -218,8 +218,9 @@ function transferStation(btn) {
     const uid = prompt('输入新子站长（用户ID）:');
     if (!uid) return;
     if (!confirm('确定将子站转让给用户 #' + uid + '？')) return;
+    const modal = btn.closest('.modal-overlay');
     api.post('/api/stations/' + STATION_ID + '/transfer', { new_owner_id: parseInt(uid) })
-        .then(data => { showToast(data.message, 'success'); document.querySelector('.modal-overlay').remove(); loadStation(); })
+        .then(data => { showToast(data.message, 'success'); if (modal) modal.remove(); loadStation(); })
         .catch(e => showToast(e.message || '转让失败', 'error'));
 }
 
@@ -268,7 +269,7 @@ function showStationMembers() {
                 <div>
                     ${(data.members||[]).map(m => `
                         <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
-                            <img src="${m.avatar||'/static/images/default-avatar.svg'}" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--glass-border);" onerror="this.src='/static/images/default-avatar.svg'">
+                            <img src="${safeUrl(m.avatar, '/static/images/default-avatar.svg')}" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--glass-border);" onerror="this.src='/static/images/default-avatar.svg'">
                             <a href="/profile/${m.user_id}" style="flex:1;font-weight:600;font-size:0.9rem;color:var(--text-dark);text-decoration:none;">${escHtml(m.username)}</a>
                             <span style="font-size:0.7rem;${m.role==='owner'?'background:var(--yellow);':'background:var(--lavender);'}padding:2px 8px;border-radius:8px;">${m.role==='owner'?'<i data-lucide=\"crown\" class=\"icon icon-sm\"></i> 子站长':'成员'}</span>
                             ${canManage && m.role !== 'owner' ? '<button class="btn btn-sm" style="padding:4px 10px;font-size:0.7rem;" onclick="removeMemberConfirm('+m.user_id+',this)">移除</button>' : ''}

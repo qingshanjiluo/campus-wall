@@ -339,7 +339,7 @@ function openCreateAnnouncement() {
 function createAnnouncement(e, form) {
     e.preventDefault();
     api.post('/api/admin/announcements', { title: form.title.value.trim(), content: form.content.value.trim() })
-        .then(() => { showToast('公告已发布', 'success'); document.querySelector('.modal-overlay').remove(); switchAdminTab(document.querySelector('#adminTabs .tag'), 'announcements'); })
+        .then(() => { showToast('公告已发布', 'success'); const m = form.closest('.modal-overlay'); if (m) m.remove(); switchAdminTab(document.querySelector('#adminTabs .tag'), 'announcements'); })
         .catch(err => showToast(err.message || '发布失败', 'error'));
     return false;
 }
@@ -416,7 +416,7 @@ function createShopItem(e, form) {
         item_data: { type: form.item_type.value }
     }).then(() => {
         showToast('创建成功', 'success');
-        document.querySelector('.modal-overlay').remove();
+        const m = form.closest('.modal-overlay'); if (m) m.remove();
         switchAdminTab(document.querySelector('#adminTabs .tag'), 'shop');
     }).catch(e => showToast(e.message || '创建失败', 'error'));
     return false;

@@ -410,6 +410,7 @@
     const navLinks = document.getElementById('navLinks');
     if (navLinks) navLinks.classList.toggle('open');
   }
+  window.toggleNavMenu = toggleNavMenu; // 供内联 onclick 调用
 
   // 点击外部关闭导航菜单
   document.addEventListener('click', function(e) {

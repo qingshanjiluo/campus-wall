@@ -281,7 +281,10 @@ document.addEventListener('DOMContentLoaded', () => {
 function getStationIcon(icon) {
   if (!icon) return 'school';
   if (icon.startsWith('lucide:')) return icon.slice(7);
-  return ICON_MAP[icon] || 'school';
+  if (ICON_MAP[icon]) return ICON_MAP[icon];
+  // 已是合法 lucide 名（后端 seed/建站的 icon 多为 'book-open'、'gamepad' 这类 kebab 名）
+  if (/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(icon) && icon.length <= 30) return icon;
+  return 'school';
 }
 
 // 导出

@@ -437,6 +437,51 @@ async def main():
     await check('favorites list', h.call('GET', '/api/favorites', token=token))
     await check('user profile', h.call('GET', '/api/auth/user/2'))
 
+    print('== extended: vote / link / romance update ==')
+    vp = await check('create vote post', h.call('POST', '/api/posts',
+                                                body={'station_id': sid, 'title': 'vote p', 'content': 'q?',
+                                                      'post_type': 'vote', 'vote_options': ['A', 'B', 'C']}, token=token),
+                     expect=(200, 201))
+    vpid = (vp or {}).get('id') or ((vp or {}).get('post') or {}).get('id')
+    if vpid:
+        vdetail = await check('vote post detail shaped', h.call('GET', f'/api/posts/{vpid}', token=token))
+        vpost = (vdetail or {}).get('post') or vdetail or {}
+        await check('vote post has vote_options', h.call('GET', f'/api/posts/{vpid}'),
+                    extract=lambda p: (_ for _ in ()).throw(AssertionError('no vote_options'))
+                    if not (p.get('vote_options') and 'A' in p['vote_options']) else None)
+        await check('vote A', h.call('POST', f'/api/posts/{vpid}/vote', body={'option_index': 0}, token=atoken))
+        await check('vote twice -> 400', h.call('POST', f'/api/posts/{vpid}/vote', body={'option_index': 1}, token=atoken), expect=(400,))
+        await check('vote bad index -> 400', h.call('POST', f'/api/posts/{vpid}/vote', body={'option_index': 99}, token=token), expect=(400,))
+        vd = await check('vote counts reflect', h.call('GET', f'/api/posts/{vpid}', token=atoken),
+                         extract=lambda p: None if (p.get('vote_counts', {}) or {}).get('0') == 1 and p.get('user_voted') else (_ for _ in ()).throw(AssertionError(f'counts={p.get("vote_counts")} voted={p.get("user_voted")}')))
+    lp = await check('create link post', h.call('POST', '/api/posts',
+                                                body={'station_id': sid, 'title': 'link p', 'content': 'see',
+                                                      'post_type': 'link', 'link_url': 'https://example.com/x'}, token=token),
+                     expect=(200, 201))
+    lpid = (lp or {}).get('id') or ((lp or {}).get('post') or {}).get('id')
+    if lpid:
+        await check('link detail has link_url', h.call('GET', f'/api/posts/{lpid}'),
+                    extract=lambda p: None if p.get('link_url') == 'https://example.com/x' else (_ for _ in ()).throw(AssertionError(f'link_url={p.get("link_url")}')))
+    xss = await check('link post javascript: url stripped', h.call('POST', '/api/posts',
+                                                                   body={'station_id': sid, 'title': 'xss', 'content': 'c',
+                                                                         'post_type': 'link', 'link_url': 'javascript:alert(1)'},
+                                                                   token=token), expect=(400,))
+    # 恋爱档案二次保存（hobbies 数组）——回归 P1 bug
+    await check('romance save #1', h.call('POST', '/api/romance/profile',
+                                          body={'nickname': 'n1', 'gender': 'f', 'department': 'cs', 'hobbies': ['a', 'b']}, token=token),
+                expect=(200, 201))
+    await check('romance save #2 (update path, list hobbies)', h.call('POST', '/api/romance/profile',
+                                                                      body={'nickname': 'n2', 'gender': 'f', 'department': 'math', 'hobbies': ['c', 'd']}, token=token))
+    await check('romance re-read ok', h.call('GET', '/api/romance/profile', token=token))
+    # admin today 字段
+    await check('admin stats has today fields', h.call('GET', '/api/admin/stats', token=atoken),
+                extract=lambda p: None if 'today_posts' in p and 'today_users' in p else (_ for _ in ()).throw(AssertionError(f'missing today_*: keys={list(p.keys())}')))
+    # trade 参数校验
+    await check('trade bad price -> 400', h.call('POST', '/api/trade',
+                                                 body={'title': 't', 'content': 'c', 'price': 'abc<script>'}, token=token), expect=(400,))
+    await check('trade negative price -> 400', h.call('POST', '/api/trade',
+                                                      body={'title': 't', 'content': 'c', 'price': -5}, token=token), expect=(400,))
+
     print('== admin ==')
     await check('admin stats', h.call('GET', '/api/admin/stats', token=atoken))
     await check('admin stats series', h.call('GET', '/api/admin/stats/series', token=atoken))

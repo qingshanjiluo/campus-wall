@@ -40,3 +40,13 @@ yolov8n.pt
 mimoclaw_workspace*.tar.gz
 .opencode-autopilot/
 40
+
+# 非项目资产目录（本地素材/参考，不入库）
+Live2D/
+参考/
+*.code-workspace
+
+# 调试产物
+routes_raw.txt
+
+work/

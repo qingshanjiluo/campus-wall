@@ -1,4 +1,4 @@
-﻿"""扩展路由：身份组、签到、积分商城、恋爱情报、爆料、交易、看板娘、推荐、管理后台、收藏、举报、公告。"""
+"""扩展路由：身份组、签到、积分商城、恋爱情报、爆料、交易、看板娘、推荐、管理后台、收藏、举报、公告。"""
 import json
 
 import web as httpmod
@@ -371,9 +371,20 @@ async def create_trade(request, params):
     if resp:
         return resp
     data = await httpmod.get_json_body(request) or {}
-    title = (data.get('title') or '').strip()
-    content = (data.get('content') or '').strip()
-    price = data.get('price', 0)
+    title = (data.get('title') or '').strip()[:100]
+    content = (data.get('content') or '').strip()[:5000]
+    contact = str(data.get('contact') or '').strip()[:100]
+    category = str(data.get('category') or '').strip()[:50]
+    try:
+        price = float(data.get('price') or 0)
+        original_price = float(data.get('original_price') or 0)
+    except (TypeError, ValueError):
+        return httpmod.error('价格格式不正确', 400)
+    if price < 0 or original_price < 0 or price > 1000000 or original_price > 1000000:
+        return httpmod.error('价格超出合理范围', 400)
+    condition = str(data.get('condition') or 'good').strip()
+    if condition not in ('new', 'like_new', 'good', 'fair', 'poor'):
+        condition = 'good'
     if not title or not content:
         return httpmod.error('请填写完整', 400)
 
@@ -390,8 +401,8 @@ async def create_trade(request, params):
 
     trade_id = await create_trade_post(
         post_id, user['id'], price,
-        data.get('original_price', 0), data.get('condition', 'good'),
-        data.get('category', ''), data.get('contact', ''))
+        original_price, condition,
+        category, contact)
     return httpmod.jsonify({'message': '发布成功', 'post_id': post_id, 'trade_id': trade_id}, status=201)
 
 

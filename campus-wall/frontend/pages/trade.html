@@ -120,13 +120,13 @@ function loadTrades() {
                 <div class="station-card reveal" style="break-inside:avoid;margin-bottom:16px;padding:16px;cursor:default;" data-trade-id="${t.id}" onclick="viewTradeById(this)">
                     <div style="font-family:'ZCOOL KuaiLe',cursive;font-size:1rem;margin-bottom:6px;">${escHtml(t.title)}</div>
                     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
-                        <span style="font-size:1.3rem;font-weight:800;color:var(--pink-4);">¥${t.price}</span>
-                        ${t.original_price ? '<span style="font-size:0.75rem;color:var(--text-muted);text-decoration:line-through;">¥'+t.original_price+'</span>' : ''}
+                        <span style="font-size:1.3rem;font-weight:800;color:var(--pink-4);">¥${escHtml(String(t.price ?? ''))}</span>
+                        ${t.original_price ? '<span style="font-size:0.75rem;color:var(--text-muted);text-decoration:line-through;">¥'+escHtml(String(t.original_price))+'</span>' : ''}
                         ${discount > 0 ? '<span style="font-size:0.65rem;background:var(--pink-1);color:var(--pink-4);padding:1px 6px;border-radius:6px;">-'+discount+'%</span>' : ''}
                     </div>
                     <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(t.content || '')}</div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text-muted);">
-                        <span>${escHtml(t.username)} · ${condMap[t.condition] || t.condition}</span>
+                        <span>${escHtml(t.username)} · ${escHtml(condMap[t.condition] || t.condition)}</span>
                         <span>${formatTime(t.created_at)}</span>
                     </div>
                     <div style="margin-top:8px;">
@@ -174,7 +174,7 @@ function viewTradeById(el) {
         <div class="modal" style="position:relative;max-width:480px;">
             <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
             <div id="viewTradeTitle"></div>
-            <div style="font-size:1.5rem;font-weight:800;color:var(--pink-4);margin-bottom:12px;">¥${t.price}</div>
+            <div style="font-size:1.5rem;font-weight:800;color:var(--pink-4);margin-bottom:12px;">¥${escHtml(String(t.price ?? ''))}</div>
             <div id="viewTradeContent"></div>
             <div id="viewTradeContact"></div>
         </div>

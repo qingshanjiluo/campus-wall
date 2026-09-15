@@ -229,6 +229,10 @@ async def create_romance_profile(user_id, **kwargs):
                   if k in ('nickname', 'gender', 'age', 'department', 'hobbies', 'looking_for', 'photo', 'is_visible')}
         if not fields:
             return False
+        if isinstance(fields.get('hobbies'), (list, dict)):
+            fields['hobbies'] = json.dumps(fields['hobbies'], ensure_ascii=False)
+        if 'is_visible' in fields:
+            fields['is_visible'] = 1 if fields['is_visible'] else 0
         sets = ', '.join(f'{k} = ?' for k in fields)
         vals = list(fields.values()) + [user_id]
         await db.execute(f'UPDATE romance_profiles SET {sets} WHERE user_id = ?', vals)
@@ -459,6 +463,13 @@ async def get_admin_stats():
         'comments': (await db.query('SELECT COUNT(*) as c FROM comments WHERE is_deleted = 0', one=True))['c'],
         'trend': await get_admin_stats_series(7),
         'coins': (await db.query('SELECT COALESCE(SUM(coins),0) as c FROM users', one=True))['c'],
+        # 前端仪表盘消费的今日新增字段（date(created_at) 与 CURRENT_TIMESTAMP 同为 UTC）
+        'today_posts': (await db.query(
+            "SELECT COUNT(*) as c FROM posts WHERE date(created_at) = date('now') AND is_deleted = 0",
+            one=True))['c'],
+        'today_users': (await db.query(
+            "SELECT COUNT(*) as c FROM users WHERE date(created_at) = date('now')",
+            one=True))['c'],
     }
 
 

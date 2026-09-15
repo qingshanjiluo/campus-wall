@@ -14,27 +14,26 @@ jobs:
         run: |
           T="$CLOUDFLARE_API_TOKEN"; A="$CLOUDFLARE_ACCOUNT_ID"
           H=(-H "Authorization: Bearer $T" -H 'Content-Type: application/json')
-          echo "== token length: ${#T} account length: ${#A}"
-          echo "-- verify token --"
-          curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" "${H[@]}" | jq -c '{success, errors, status}' || true
-          echo "-- account info --"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$A" "${H[@]}" | jq -c '{success, name: .result.name, errors}' || true
-          echo "-- pages projects --"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects" "${H[@]}" | jq -c '{success, projects: [.result[]?.name], errors}' || true
-          echo "-- d1 list (read) --"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/d1/database" "${H[@]}" | jq -c '{success, dbs: [.result[]?.name], errors}' || true
-          echo "-- workers scripts (read) --"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/workers/scripts" "${H[@]}" | jq -c '{success, scripts: [.result[]?.name], errors}' || true
-          echo "-- kv namespaces --"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/storage/kv/namespaces" "${H[@]}" | jq -c '{success, ns: [.result[]?.title], errors}' || true
-          echo "-- r2 buckets --"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/r2/buckets" "${H[@]}" | jq -c '{success, buckets: [.result[]?.name], errors}' || true
-          echo "-- d1 create test (write probe) --"
-          CREATED=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$A/d1/database" "${H[@]}" --data '{"name":"probe-del-me"}')
-          echo "$CREATED" | jq -c '{success, uuid: .result.uuid, errors}' || true
-          PU=$(echo "$CREATED" | jq -r '.result.uuid // empty')
-          if [ -n "$PU" ]; then
-            curl -s -X DELETE "https://api.cloudflare.com/client/v4/accounts/$A/d1/database/$PU" "${H[@]}" | jq -c '{delete: .success}' || true
+          echo "-- KV namespace CREATE probe --"
+          KVC=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$A/storage/kv/namespaces" "${H[@]}" --data '{"title":"campuswall-probe-del"}')
+          echo "$KVC" | jq -c '{success, id: .result.id, errors}' || true
+          KVID=$(echo "$KVC" | jq -r '.result.id // empty')
+          if [ -n "$KVID" ]; then
+            echo "-- KV write probe --"
+            curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$A/storage/kv/namespaces/$KVID/values/probekey" "${H[@]}" --data 'hello' | jq -c '{kv_write: .success}' || true
+            curl -s -X DELETE "https://api.cloudflare.com/client/v4/accounts/$A/storage/kv/namespaces/$KVID" "${H[@]}" | jq -c '{kv_delete: .success}' || true
+            echo "(probe KV namespace deleted)"
           fi
-          echo "-- token own metadata (roles) --"
-          curl -s "https://api.cloudflare.com/client/v4/user" "${H[@]}" | jq -c '{success, email: .result.email, first_name: .result.first_name, errors}' || true
+          echo "-- Workers script UPLOAD probe (dry, tiny js worker) --"
+          cd "$(mktemp -d)"
+          printf 'export default{fetch(){return new Response("ok")}}' > worker.mjs
+          cat > wrangler.toml <<EOF
+name = "campuswall-probe-del"
+main = "worker.mjs"
+compatibility_date = "2025-01-01"
+EOF
+          echo "npx wrangler deploy..."
+          npx --yes wrangler@4.131.2 deploy 2>&1 | tail -8 || true
+          echo "-- cleanup probe worker --"
+          curl -s -X DELETE "https://api.cloudflare.com/client/v4/accounts/$A/workers/scripts/campuswall-probe-del" "${H[@]}" | jq -c '{del: .success, errors}' || true
+          echo "-- Pages project deploy probe (upload a dummy) skipped: already proven working via prior deploy --"

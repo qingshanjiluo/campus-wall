@@ -1,64 +1,69 @@
 /**
  * CampusWall 现代化 CSS 变量系统
- * 参考 kungal 论坛设计风格
+ * 类纸(KunUI)表面层级 + 恋爱暖粉调
+ * 设计要点：
+ *   - 页面背景为暖米灰（类纸），文字带暖调近黑（非纯黑）
+ *   - 卡片靠「白色填充 + 柔和阴影抬升」，而非描边
+ *   - OKLCH 感知均匀色板，主色为温柔恋爱粉
+ *   - 圆角克制（6/12/16/24），阴影低透明度、多层级弥散
  */
 
 :root {
-  /* ── 品牌色 ── */
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --primary-light: #eef2ff;
-  --primary-100: #e0e7ff;
-  --primary-500: #6366f1;
-  --primary-600: #4f46e5;
-  --primary-700: #4338ca;
+  /* ── 品牌色（恋爱粉）── */
+  --primary: #ec6b94;
+  --primary-hover: #d95480;
+  --primary-light: #fdf0f5;
+  --primary-100: #fbdce8;
+  --primary-500: #ec6b94;
+  --primary-600: #d95480;
+  --primary-700: #bd4570;
 
-  --secondary: #ec4899;
-  --secondary-hover: #db2777;
-  --secondary-light: #fdf2f8;
+  --secondary: #a78bfa;
+  --secondary-hover: #8b6ff0;
+  --secondary-light: #f3effe;
 
-  /* ── 功能色 ── */
-  --success: #22c55e;
-  --success-light: #f0fdf4;
-  --warning: #f59e0b;
-  --warning-light: #fffbeb;
-  --danger: #ef4444;
-  --danger-light: #fef2f2;
-  --info: #3b82f6;
-  --info-light: #eff6ff;
+  /* ── 功能色（低饱和、柔和的类纸感）── */
+  --success: #57ab7f;
+  --success-light: #edf7f1;
+  --warning: #d9a13f;
+  --warning-light: #fbf4e5;
+  --danger: #e0656f;
+  --danger-light: #fdefef;
+  --info: #6a8fd6;
+  --info-light: #eef3fb;
 
-  /* ── 中性色 ── */
-  --gray-50: #f8fafc;
-  --gray-100: #f1f5f9;
-  --gray-200: #e2e8f0;
-  --gray-300: #cbd5e1;
-  --gray-400: #94a3b8;
-  --gray-500: #64748b;
-  --gray-600: #475569;
-  --gray-700: #334155;
-  --gray-800: #1e293b;
-  --gray-900: #0f172a;
+  /* ── 中性色（暖调米灰，类纸）── */
+  --gray-50: #faf8f5;
+  --gray-100: #f2efea;
+  --gray-200: #e8e3db;
+  --gray-300: #d5cfc4;
+  --gray-400: #b3ab9e;
+  --gray-500: #8d8578;
+  --gray-600: #6b6459;
+  --gray-700: #4e483f;
+  --gray-800: #332e28;
+  --gray-900: #211d18;
 
-  /* ── 背景色 ── */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-hover: #f1f5f9;
-  --bg-active: #e2e8f0;
-  --bg-overlay: rgba(0, 0, 0, 0.5);
+  /* ── 背景色（类纸表面层级）── */
+  --bg-primary: #f4f2ee;
+  --bg-secondary: #faf8f5;
+  --bg-tertiary: #ece8e1;
+  --bg-hover: #ece8e1;
+  --bg-active: #e0dbd2;
+  --bg-overlay: rgba(30, 26, 22, 0.45);
 
-  /* ── 文本色 ── */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #64748b;
-  --text-muted: #94a3b8;
+  /* ── 文本色（暖调近黑）── */
+  --text-primary: #2b2520;
+  --text-secondary: #6b6459;
+  --text-tertiary: #8d8578;
+  --text-muted: #b3ab9e;
   --text-inverse: #ffffff;
-  --text-link: #6366f1;
+  --text-link: #d95480;
 
   /* ── 边框色 ── */
-  --border-primary: #e2e8f0;
-  --border-secondary: #cbd5e1;
-  --border-focus: #6366f1;
+  --border-primary: #e8e3db;
+  --border-secondary: #d5cfc4;
+  --border-focus: #ec6b94;
 
   /* ── 间距 ── */
   --space-1: 4px;
@@ -74,21 +79,21 @@
 
   /* ── 圆角 ── */
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 24px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
   --radius-full: 9999px;
 
-  /* ── 阴影 ── */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  /* ── 阴影（柔和弥散，靠阴影抬升层级）── */
+  --shadow-xs: 0 1px 2px rgba(43, 37, 32, 0.04);
+  --shadow-sm: 0 1px 2px rgba(43, 37, 32, 0.04), 0 2px 8px rgba(43, 37, 32, 0.06);
+  --shadow-md: 0 2px 4px rgba(43, 37, 32, 0.05), 0 8px 20px rgba(43, 37, 32, 0.06);
+  --shadow-lg: 0 4px 8px rgba(43, 37, 32, 0.06), 0 16px 32px rgba(43, 37, 32, 0.08);
+  --shadow-xl: 0 8px 16px rgba(43, 37, 32, 0.08), 0 24px 48px rgba(43, 37, 32, 0.1);
 
   /* ── 字体 ── */
-  --font-sans: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'ZCOOL KuaiLe', 'Nunito', sans-serif;
   --font-handwriting: 'Ma Shan Zheng', cursive;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
@@ -122,51 +127,51 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   深色主题
+   深色主题（类纸暗夜，暖调近黑）
    ═══════════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-  --primary: #818cf8;
-  --primary-hover: #6366f1;
-  --primary-light: #1e1b4b;
-  --primary-100: #312e81;
-  --primary-500: #818cf8;
-  --primary-600: #6366f1;
-  --primary-700: #4f46e5;
+  --primary: #f08cab;
+  --primary-hover: #ec6b94;
+  --primary-light: #3a2130;
+  --primary-100: #4a2a3d;
+  --primary-500: #f08cab;
+  --primary-600: #ec6b94;
+  --primary-700: #d95480;
 
-  --secondary: #f472b6;
-  --secondary-hover: #ec4899;
-  --secondary-light: #4a1942;
+  --secondary: #b39bff;
+  --secondary-hover: #a78bfa;
+  --secondary-light: #2c2438;
 
-  --success: #4ade80;
-  --success-light: #052e16;
-  --warning: #fbbf24;
-  --warning-light: #451a03;
-  --danger: #f87171;
-  --danger-light: #450a0a;
-  --info: #60a5fa;
-  --info-light: #172554;
+  --success: #6fc295;
+  --success-light: #12281c;
+  --warning: #e3b155;
+  --warning-light: #2c2312;
+  --danger: #ef828b;
+  --danger-light: #331a1d;
+  --info: #8aa9e3;
+  --info-light: #182236;
 
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --bg-hover: #334155;
-  --bg-active: #475569;
-  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-primary: #191714;
+  --bg-secondary: #221f1b;
+  --bg-tertiary: #2e2a24;
+  --bg-hover: #2e2a24;
+  --bg-active: #3a352e;
+  --bg-overlay: rgba(0, 0, 0, 0.65);
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-muted: #475569;
-  --text-inverse: #0f172a;
-  --text-link: #818cf8;
+  --text-primary: #efe9e1;
+  --text-secondary: #b3ab9e;
+  --text-tertiary: #8d8578;
+  --text-muted: #6b6459;
+  --text-inverse: #191714;
+  --text-link: #f08cab;
 
-  --border-primary: #334155;
-  --border-secondary: #475569;
-  --border-focus: #818cf8;
+  --border-primary: #2e2a24;
+  --border-secondary: #403a32;
+  --border-focus: #f08cab;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 16px 32px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.35);
 }

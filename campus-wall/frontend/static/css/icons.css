@@ -1,7 +1,6 @@
 /**
  * CampusWall 图标样式
- * 基于 Lucide Icons 的样式定义
- */
+ * 基于 Lucide Icons 的样式定�? */
 
 /* 图标基础样式 */
 .icon {
@@ -36,7 +35,7 @@
 
 /* 图标颜色 */
 .icon-primary {
-  color: var(--primary, #6366f1);
+  color: var(--primary, #ec6b94);
 }
 
 .icon-secondary {
@@ -56,7 +55,7 @@
 }
 
 .icon-muted {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #b3ab9e);
 }
 
 /* 图标按钮 */
@@ -70,14 +69,14 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary, #332e28);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .icon-btn:hover {
-  background: var(--bg-hover, #f1f5f9);
-  color: var(--primary, #6366f1);
+  background: var(--bg-hover, #ece8e1);
+  color: var(--primary, #ec6b94);
 }
 
 .icon-btn:active {
@@ -95,7 +94,7 @@
   flex-shrink: 0;
 }
 
-/* 导航栏图标 */
+/* 导航栏图�?*/
 .nav-icon {
   width: 18px;
   height: 18px;
@@ -107,16 +106,16 @@
   height: 48px;
   padding: 12px;
   border-radius: 12px;
-  background: var(--bg-light, #f8fafc);
-  color: var(--primary, #6366f1);
+  background: var(--bg-light, #faf8f5);
+  color: var(--primary, #ec6b94);
 }
 
-/* 空状态图标 */
+/* 空状态图�?*/
 .empty-icon {
   width: 64px;
   height: 64px;
   margin: 0 auto 16px;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #b3ab9e);
   opacity: 0.5;
 }
 

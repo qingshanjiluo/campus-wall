@@ -272,7 +272,7 @@ function handleEditPost(e) {
 function uploadPostImage(fileInput) {
     if (!fileInput.files.length) return;
     const file = fileInput.files[0];
-    if (file.size > 16 * 1024 * 1024) { showToast('文件不能超过16MB', 'error'); return; }
+    if (file.size > 5 * 1024 * 1024) { showToast('图片不能超过5MB', 'error'); return; }
     const formData = new FormData();
     formData.append('file', file);
     showToast('上传中...');
@@ -283,8 +283,9 @@ function uploadPostImage(fileInput) {
     }).then(r => r.json()).then(res => {
         if (res.url) {
             showToast('上传成功！', 'success');
-            // Insert image URL into content textarea
-            const textarea = document.querySelector('#createPostForm [name="content"], #editPostForm [name="content"]');
+            // 优先定位触发上传的表单内的正文框（兼容弹窗与 /create 独立页）
+            const textarea = (fileInput.closest('form') || document).querySelector('[name="content"]')
+                || document.querySelector('#createPostForm [name="content"], #editPostForm [name="content"], #createPostPageForm [name="content"]');
             if (textarea) {
                 textarea.value += (textarea.value ? '\n' : '') + '![图片](' + res.url + ')';
             }
@@ -436,7 +437,7 @@ function closeUserMenu() {
 // ── 工具函数 ──
 function escHtml(str) {
     if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // 渲染帖子内容：转义 HTML，并将 Markdown 图片 ![alt](url) 转为安全的 <img>
@@ -488,7 +489,7 @@ function renderPostCard(p) {
     return `
         <article class="${cardClass}" style="${postType !== 'text' ? 'background:' + typeInfo.bg + ';' : ''}" onclick="window.location.href='/post/${p.id}'">
             <div class="post-header">
-                <img class="post-avatar" src="${p.author_avatar || '/static/images/default-avatar.svg'}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
+                <img class="post-avatar" src="${CampusUtils.safeUrl(p.author_avatar, '/static/images/default-avatar.svg')}" alt="" onerror="this.src='/static/images/default-avatar.svg'">
                 <div class="post-meta">
                     <div class="post-author">${CampusUtils.escHtml(p.author_name)} ${groupBadge}</div>
                     <div class="post-time">${time}</div>
