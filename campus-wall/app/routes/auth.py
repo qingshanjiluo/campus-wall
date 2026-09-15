@@ -5,11 +5,14 @@ import jwt as pyjwt
 from flask import Blueprint, request, jsonify, current_app, g
 from app.models import create_user, get_user_by_username, get_user_by_email, verify_password, update_user, get_user_by_id, get_user_stats, change_password
 from app.utils.auth import generate_token, token_required
+from app.utils.limiter import limiter
+from app.utils.media import finalize_upload
 
 auth_bp = Blueprint('auth', __name__)
 
 
 @auth_bp.route('/register', methods=['POST'])
+@limiter.limit('8/hour')
 def register():
     data = request.get_json(silent=True) or {}
     username = (data.get('username') or '').strip()
@@ -41,6 +44,7 @@ def register():
 
 
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit('12/minute')
 def login():
     data = request.get_json(silent=True) or {}
     username = (data.get('username') or '').strip()
@@ -99,6 +103,7 @@ def get_user_profile(uid):
 
 
 @auth_bp.route('/avatar', methods=['POST'])
+@limiter.limit('10/minute')
 @token_required
 def upload_avatar():
     if 'file' not in request.files:
@@ -114,6 +119,8 @@ def upload_avatar():
     filename = f"avatar_{g.current_user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
+    if not finalize_upload(filepath):
+        return jsonify({'error': '图片内容无效'}), 400
 
     avatar_url = f'/static/uploads/{filename}'
     update_user(g.current_user['id'], avatar=avatar_url)
@@ -145,6 +152,7 @@ def change_pwd():
 # ── 忘记密码 / 重置密码 ──
 
 @auth_bp.route('/forgot-password', methods=['POST'])
+@limiter.limit('6/hour')
 def forgot_password():
     """请求重置密码：输入邮箱，返回重置token（开发模式）或发送邮件"""
     data = request.get_json(silent=True) or {}
@@ -194,6 +202,7 @@ def cwd_base_url():
 
 
 @auth_bp.route('/reset-password', methods=['POST'])
+@limiter.limit('12/hour')
 def reset_password():
     """使用重置token设置新密码"""
     data = request.get_json(silent=True) or {}

@@ -27,6 +27,16 @@ def create_app():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(os.path.join(app.static_folder, 'images'), exist_ok=True)
 
+    # 限流（RATELIMIT_ENABLED=1 时生效；生产 compose 开启，开发/E2E 默认关）
+    from app.utils.limiter import limiter, init_app as init_limiter
+    init_limiter(app)
+
+    @app.errorhandler(429)
+    def _rate_limited(e):
+        if request.path.startswith('/api/'):
+            return jsonify({'error': '操作过于频繁，请稍后再试'}), 429
+        return render_template('404.html'), 429
+
     from app.routes.auth import auth_bp
     from app.routes.stations import stations_bp
     from app.routes.posts import posts_bp

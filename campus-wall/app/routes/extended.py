@@ -4,6 +4,7 @@
 import json
 from flask import Blueprint, request, jsonify, g
 from app.utils.auth import token_required, optional_auth
+from app.utils.limiter import limiter
 from app.models import is_liked
 from app.models_ext import (
     get_identity_groups, create_identity_group, assign_user_group, get_user_group,
@@ -80,6 +81,7 @@ def my_group():
 checkin_bp = Blueprint('checkin', __name__)
 
 @checkin_bp.route('', methods=['POST'])
+@limiter.limit('10/minute')
 @token_required
 def checkin():
     result = do_checkin(g.current_user['id'])
@@ -266,6 +268,7 @@ def list_gossip():
     return jsonify(items)
 
 @gossip_bp.route('', methods=['POST'])
+@limiter.limit('10/minute')
 @token_required
 def post_gossip():
     data = request.get_json(silent=True) or {}
@@ -325,6 +328,7 @@ def list_trades():
     return jsonify(get_trade_posts(category, limit=limit, offset=offset, keyword=keyword))
 
 @trade_bp.route('', methods=['POST'])
+@limiter.limit('10/minute')
 @token_required
 def create_trade():
     from app.models import create_post as create_post_fn, get_post_by_id, get_station_by_id

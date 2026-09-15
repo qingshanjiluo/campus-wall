@@ -10,6 +10,8 @@ from app.models import (
     ALLOWED_POST_TYPES, build_post_extra, shape_post, cast_vote, parse_post_extra
 )
 from app.utils.auth import token_required, optional_auth
+from app.utils.limiter import limiter
+from app.utils.media import finalize_upload
 
 posts_bp = Blueprint('posts', __name__)
 
@@ -80,6 +82,7 @@ def get_post(pid):
 
 
 @posts_bp.route('', methods=['POST'])
+@limiter.limit('20/minute')
 @token_required
 def create():
     data = request.get_json(silent=True) or {}
@@ -276,6 +279,7 @@ def add_comment(pid):
 
 
 @posts_bp.route('/upload-image', methods=['POST'])
+@limiter.limit('15/minute')
 @token_required
 def upload_image():
     if 'file' not in request.files:
@@ -291,6 +295,8 @@ def upload_image():
     filename = f"post_{g.current_user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
+    if not finalize_upload(filepath):
+        return jsonify({'error': '图片内容无效'}), 400
     return jsonify({'url': f'/static/uploads/{filename}'})
 
 

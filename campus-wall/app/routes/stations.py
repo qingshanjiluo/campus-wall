@@ -11,6 +11,8 @@ from app.models import (
     get_posts, get_post_count, shape_post, is_liked_batch
 )
 from app.utils.auth import token_required, optional_auth
+from app.utils.limiter import limiter
+from app.utils.media import finalize_upload
 
 stations_bp = Blueprint('stations', __name__)
 
@@ -166,6 +168,7 @@ def my_stations():
 
 
 @stations_bp.route('/upload-cover', methods=['POST'])
+@limiter.limit('10/minute')
 @token_required
 def upload_cover():
     if 'file' not in request.files:
@@ -181,6 +184,8 @@ def upload_cover():
     filename = f"cover_{g.current_user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
+    if not finalize_upload(filepath):
+        return jsonify({'error': '图片内容无效'}), 400
     return jsonify({'url': f'/static/uploads/{filename}'})
 
 
