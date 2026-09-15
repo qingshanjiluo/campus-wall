@@ -1,0 +1,40 @@
+name: Debug CF Token Scope (temporary)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Probe CF API
+        run: |
+          T="$CLOUDFLARE_API_TOKEN"; A="$CLOUDFLARE_ACCOUNT_ID"
+          H=(-H "Authorization: Bearer $T" -H 'Content-Type: application/json')
+          echo "== token length: ${#T} account length: ${#A}"
+          echo "-- verify token --"
+          curl -s "https://api.cloudflare.com/client/v4/user/tokens/verify" "${H[@]}" | jq -c '{success, errors, status}' || true
+          echo "-- account info --"
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$A" "${H[@]}" | jq -c '{success, name: .result.name, errors}' || true
+          echo "-- pages projects --"
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects" "${H[@]}" | jq -c '{success, projects: [.result[]?.name], errors}' || true
+          echo "-- d1 list (read) --"
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/d1/database" "${H[@]}" | jq -c '{success, dbs: [.result[]?.name], errors}' || true
+          echo "-- workers scripts (read) --"
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/workers/scripts" "${H[@]}" | jq -c '{success, scripts: [.result[]?.name], errors}' || true
+          echo "-- kv namespaces --"
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/storage/kv/namespaces" "${H[@]}" | jq -c '{success, ns: [.result[]?.title], errors}' || true
+          echo "-- r2 buckets --"
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/r2/buckets" "${H[@]}" | jq -c '{success, buckets: [.result[]?.name], errors}' || true
+          echo "-- d1 create test (write probe) --"
+          CREATED=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$A/d1/database" "${H[@]}" --data '{"name":"probe-del-me"}')
+          echo "$CREATED" | jq -c '{success, uuid: .result.uuid, errors}' || true
+          PU=$(echo "$CREATED" | jq -r '.result.uuid // empty')
+          if [ -n "$PU" ]; then
+            curl -s -X DELETE "https://api.cloudflare.com/client/v4/accounts/$A/d1/database/$PU" "${H[@]}" | jq -c '{delete: .success}' || true
+          fi
+          echo "-- token own metadata (roles) --"
+          curl -s "https://api.cloudflare.com/client/v4/user" "${H[@]}" | jq -c '{success, email: .result.email, first_name: .result.first_name, errors}' || true
