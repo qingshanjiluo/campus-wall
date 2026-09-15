@@ -14,6 +14,9 @@ jobs:
     permissions:
       contents: read
     environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,19 +27,16 @@ jobs:
           node-version: 22
 
       - name: Ensure workers.dev subdomain
-        env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -e
-          RES=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/subdomain" \
-            -H "Authorization: Bearer ${CF_API_TOKEN}" || echo '{}')
+          RES=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" || echo '{}')
           SUB=$(echo "$RES" | jq -r '.result.subdomain // empty')
           if [ -z "$SUB" ]; then
             echo "No workers.dev subdomain; creating candidate names..."
             for CAND in campuswall sifangzhiji campus-wall-app cwapp; do
-              OK=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/subdomain" \
-                -H "Authorization: Bearer ${CF_API_TOKEN}" \
+              OK=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
+                -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
                 -H 'Content-Type: application/json' \
                 -X POST --data "{\"subdomain\":\"${CAND}\"}" | jq -r '.success')
               if [ "$OK" = "true" ]; then echo "created subdomain ${CAND}"; break; fi
@@ -45,21 +45,19 @@ jobs:
             echo "workers.dev subdomain: ${SUB}"
           fi
 
-      - name: Ensure D1 database (create or reconcile id)
+      - name: Ensure D1 database (CF API directly; create or reconcile id)
         working-directory: backend-worker
-        env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -e
-          npx --yes wrangler@4.131.2 --version
-          UUID=$(npx --yes wrangler@4.131.2 d1 list --json 2>/dev/null \
-            | jq -r '.[] | select(.name=="campus-wall-db") | .uuid' | head -1 || true)
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database"
+          HDR=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json')
+          LIST=$(curl -s "${API}" "${HDR[@]}")
+          UUID=$(echo "$LIST" | jq -r '.result[]? | select(.name=="campus-wall-db") | .uuid' | head -1)
           if [ -z "$UUID" ]; then
             echo "D1 campus-wall-db not found; creating..."
-            CREATED=$(npx --yes wrangler@4.131.2 d1 create campus-wall-db 2>&1 || true)
+            CREATED=$(curl -s -X POST "${API}" "${HDR[@]}" --data '{"name":"campus-wall-db"}')
             echo "$CREATED"
-            UUID=$(echo "$CREATED" | grep -Eo '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+            UUID=$(echo "$CREATED" | jq -r '.result.uuid // empty')
           fi
           if [ -z "$UUID" ]; then echo "failed to resolve D1 uuid" && exit 1; fi
           echo "D1 uuid = ${UUID}"
@@ -74,18 +72,14 @@ jobs:
       - name: Put JWT secret
         working-directory: backend-worker
         env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           JWT: ${{ secrets.JWT_SECRET_PROD }}
         run: |
+          set -e
           if [ -z "$JWT" ]; then echo "JWT_SECRET_PROD missing" && exit 1; fi
           printf '%s' "$JWT" | npx --yes wrangler@4.131.2 secret put JWT_SECRET
 
       - name: Deploy Worker
         working-directory: backend-worker
-        env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx --yes wrangler@4.131.2 deploy
           npx --yes wrangler@4.131.2 deployments list | head -20 || true
