@@ -53,12 +53,13 @@ jobs:
         run: |
           set -e
           npx --yes wrangler@4.131.2 --version
-          INFO=$(npx --yes wrangler@4.131.2 d1 info campus-wall-db --json 2>/dev/null || echo '')
-          UUID=$(echo "$INFO" | jq -r '.[0].uuid // .uuid // empty' 2>/dev/null || true)
+          UUID=$(npx --yes wrangler@4.131.2 d1 list --json 2>/dev/null \
+            | jq -r '.[] | select(.name=="campus-wall-db") | .uuid' | head -1 || true)
           if [ -z "$UUID" ]; then
             echo "D1 campus-wall-db not found; creating..."
-            CREATED=$(npx --yes wrangler@4.131.2 d1 create campus-wall-db --json)
-            UUID=$(echo "$CREATED" | jq -r '.database_id // .uuid')
+            CREATED=$(npx --yes wrangler@4.131.2 d1 create campus-wall-db 2>&1 || true)
+            echo "$CREATED"
+            UUID=$(echo "$CREATED" | grep -Eo '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
           fi
           if [ -z "$UUID" ]; then echo "failed to resolve D1 uuid" && exit 1; fi
           echo "D1 uuid = ${UUID}"
