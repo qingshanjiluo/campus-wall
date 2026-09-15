@@ -5,6 +5,7 @@ import json
 from flask import Blueprint, request, jsonify, g
 from app.utils.auth import token_required, optional_auth
 from app.utils.limiter import limiter
+from app.utils.sensitive import scan_text
 from app.models import is_liked
 from app.models_ext import (
     get_identity_groups, create_identity_group, assign_user_group, get_user_group,
@@ -25,7 +26,7 @@ from app.models_ext import (
     get_user_settings, save_user_settings,
     get_announcements, create_announcement, update_announcement, toggle_announcement, delete_announcement,
 )
-from app.models import get_user_by_id, query_db
+from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
 
 # ══════════════════════════════════════════════
 # 身份组
@@ -275,6 +276,8 @@ def post_gossip():
     content = (data.get('content') or '').strip()
     if not content:
         return jsonify({'error': '内容不能为空'}), 400
+    if scan_text(content):
+        return jsonify({'error': '内容包含违规信息，请修改后再发布'}), 400
     gid = create_gossip(
         content, data.get('station_id'),
         json.dumps(data.get('images', []), ensure_ascii=False),
@@ -619,6 +622,46 @@ def my_favorites():
 # ══════════════════════════════════════════════
 
 reports_bp = Blueprint('reports', __name__)
+
+
+@admin_bp.route('/review', methods=['GET'])
+@token_required
+@admin_required
+def review_queue():
+    """待审核帖子队列（作者/子站信息齐全，含匿名帖真实身份——仅管理员可见）。"""
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    posts = get_posts(status='pending', limit=limit, offset=offset)
+    return jsonify({'posts': posts, 'total': len(posts)})
+
+
+@admin_bp.route('/review', methods=['POST'])
+@token_required
+@admin_required
+def review_action():
+    """POST /api/admin/review {post_id, action: approve|reject, note?}"""
+    data = request.get_json(silent=True) or {}
+    pid = data.get('post_id')
+    action = data.get('action')
+    note = (data.get('note') or '').strip()
+    post = get_post_by_id(pid) if pid else None
+    if not post:
+        return jsonify({'error': '帖子不存在'}), 404
+    if post.get('status') != 'pending':
+        return jsonify({'error': '该帖子不在审核队列'}), 400
+    if action not in ('approve', 'reject'):
+        return jsonify({'error': 'action 仅支持 approve/reject'}), 400
+
+    if action == 'approve':
+        update_post_status(pid, 'approved')
+        msg = f'你的帖子「{post["title"]}」已通过审核'
+    else:
+        update_post_status(pid, 'rejected')
+        execute_db('UPDATE stations SET post_count = MAX(post_count - 1, 0) WHERE id = ?', (post['station_id'],))
+        msg = f'你的帖子「{post["title"]}」未通过审核' + (f'：{note}' if note else '')
+    create_notification(post['author_id'], g.current_user['id'], 'system', msg, f'/post/{pid}')
+    admin_log(g.current_user['id'], f'review_{action}', 'post', pid, note)
+    return jsonify({'message': '已通过' if action == 'approve' else '已驳回'})
 
 
 @reports_bp.route('', methods=['POST'])

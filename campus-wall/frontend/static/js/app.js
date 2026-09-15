@@ -111,7 +111,11 @@ function handleCreatePost(e) {
     }
     api.post('/api/posts', data).then(res => {
         closeModal('createPostModal');
-        CampusUtils.showToast('发帖成功！', 'success');
+        if (res.status === 'pending') {
+            CampusUtils.showToast(res.message || '已提交，内容正在审核', 'success');
+        } else {
+            CampusUtils.showToast('发帖成功！', 'success');
+        }
         form.reset();
         document.dispatchEvent(new CustomEvent('postCreated'));
     }).catch(err => CampusUtils.showToast(err.message || '发帖失败', 'error'));
@@ -500,6 +504,8 @@ function renderPostCard(p) {
                 </div>
             </div>
             ${p.is_pinned ? '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;"><i data-lucide="pin" class="icon icon-sm icon-danger"></i> <span style="font-size:0.75rem;color:var(--color-accent);font-weight:600;">置顶</span></div>' : ''}
+            ${p.status === 'pending' ? '<div style="display:inline-flex;align-items:center;gap:4px;margin-bottom:8px;padding:3px 10px;border-radius:10px;font-size:0.72rem;font-weight:600;background:#fef3c7;color:#b45309;"><i data-lucide="clock" class="icon" style="width:12px;height:12px;"></i> 审核中 · 通过后自动展示</div>' : ''}
+            ${p.status === 'rejected' ? '<div style="display:inline-flex;align-items:center;gap:4px;margin-bottom:8px;padding:3px 10px;border-radius:10px;font-size:0.72rem;font-weight:600;background:rgba(248,113,113,0.12);color:var(--danger);"><i data-lucide="x-circle" class="icon" style="width:12px;height:12px;"></i> 未通过审核</div>' : ''}
             <div class="post-title">${CampusUtils.escHtml(p.title)}</div>
             ${coverImg ? '<img class="post-image" src="'+CampusUtils.escHtml(coverImg)+'" alt="" loading="lazy" style="max-height:260px;width:100%;object-fit:cover;border-radius:14px;margin:8px 0;">' : ''}
             <div class="post-content">${renderContent(p.content, false)}</div>

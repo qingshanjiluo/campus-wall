@@ -72,6 +72,28 @@ Step "admin login"  { $r = Api POST "/api/auth/login" @{username="admin"; passwo
 Step "admin stats today fields" { $r = Api GET "/api/admin/stats" $null $atk; Assert($r.users -ge 1) "no users count"; Assert($r.PSObject.Properties.Name -contains "today_posts") "missing today_posts" }
 Step "admin users"  { $r = Api GET "/api/admin/users?limit=5" $null $atk; Assert($r) "fail" }
 Step "notifications"{ $r = Api GET "/api/social/notifications" $null $tk; Assert($null -ne $r) "fail" }
+# ---- content review pipeline (R4-M3) ----
+$W_RV1 = [regex]::Unescape('\u8fd9\u662f\u4e00\u4e2a\u50bb\u903c\u6d4b\u8bd5\u5e16\u5b50')
+$W_RV2 = [regex]::Unescape('\u516d\u5408\u5f69\u5f00\u76d8')
+Step "review queue hit" {
+  $r = Api POST "/api/posts" @{station_id=1; title="e2e rv $Suffix"; content=$W_RV1} $atk
+  Assert($r.status -eq "pending") "not pending: got $($r.status)"
+  $script:pidrv = $r.post_id }
+Step "review hidden publicly" {
+  $l = Api GET "/api/posts?limit=100"
+  Assert(-not (@($l.posts | Where-Object { $_.id -eq $script:pidrv }).Count)) "pending post leaked into public list" }
+Step "review author-visible" {
+  $r = Api GET "/api/posts/$script:pidrv" $null $atk
+  Assert($r.status -eq "pending") "author cannot see own pending post" }
+Step "review approve" {
+  $r = Api POST "/api/admin/review" @{post_id=$script:pidrv; action="approve"} $atk
+  Assert($r) "approve fail" }
+Step "review visible after" {
+  $r = Api GET "/api/posts/$script:pidrv"
+  Assert($r.status -eq "approved") "still not visible: $($r.status)" }
+Step "block word rejected" {
+  try { Api POST "/api/posts" @{station_id=1; title="e2e blk $Suffix"; content=$W_RV2} $atk; throw "expected HTTP 400" }
+  catch [System.Net.WebException] { Assert($_.Exception.Response.StatusCode.value__ -eq 400) "wrong code for block word" } }
 Step "upload post image" {
   Assert($tk) "no auth token (earlier steps failed)"
   $png = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")

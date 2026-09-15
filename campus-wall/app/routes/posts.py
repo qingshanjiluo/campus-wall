@@ -12,6 +12,7 @@ from app.models import (
 from app.utils.auth import token_required, optional_auth
 from app.utils.limiter import limiter
 from app.utils.media import finalize_upload
+from app.utils.sensitive import scan_text
 
 posts_bp = Blueprint('posts', __name__)
 
@@ -71,6 +72,12 @@ def get_post(pid):
     post = get_post_by_id(pid)
     if not post:
         return jsonify({'error': '帖子不存在'}), 404
+    # 审核闸：pending/rejected 仅作者本人与管理员可见（对外表现为不存在，不泄露审核状态）
+    if post.get('status') in ('pending', 'rejected'):
+        is_owner = g.current_user and post['author_id'] == g.current_user['id']
+        is_admin = g.current_user and g.current_user['role'] == 'admin'
+        if not (is_owner or is_admin):
+            return jsonify({'error': '帖子不存在'}), 404
     increment_views(pid)
     post['views'] += 1
     if g.current_user:
@@ -131,13 +138,22 @@ def create():
     if post_type == 'link' and not extra.get('link_url'):
         return jsonify({'error': '请填写有效链接'}), 400
 
+    # 敏感词三级判定：block 拒绝 / review 进人工审核队列 / 否则直接发布
+    level = scan_text(title) or scan_text(content)
+    if level == 'block':
+        return jsonify({'error': '内容包含违规信息，已被拒绝发布'}), 400
+    status = 'pending' if level == 'review' else 'approved'
+
     pid = create_post(title, content, g.current_user['id'], station_id, image,
                       is_anonymous=1 if is_anonymous else 0,
                       post_type=post_type,
                       images=data.get('images') if isinstance(data.get('images'), list) else [],
-                      extra=extra)
+                      extra=extra, status=status)
     if not pid:
         return jsonify({'error': '发帖失败'}), 500
+
+    if status == 'pending':
+        return jsonify({'message': '已提交，内容正在审核，通过后自动展示', 'post_id': pid, 'status': 'pending'}), 202
 
     post = get_post_by_id(pid)
     _anonymize_post(post, g.current_user)
@@ -263,6 +279,8 @@ def add_comment(pid):
         return jsonify({'error': '评论不能为空'}), 400
     if len(content) > 2000:
         return jsonify({'error': '评论最多2000个字符'}), 400
+    if scan_text(content):
+        return jsonify({'error': '评论包含违规信息，请修改后再发布'}), 400
 
     cid = create_comment(content, g.current_user['id'], pid, parent_id)
     if not cid:

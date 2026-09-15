@@ -78,6 +78,11 @@ function handleCreatePostPage(e) {
     }
     api.post('/api/posts', data)
         .then(res => {
+            if (res.status === 'pending') {
+                showToast(res.message || '已提交，内容正在审核');
+                setTimeout(() => { window.location.href = '/'; }, 1500);
+                return;
+            }
             showToast('发帖成功！');
             window.location.href = '/post/' + res.post.id;
         })

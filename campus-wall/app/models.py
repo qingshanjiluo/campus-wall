@@ -514,15 +514,16 @@ def cast_vote(post, user_id, option_index):
 
 
 def create_post(title, content, author_id, station_id, image='', is_anonymous=0,
-                post_type='text', images=None, extra=None):
+                post_type='text', images=None, extra=None, status='approved'):
     import json as _json
     pid = execute_db(
-        'INSERT INTO posts (title, content, author_id, station_id, image, is_anonymous, post_type, images, extra) '
-        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO posts (title, content, author_id, station_id, image, is_anonymous, post_type, images, extra, status) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         (title, content, author_id, station_id, image, 1 if is_anonymous else 0,
          post_type if post_type in ALLOWED_POST_TYPES else 'text',
          _json.dumps(images or [], ensure_ascii=False),
-         _json.dumps(extra or {}, ensure_ascii=False))
+         _json.dumps(extra or {}, ensure_ascii=False),
+         status if status in ('approved', 'pending') else 'approved')
     )
     if pid:
         execute_db('UPDATE stations SET post_count = post_count + 1 WHERE id = ?', (station_id,))
@@ -540,7 +541,7 @@ def get_post_by_id(pid):
            WHERE p.id = ? AND p.is_deleted = 0''', (pid,), one=True)
 
 
-def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest', post_type=None):
+def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest', post_type=None, status='approved'):
     sql = '''SELECT p.*, u.username as author_name, u.avatar as author_avatar,
                     u.identity_group as author_identity_group,
                     s.name as station_name, s.icon as station_icon
@@ -549,6 +550,14 @@ def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest'
              JOIN stations s ON p.station_id = s.id
              WHERE p.is_deleted = 0'''
     args = []
+    if status:  # 审核过滤：默认仅 approved；status=None 供管理端全量
+        if author_id:
+            # 本人列表（作者视角）额外放出自己的 pending/rejected 便于跟踪状态
+            sql += ' AND p.status IN (?, \'pending\', \'rejected\')'
+            args.append(status)
+        else:
+            sql += ' AND p.status = ?'
+            args.append(status)
     if station_id:
         sql += ' AND p.station_id = ?'
         args.append(station_id)
@@ -569,9 +578,20 @@ def get_posts(station_id=None, author_id=None, limit=20, offset=0, sort='newest'
     return query_db(sql, args)
 
 
-def get_post_count(station_id=None, author_id=None, post_type=None):
+def update_post_status(pid, status):
+    """审核流转：仅允许 approved/pending/rejected 三态。"""
+    if status not in ('approved', 'pending', 'rejected'):
+        return False
+    execute_db('UPDATE posts SET status = ? WHERE id = ?', (status, pid))
+    return True
+
+
+def get_post_count(station_id=None, author_id=None, post_type=None, status='approved'):
     sql = 'SELECT COUNT(*) as c FROM posts WHERE is_deleted = 0'
     args = []
+    if status and not author_id:  # 本人列表可见自己的 pending（与 get_posts 一致）
+        sql += ' AND status = ?'
+        args.append(status)
     if station_id:
         sql += ' AND station_id = ?'
         args.append(station_id)

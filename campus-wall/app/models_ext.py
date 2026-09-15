@@ -26,11 +26,15 @@ def init_extended_db():
             pass
 
     # ── 帖子扩展字段 ──
-    for col, default in [('post_type', "'text'"), ('images', "'[]'"), ('extra', "'{}'"), ('is_anonymous', "'0'")]:
+    for col, default in [('post_type', "'text'"), ('images', "'[]'"), ('extra', "'{}'"), ('is_anonymous', "'0'"), ('status', "'approved'")]:
         try:
             c.execute(f"ALTER TABLE posts ADD COLUMN {col} TEXT DEFAULT {default}")
         except sqlite3.OperationalError:
             pass
+    try:
+        c.execute("CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status, created_at)")
+    except sqlite3.OperationalError:
+        pass
 
     # ── 身份组 ──
     c.execute('''CREATE TABLE IF NOT EXISTS identity_groups (

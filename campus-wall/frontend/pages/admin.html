@@ -34,6 +34,7 @@
             <span class="tag" onclick="switchAdminTab(this,'users')"><i data-lucide="users" class="icon icon-sm"></i> 用户管理</span>
             <span class="tag" onclick="switchAdminTab(this,'stations')"><i data-lucide="building-2" class="icon icon-sm"></i> 子站管理</span>
             <span class="tag" onclick="switchAdminTab(this,'posts')"><i data-lucide="file-text" class="icon icon-sm"></i> 帖子管理</span>
+            <span class="tag" onclick="switchAdminTab(this,'review')"><i data-lucide="clipboard-check" class="icon icon-sm"></i> 帖子审核</span>
             <span class="tag" onclick="switchAdminTab(this,'groups')"><i data-lucide="shield" class="icon icon-sm"></i> 身份组</span>
             <span class="tag" onclick="switchAdminTab(this,'shop')"><i data-lucide="gift" class="icon icon-sm"></i> 商城管理</span>
             <span class="tag" onclick="switchAdminTab(this,'reports')"><i data-lucide="flag" class="icon icon-sm"></i> 举报中心</span>
@@ -231,6 +232,29 @@ function switchAdminTab(el, tab) {
             `;
             if (window.lucide) lucide.createIcons();
         });
+    } else if (tab === 'review') {
+        api.get('/api/admin/review').then(d => {
+            const posts = (d && d.posts) || [];
+            if (!posts.length) { content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="clipboard-check" class="icon icon-lg"></i></div><div class="text">没有待审核的帖子</div></div>'; if (window.lucide) lucide.createIcons(); return; }
+            content.innerHTML = posts.map(p => `
+                <div class="station-card" style="padding:16px;cursor:default;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <strong>${escHtml(p.title)}</strong>
+                        <span style="font-size:0.7rem;color:var(--pink-4);background:var(--pink-1);padding:2px 8px;border-radius:8px;">${escHtml(p.station_name||'')}</span>
+                        <span style="font-size:0.72rem;color:var(--text-muted);">作者: ${escHtml(p.author_name||'-')}</span>
+                        ${p.is_anonymous ? '<span style="font-size:0.7rem;color:#b45309;background:#fef3c7;padding:2px 8px;border-radius:8px;">匿名帖</span>' : ''}
+                        <span style="font-size:0.7rem;color:var(--text-muted);margin-left:auto;">${formatTime(p.created_at)}</span>
+                    </div>
+                    <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:8px;max-height:140px;overflow:auto;white-space:pre-wrap;">${escHtml((p.content||'').slice(0,500))}</div>
+                    <div style="display:flex;gap:8px;margin-top:10px;">
+                        <a href="/post/${p.id}" class="btn btn-ghost btn-sm" style="padding:3px 12px;font-size:0.75rem;">查看</a>
+                        <button class="btn btn-primary btn-sm" style="padding:3px 12px;font-size:0.75rem;" onclick="reviewPost(${p.id},'approve')">通过</button>
+                        <button class="btn btn-ghost btn-sm" style="padding:3px 12px;font-size:0.75rem;color:var(--danger);" onclick="reviewPost(${p.id},'reject')">驳回</button>
+                    </div>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        });
     } else if (tab === 'reports') {
         api.get('/api/reports?status=pending').then(reports => {
             if (!reports.length) { content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="flag" class="icon icon-lg"></i></div><div class="text">暂无待处理举报</div></div>'; return; }
@@ -315,6 +339,16 @@ function handleReport(rid, status) {
     const label = status === 'approved' ? '确认违规' : '驳回';
     if (!confirm('确定' + label + '该举报？')) return;
     api.put('/api/reports/' + rid, { status }).then(() => { showToast('已处理', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'reports'); }).catch(e => showToast(e.message, 'error'));
+}
+
+function reviewPost(pid, action) {
+    let note = '';
+    if (action === 'reject') {
+        note = prompt('驳回原因（可选，将通知作者）：') || '';
+    } else if (!confirm('确认通过该帖子？')) return;
+    api.post('/api/admin/review', { post_id: pid, action, note })
+        .then(d => { showToast(d.message || '已处理', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'review'); })
+        .catch(e => showToast(e.message, 'error'));
 }
 
 function openCreateAnnouncement() {
