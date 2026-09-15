@@ -1,85 +1,87 @@
-from flask import Blueprint, render_template
+"""服务器版页面路由：托管 campus-wall/frontend/pages 静态 21 页。
+
+与已线上验证的 frontend/_worker.js 语义同构：干净路由 → 具体 html 文件；
+/post|/station|/profile/<id> 前缀 → 对应页；未知路径 → 404.html(404)。
+（templates/ 服务端渲染旧版已冻结，仅存档。）
+"""
+import os
+
+from flask import Blueprint, current_app, send_from_directory
 
 pages_bp = Blueprint('pages', __name__)
 
+# 干净路由 → pages 目录文件名（与 _worker.js ROUTES 一致）
+ROUTES = {
+    '/': 'index.html',
+    '/waterfall': 'waterfall.html',
+    '/trade': 'trade.html',
+    '/romance': 'romance.html',
+    '/gossip': 'gossip.html',
+    '/shop': 'shop.html',
+    '/search': 'search.html',
+    '/checkin': 'checkin.html',
+    '/favorites': 'favorites.html',
+    '/notifications': 'notifications.html',
+    '/create': 'create.html',
+    '/create-station': 'create_station.html',
+    '/admin': 'admin.html',
+    '/reset-password': 'reset_password.html',
+    '/about': 'about.html',
+    '/terms': 'terms.html',
+    '/privacy': 'privacy.html',
+}
+
+# 前缀路由 → 详情页
+PREFIXES = {
+    '/post/': 'post.html',
+    '/station/': 'station.html',
+    '/profile/': 'profile.html',
+}
+
+
+def _pages_dir():
+    return current_app.config['FRONTEND_PAGES']
+
+
+def _serve(fname):
+    resp = send_from_directory(_pages_dir(), fname)
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+def _make_view(fname):
+    def view(**_kwargs):
+        return _serve(fname)
+    view.__name__ = 'page_' + fname.replace('.html', '').replace('/', '_')
+    return view
+
+
 @pages_bp.route('/')
 def index():
-    return render_template('index.html')
+    return _serve(ROUTES['/'])
 
-@pages_bp.route('/station/<int:sid>')
-def station_detail(sid):
-    return render_template('station.html', station_id=sid)
 
-@pages_bp.route('/post/<int:pid>')
-def post_detail(pid):
-    return render_template('post.html', post_id=pid)
+@pages_bp.route('/post/<path:ident>')
+def post_page(ident):
+    return _serve('post.html')
 
-@pages_bp.route('/profile/<int:uid>')
-def profile(uid):
-    return render_template('profile.html', user_id=uid)
 
-@pages_bp.route('/create')
-def create_page():
-    return render_template('create.html')
+@pages_bp.route('/station/<path:ident>')
+def station_page(ident):
+    return _serve('station.html')
 
-@pages_bp.route('/create-station')
-def create_station_page():
-    return render_template('create_station.html')
 
-@pages_bp.route('/notifications')
-def notifications_page():
-    return render_template('notifications.html')
+@pages_bp.route('/profile/<path:ident>')
+def profile_page(ident):
+    return _serve('profile.html')
 
-@pages_bp.route('/search')
-def search_page():
-    return render_template('search.html')
 
-# ── 新增页面 ──
+def init_routes():
+    """把 ROUTES 注册到 blueprint（排除 /，其有专用 view）。"""
+    for path, fname in ROUTES.items():
+        if path == '/':
+            continue
+        pages_bp.add_url_rule(path, view_func=_make_view(fname))
 
-@pages_bp.route('/checkin')
-def checkin_page():
-    return render_template('checkin.html')
 
-@pages_bp.route('/shop')
-def shop_page():
-    return render_template('shop.html')
-
-@pages_bp.route('/romance')
-def romance_page():
-    return render_template('romance.html')
-
-@pages_bp.route('/gossip')
-def gossip_page():
-    return render_template('gossip.html')
-
-@pages_bp.route('/trade')
-def trade_page():
-    return render_template('trade.html')
-
-@pages_bp.route('/admin')
-def admin_page():
-    return render_template('admin.html')
-
-@pages_bp.route('/waterfall')
-def waterfall_page():
-    return render_template('waterfall.html')
-
-@pages_bp.route('/favorites')
-def favorites_page():
-    return render_template('favorites.html')
-
-@pages_bp.route('/reset-password')
-def reset_password_page():
-    return render_template('reset_password.html')
-
-@pages_bp.route('/about')
-def about_page():
-    return render_template('about.html')
-
-@pages_bp.route('/terms')
-def terms_page():
-    return render_template('terms.html')
-
-@pages_bp.route('/privacy')
-def privacy_page():
-    return render_template('privacy.html')
+init_routes()

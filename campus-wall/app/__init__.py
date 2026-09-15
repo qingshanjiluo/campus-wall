@@ -1,12 +1,20 @@
 import os
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, send_from_directory
 from flask_cors import CORS
 
 
 def create_app():
+    _base = os.path.abspath(os.path.dirname(__file__))          # campus-wall/app
+    _root = os.path.dirname(_base)                              # campus-wall
+    frontend = os.environ.get('FRONTEND_DIR') or os.path.join(_root, 'frontend')
+
     app = Flask(__name__,
                 template_folder='templates',
-                static_folder='static')
+                static_folder=os.path.join(frontend, 'static'),
+                static_url_path='/static')
+
+    # 线上前端 = campus-wall/frontend 静态 21 页（templates 旧版已冻结）
+    app.config['FRONTEND_PAGES'] = os.path.join(frontend, 'pages')
 
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
     app.config['JWT_EXPIRATION_DAYS'] = 7
@@ -70,12 +78,12 @@ def create_app():
     def not_found(e):
         if request.path.startswith('/api/'):
             return jsonify({'error': '接口不存在'}), 404
-        return render_template('404.html'), 404
+        return send_from_directory(app.config['FRONTEND_PAGES'], '404.html'), 404
 
     @app.errorhandler(500)
     def server_error(e):
         if request.path.startswith('/api/'):
             return jsonify({'error': '服务器内部错误'}), 500
-        return render_template('base.html', error_code=500), 500
+        return send_from_directory(app.config['FRONTEND_PAGES'], '404.html'), 500
 
     return app
