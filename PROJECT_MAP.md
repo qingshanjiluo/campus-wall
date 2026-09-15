@@ -57,11 +57,16 @@
 
 ## 4. 线上可达性实测（关键！）
 
-| 地址 | 实测 | 判定 |
+> ⚠️ 本表为 2026-09-15 首次探测记录；**R3 修正（09-16）**：下表第 1 行"被占用"与第 3 行"回落 HTML"的判断已被后续事实推翻——
+> `campus-wall-673.pages.dev` 就是项目 `campus-wall` 的正式域名（CF 随机后缀），当前生产为 **_worker.js 高级控制**（干净路由 + /api 反代 + 404 兜底），
+> `API_BASE` 已生效指向 `campus-wall-api.sifangzhiji.workers.dev`（D1 数据在线，但免费额度 row-read 已耗尽，见 docs/LAUNCH_CHECKLIST.md）。
+> 当前权威架构以 **PLAN.md §1.0/§1.1 + docs/LAUNCH_CHECKLIST.md §0** 为准。
+
+| 地址 | 实测（首次探测时） | 判定 |
 |------|------|------|
-| `https://campus-wall.pages.dev/` | 200，返回 Vue SPA「校园万能墙」，引用 `/assets/index-*.js` | ❌ **被一个无关的 Vue 应用占用**，不是本项目前端。其 `/api/*` 也返回该 Vue 首页 HTML。 |
-| `https://6416e446.campus-wall-673.pages.dev/` | 200，返回「校园墙 · 连接校园 分享青春」，是本项目静态前端 | ✅ 本项目前端 CI 部署在此（历史 run 31478357943） |
-| 上述 `-673` 前端的 `/api/stations` | 返回首页 HTML（因未配 `API_BASE` 且同源无后端） | ⚠️ 前端已上线但**后端未接通** |
+| `https://campus-wall.pages.dev/` | 200，返回 Vue SPA「校园万能墙」，引用 `/assets/index-*.js` | ❌ ~~被无关 Vue 应用占用~~（实为另一旧项目缓存/后续已变化，现由本项目 CI 管理） |
+| `https://6416e446.campus-wall-673.pages.dev/` | 200，返回「校园墙 · 连接校园 分享青春」 | ✅ 本项目前端 CI 部署（历次 run） |
+| `-673` 前端的 `/api/stations` | ~~返回首页 HTML~~ | ✅ 现已返回 Worker JSON（_worker.js 反代 + API_BASE） |
 
 - **GitHub Actions**：`Deploy to Cloudflare Pages` 成功 3 次（最近 2026-08-11），用 `secrets.CLOUDFLARE_API_TOKEN` + `secrets.CLOUDFLARE_ACCOUNT_ID`，projectName=`campus-wall`，directory=`campus-wall/frontend`。CI 里有 token，本地 `wrangler whoami` 未登录（凭据只在 CI Secrets 中）。
 - **Cloudflare 账号**：缓存 `account_id=664cc8aa94cb585def8d27ec174fa417`，account=`Sifangzhiji@qq.com's Account`。
@@ -69,15 +74,14 @@
 
 ---
 
-## 5. 部署链路缺口（为什么"上不了线"）
+## 5. 部署链路缺口（为什么"上不了线"）—— 2026-09-16 状态：全部已闭合/降级为运维项
 
-1. **前端域名被占**：`campus-wall.pages.dev` 已不是我们的站点；CI 实际落在 `campus-wall-673`。需要理清：要么改用自有域名，要么用 `-673`，要么重建 Pages 项目。
-2. **后端没有线上实例**：
-   - Flask 主项目：无 PythonAnywhere/VPS 凭据，无部署脚本被验证。
-   - Worker：无 CI 工作流部署它；本地 `pywrangler dev` 因 uv 创建 `cpython-3.13.2-emscripten-wasm32-musl` venv 失败（ModuleNotFoundError: 'python'）跑不起来；远端 D1 未验证。
-3. **前后端未联通**：即便前端上线，`API_BASE` 未指向任何可用后端 → 全站数据接口 404/回落 HTML。
-4. **密钥裸奔**：JWT_SECRET 三处全是 dev 值，生产必须换成 `wrangler secret` / 环境变量。
-5. **backend-worker 未进版本库**：CI 无法构建它，等于"只存在于这台机器上"。
+1. ~~前端域名被占~~ → 已澄清：`campus-wall-673.pages.dev` 即本项目 Pages 正式域名，CI 正常。
+2. ~~后端没有线上实例~~ → 已有 `campus-wall-api.sifangzhiji.workers.dev`（D1 绑定工作，wrangler 通道可用）；新代码经 CI 重复部署中。
+3. ~~前后端未联通~~ → `_worker.js` 反代 + `API_BASE` 已通。
+4. 密钥：`JWT_SECRET` 已走 secret 注入（CI `wrangler secret put`）。
+5. ~~backend-worker 未进版本库~~ → 已入库，CI 双工作流（worker + pages）。
+6. 【新风险】D1 免费层 row-read 50k/天：正在做查询合并降载 + KV 试验轨兜底（见 PLAN §1.0）。
 
 ---
 
