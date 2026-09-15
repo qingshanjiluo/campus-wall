@@ -3,7 +3,11 @@ import sqlite3
 import bcrypt
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'campushub.db')
+DB_PATH = os.environ.get('DATABASE_PATH') or os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), 'instance', 'campushub.db')
+_db_dir = os.path.dirname(DB_PATH)
+if _db_dir:
+    os.makedirs(_db_dir, exist_ok=True)
 
 
 def get_db():

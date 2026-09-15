@@ -1,0 +1,26 @@
+# 无 Docker 场景：systemd 直跑 gunicorn（配合 /etc/campuswall.env）
+# 部署布局：代码在 /srv/campuswall，venv 在 /srv/campuswall/venv，数据在 /srv/campuswall/data
+# 启用：sudo cp campuswall.service /etc/systemd/system/ && sudo systemctl enable --now campuswall
+[Unit]
+Description=CampusWall Flask (gunicorn)
+After=network.target
+
+[Service]
+Type=notify
+User=campuswall
+Group=www-data
+WorkingDirectory=/srv/campuswall/campus-wall
+EnvironmentFile=/etc/campuswall.env
+Environment=DATABASE_PATH=/srv/campuswall/data/campushub.db
+ExecStart=/srv/campuswall/venv/bin/gunicorn -w 4 --threads 2 -b 127.0.0.1:8000 --timeout 60 run:app
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/srv/campuswall/data
+
+[Install]
+WantedBy=multi-user.target

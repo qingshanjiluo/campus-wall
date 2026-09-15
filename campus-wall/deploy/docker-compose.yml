@@ -1,0 +1,79 @@
+# CampusWall 生产编排：nginx(反代+缓存+gzip) → app(gunicorn/Flask) → SQLite(/data volume)
+# 用法：cd campus-wall/deploy && cp .env.example .env（改密钥！）&& docker compose up -d --build
+name: campuswall
+
+services:
+  app:
+    build:
+      context: ../..                       # 仓库根（Dockerfile COPY campus-wall/...）
+      dockerfile: campus-wall/deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: production
+      JWT_SECRET: ${JWT_SECRET:?请先在 .env 中设置 JWT_SECRET}
+      SECRET_KEY: ${SECRET_KEY:?请先在 .env 中设置 SECRET_KEY}
+      DATABASE_PATH: /data/campushub.db
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      RATELIMIT_ENABLED: "1"
+      SITE_BASE_URL: ${SITE_BASE_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_TLS: ${SMTP_TLS:-1}
+      TZ: Asia/Shanghai
+    volumes:
+      - campus_data:/data
+      - campus_uploads:/srv/campuswall/frontend/static/uploads
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/stations',timeout=4).status==200 else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 20s
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/campuswall.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot_www:/var/www/certbot
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - campus_uploads:/srv/uploads:ro        # 上传件直出（与 app 共享 volume）
+      - proxy_cache:/var/cache/nginx
+    depends_on:
+      app:
+        condition: service_healthy
+
+  # 每日 03:30 备份 SQLite + 上传目录（滚动保留 7 份）
+  backup:
+    image: python:3.12-slim
+    restart: unless-stopped
+    volumes:
+      - campus_data:/data
+      - campus_uploads:/uploads:ro
+      - ./scripts:/scripts:ro
+      - campus_backups:/backups
+    entrypoint: /bin/sh
+    command: -c "echo '30 3 * * * /usr/local/bin/python /scripts/backup.py' | crontab - && crond -f -L /dev/stdout"
+
+  # HTTPS 证书（首次启用：docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d 域名）
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - /etc/letsencrypt:/etc/letsencrypt
+    entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+    profiles: ["tls"]
+
+volumes:
+  campus_data:
+  campus_uploads:
+  campus_backups:
+  certbot_www:
+  proxy_cache:
