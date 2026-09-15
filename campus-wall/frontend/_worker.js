@@ -9,29 +9,29 @@
  */
 
 const ROUTES = {
-  '/': '/pages/index.html',
-  '/waterfall': '/pages/waterfall.html',
-  '/trade': '/pages/trade.html',
-  '/romance': '/pages/romance.html',
-  '/gossip': '/pages/gossip.html',
-  '/shop': '/pages/shop.html',
-  '/search': '/pages/search.html',
-  '/checkin': '/pages/checkin.html',
-  '/favorites': '/pages/favorites.html',
-  '/notifications': '/pages/notifications.html',
-  '/create': '/pages/create.html',
-  '/create-station': '/pages/create_station.html',
-  '/admin': '/pages/admin.html',
-  '/reset-password': '/pages/reset_password.html',
-  '/about': '/pages/about.html',
-  '/terms': '/pages/terms.html',
-  '/privacy': '/pages/privacy.html',
+  '/': '/pages/',
+  '/waterfall': '/pages/waterfall',
+  '/trade': '/pages/trade',
+  '/romance': '/pages/romance',
+  '/gossip': '/pages/gossip',
+  '/shop': '/pages/shop',
+  '/search': '/pages/search',
+  '/checkin': '/pages/checkin',
+  '/favorites': '/pages/favorites',
+  '/notifications': '/pages/notifications',
+  '/create': '/pages/create',
+  '/create-station': '/pages/create_station',
+  '/admin': '/pages/admin',
+  '/reset-password': '/pages/reset_password',
+  '/about': '/pages/about',
+  '/terms': '/pages/terms',
+  '/privacy': '/pages/privacy',
 };
 
 const PREFIXES = [
-  ['/post/', '/pages/post.html'],
-  ['/station/', '/pages/station.html'],
-  ['/profile/', '/pages/profile.html'],
+  ['/post/', '/pages/post'],
+  ['/station/', '/pages/station'],
+  ['/profile/', '/pages/profile'],
 ];
 
 async function proxyToWorker(request, env, targetPath) {
@@ -90,6 +90,10 @@ export default {
       const req = new Request(url.origin + ROUTES[path], request);
       return env.ASSETS.fetch(req);
     }
+    if (path === '/pages' || path === '/pages/') {
+      const req = new Request(url.origin + '/pages/index.html', request);
+      return env.ASSETS.fetch(req);
+    }
     for (const [prefix, page] of PREFIXES) {
       if (path.startsWith(prefix)) {
         const req = new Request(url.origin + page, request);
@@ -97,21 +101,18 @@ export default {
       }
     }
 
-    // 4) 静态资源
+    // 4) 静态资源（Pages ASSETS 原生支持 clean URL：/foo 命中 foo.html，不会 308 回环）
     const assetResp = await env.ASSETS.fetch(request);
-    if (assetResp.status !== 404) return assetResp;
-
-    // 5) 无扩展名兜底：/foo -> foo.html（若存在）
-    if (!path.includes('.', path.lastIndexOf('/'))) {
-      const withHtml = new Request(url.origin + path + '.html', request);
-      const htmlResp = await env.ASSETS.fetch(withHtml);
-      if (htmlResp.status === 200) return htmlResp;
+    if (assetResp.status === 404) {
+      const notFound = new Request(url.origin + '/pages/404', request);
+      const nfResp = await env.ASSETS.fetch(notFound);
+      return new Response(nfResp.body, {
+        status: 404,
+        headers: Object.assign({}, Object.fromEntries(nfResp.headers || new Headers()), {
+          'Content-Type': 'text/html; charset=utf-8',
+        }),
+      });
     }
-
-    // 6) 404
-    const notFound = new Request(url.origin + '/pages/404.html', request);
-    return new Response((await env.ASSETS.fetch(notFound)).body, {
-      status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
+    return assetResp;
   },
 };
