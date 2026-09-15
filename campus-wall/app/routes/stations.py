@@ -5,9 +5,10 @@ from flask import Blueprint, request, jsonify, g, current_app
 from app.models import (
     create_station, get_stations, get_station_by_id, search_stations,
     join_station, leave_station, is_station_member, get_station_member_role,
+    get_station_membership, get_station_memberships,
     get_station_members, get_user_stations, remove_station_member, transfer_station_ownership,
     update_station, delete_station, get_station_stats, get_station_categories,
-    get_posts, get_post_count
+    get_posts, get_post_count, shape_post, is_liked_batch
 )
 from app.utils.auth import token_required, optional_auth
 
@@ -35,14 +36,12 @@ def list_stations():
     category = request.args.get('category', '').strip() or None
 
     stations = get_stations(limit=limit, offset=offset, sort=sort, tag=tag, category=category)
+    roles = get_station_memberships(g.current_user['id'], [s['id'] for s in stations]) if (g.current_user and stations) else {}
     for s in stations:
         s['tags'] = json.loads(s['tags']) if s['tags'] else []
-        if g.current_user:
-            s['is_member'] = is_station_member(g.current_user['id'], s['id'])
-            s['is_owner'] = get_station_member_role(g.current_user['id'], s['id']) == 'owner'
-        else:
-            s['is_member'] = False
-            s['is_owner'] = False
+        role = roles.get(s['id'])
+        s['is_member'] = role is not None
+        s['is_owner'] = role == 'owner'
     return jsonify(stations)
 
 
@@ -59,8 +58,9 @@ def get_station(sid):
         return jsonify({'error': '子站不存在'}), 404
     station['tags'] = json.loads(station['tags']) if station['tags'] else []
     if g.current_user:
-        station['is_member'] = is_station_member(g.current_user['id'], sid)
-        station['is_owner'] = get_station_member_role(g.current_user['id'], sid) == 'owner'
+        role = get_station_membership(g.current_user['id'], sid)
+        station['is_member'] = role is not None
+        station['is_owner'] = role == 'owner'
     else:
         station['is_member'] = False
         station['is_owner'] = False
@@ -122,7 +122,27 @@ def station_posts(sid):
     sort = request.args.get('sort', 'newest')
     posts = get_posts(station_id=sid, limit=limit, offset=offset, sort=sort)
     total = get_post_count(station_id=sid)
+    # 与 /api/posts 对齐：登录态批量点赞 + 匿名脱敏 + vote/link shaping（防匿名帖身份泄露）
+    liked = is_liked_batch(g.current_user['id'], 'post', [p['id'] for p in posts]) if (g.current_user and posts) else set()
+    for p in posts:
+        if g.current_user:
+            p['is_liked'] = p['id'] in liked
+        shape_post(p, g.current_user)
     return jsonify({'posts': posts, 'total': total})
+
+
+@stations_bp.route('/by/<int:uid>', methods=['GET'])
+def user_stations(uid):
+    """GET /api/stations/by/<uid>：他人主页子站 Tab，仅公开子站关系、不含 role。"""
+    stations = get_user_stations(uid)
+    out = []
+    for s in stations:
+        if s.get('is_public') == 0:
+            continue
+        s['tags'] = json.loads(s['tags']) if s.get('tags') else []
+        s.pop('role', None)
+        out.append(s)
+    return jsonify(out)
 
 
 @stations_bp.route('/search', methods=['GET'])

@@ -6,7 +6,8 @@ from app.models import (
     update_post, delete_post, increment_views, get_liked_posts,
     record_post_version, get_post_versions,
     create_comment, get_comments, delete_comment,
-    toggle_like, is_liked, create_notification, get_station_by_id
+    toggle_like, is_liked, is_liked_batch, create_notification, get_station_by_id,
+    ALLOWED_POST_TYPES, build_post_extra, shape_post, cast_vote, parse_post_extra
 )
 from app.utils.auth import token_required, optional_auth
 
@@ -26,16 +27,8 @@ def liked_posts():
 
 
 def _anonymize_post(post, viewer=None):
-    """匿名帖：向普通观众隐藏作者真实身份"""
-    if not post:
-        return post
-    if post.get('is_anonymous'):
-        is_owner = viewer and post.get('author_id') == viewer['id']
-        is_admin = viewer and viewer.get('role') == 'admin'
-        if not is_owner and not is_admin:
-            post['author_name'] = '匿名用户'
-            post['author_avatar'] = '/static/images/default-avatar.svg'
-    return post
+    """兼容旧名：匿名脱敏已并入 shape_post（同时展开 vote/link 载荷）。"""
+    return shape_post(post, viewer)
 
 
 @posts_bp.route('', methods=['GET'])
@@ -51,13 +44,11 @@ def list_posts():
     posts = get_posts(station_id=station_id, author_id=author_id, limit=limit, offset=offset, sort=sort, post_type=post_type)
     total = get_post_count(station_id=station_id, author_id=author_id, post_type=post_type)
 
-    if g.current_user:
-        for p in posts:
-            p['is_liked'] = is_liked(g.current_user['id'], 'post', p['id'])
-            _anonymize_post(p, g.current_user)
-    else:
-        for p in posts:
-            _anonymize_post(p)
+    liked = is_liked_batch(g.current_user['id'], 'post', [p['id'] for p in posts]) if (g.current_user and posts) else set()
+    for p in posts:
+        if g.current_user:
+            p['is_liked'] = p['id'] in liked
+        shape_post(p, g.current_user)
     return jsonify({'posts': posts, 'total': total})
 
 
@@ -128,8 +119,20 @@ def create():
         if not is_station_member(g.current_user['id'], station_id):
             return jsonify({'error': '私密子站仅成员可发帖，请先加入'}), 403
 
+    post_type = data.get('post_type', 'text')
+    if post_type not in ALLOWED_POST_TYPES:
+        post_type = 'text'
+    extra = build_post_extra(post_type, data)
+    if post_type == 'vote' and 'options' not in extra:
+        return jsonify({'error': '投票帖至少需要2个选项'}), 400
+    if post_type == 'link' and not extra.get('link_url'):
+        return jsonify({'error': '请填写有效链接'}), 400
+
     pid = create_post(title, content, g.current_user['id'], station_id, image,
-                      is_anonymous=1 if is_anonymous else 0)
+                      is_anonymous=1 if is_anonymous else 0,
+                      post_type=post_type,
+                      images=data.get('images') if isinstance(data.get('images'), list) else [],
+                      extra=extra)
     if not pid:
         return jsonify({'error': '发帖失败'}), 500
 
@@ -149,6 +152,18 @@ def update(pid):
 
     data = request.get_json(silent=True) or {}
     update_fields = {k: data[k] for k in ('title', 'content', 'image') if k in data}
+    if 'images' in data and isinstance(data['images'], list):
+        import json as _json
+        update_fields['images'] = _json.dumps(data['images'], ensure_ascii=False)
+    # 编辑时允许重建 link/vote 载荷；选项未变则保留票数（与 Worker 语义一致）
+    if post.get('post_type') in ('link', 'vote') and ('link_url' in data or 'vote_options' in data):
+        import json as _json
+        new_extra = build_post_extra(post['post_type'], data)
+        old_extra = parse_post_extra(post)
+        if post['post_type'] == 'vote' and new_extra.get('options') == old_extra.get('options'):
+            new_extra['counts'] = old_extra.get('counts') or {}
+            new_extra['voters'] = old_extra.get('voters') or {}
+        update_fields['extra'] = _json.dumps(new_extra, ensure_ascii=False)
     # 置顶/加精仅管理员可操作，防止普通用户越权
     if 'is_pinned' in data:
         if g.current_user['role'] != 'admin':
@@ -191,6 +206,29 @@ def like_post(pid):
     return jsonify({'liked': liked, 'message': '已点赞' if liked else '已取消点赞'})
 
 
+@posts_bp.route('/<int:pid>/vote', methods=['POST'])
+@token_required
+def vote_post(pid):
+    """POST /api/posts/<pid>/vote {option_index:int}：一人一票。"""
+    post = get_post_by_id(pid)
+    if not post:
+        return jsonify({'error': '帖子不存在'}), 404
+    if post.get('post_type') != 'vote':
+        return jsonify({'error': '该帖子不是投票帖'}), 400
+    data = request.get_json(silent=True) or {}
+    try:
+        idx = int(data.get('option_index'))
+    except (TypeError, ValueError):
+        return jsonify({'error': '选项无效'}), 400
+    extra, err = cast_vote(post, g.current_user['id'], idx)
+    if err:
+        return jsonify({'error': err}), 400
+    shaped = shape_post(dict(post, extra=__import__('json').dumps(extra, ensure_ascii=False)), g.current_user)
+    return jsonify({'message': '投票成功',
+                    'vote_counts': shaped.get('vote_counts'),
+                    'user_voted': True})
+
+
 @posts_bp.route('/<int:pid>/comments', methods=['GET'])
 @optional_auth
 def list_comments(pid):
@@ -201,8 +239,9 @@ def list_comments(pid):
     offset = request.args.get('offset', 0, type=int)
     comments = get_comments(pid, limit=limit, offset=offset)
     if g.current_user:
+        liked = is_liked_batch(g.current_user['id'], 'comment', [c['id'] for c in comments]) if comments else set()
         for c in comments:
-            c['is_liked'] = is_liked(g.current_user['id'], 'comment', c['id'])
+            c['is_liked'] = c['id'] in liked
     return jsonify(comments)
 
 

@@ -53,24 +53,25 @@ Step "link create"  {
   $r = Api POST "/api/posts" @{station_id=1; title="e2e link"; content="ref"; post_type="link"; link_url="https://example.com"} $tk
   $script:pid3 = if ($r.id) {$r.id} else {$r.post.id}; Assert($pid3) "no link post" }
 Step "link shaping" { $r = Api GET "/api/posts/$pid3"; Assert($r.link_url -eq "https://example.com") "link_url=$($r.link_url)" }
-Step "like toggle"  { $r = Api POST "/api/posts/$pid1/like" @{} $tk; Assert($r -ne $null) "fail" }
+Step "like toggle"  { $r = Api POST "/api/posts/$pid1/like" @{} $tk; Assert($null -ne $r) "fail" }
 Step "comment"      { $r = Api POST "/api/posts/$pid1/comments" @{content="e2e comment"} $tk; Assert($r) "fail" }
-Step "comments list"{ $r = Api GET "/api/posts/$pid1/comments"; Assert($r -ne $null) "fail" }
+Step "comments list"{ $r = Api GET "/api/posts/$pid1/comments"; Assert($null -ne $r) "fail" }
 Step "checkin"      { $r = Api POST "/api/checkin" @{} $tk; Assert($r) "fail" }
 Step "checkin status" { $r = Api GET "/api/checkin/status" $null $tk; Assert($r) "fail" }
 Step "shop items"   { $r = Api GET "/api/shop/items"; Assert($r.Count -ge 1) "no items" }
-Step "growth"       { $r = Api GET "/api/growth" $null $tk; Assert($r) "fail" }
+Step "growth coins"  { $r = Api GET "/api/shop/coins" $null $tk; Assert($null -ne $r) "fail" }
 Step "romance save" { $r = Api POST "/api/romance/profile" @{nickname="e2e"; gender="u"; age=20; department="CS"; hobbies=@("code","draw")} $tk; Assert($r) "save1 fail" }
 Step "romance update-path" { $r = Api POST "/api/romance/profile" @{nickname="e2e2"; gender="u"; hobbies=@("a","b","c")} $tk; Assert($r) "UPDATE list-hobbies regression" }
 Step "gossip create"{ $r = Api POST "/api/gossip" @{content="e2e gossip"} $tk; Assert($r) "fail" }
-Step "trades list"  { $r = Api GET "/api/trades"; Assert($r -ne $null) "fail" }
+Step "trade list"   { $r = Api GET "/api/trade"; Assert($null -ne $r) "fail" }
 Step "trade create" { $r = Api POST "/api/trade" @{title="e2e item"; content="good cond"; price=9.9; condition="like_new"} $tk; Assert($r.post_id -or $r.trade_id) "fail" }
-Step "search"       { $r = Api GET "/api/search?q=e2e"; Assert($r) "fail" }
-Step "recommend posts" { $r = Api GET "/api/recommend/posts"; Assert($r -ne $null) "fail" }
+Step "search posts" { $r = Api GET "/api/recommend/search?q=e2e"; Assert($null -ne $r) "fail" }
+Step "search stations" { $r = Api GET "/api/stations/search?q=e2e"; Assert($null -ne $r) "fail" }
+Step "recommend posts" { $r = Api GET "/api/recommend/posts"; Assert($null -ne $r) "fail" }
 Step "admin login"  { $r = Api POST "/api/auth/login" @{username="admin"; password="admin123"}; Assert($r.token) "no admin token"; $script:atk=$r.token }
 Step "admin stats today fields" { $r = Api GET "/api/admin/stats" $null $atk; Assert($r.users -ge 1) "no users count"; Assert($r.PSObject.Properties.Name -contains "today_posts") "missing today_posts" }
 Step "admin users"  { $r = Api GET "/api/admin/users?limit=5" $null $atk; Assert($r) "fail" }
-Step "notifications"{ $r = Api GET "/api/notifications" $null $tk; Assert($r -ne $null) "fail" }
+Step "notifications"{ $r = Api GET "/api/social/notifications" $null $tk; Assert($null -ne $r) "fail" }
 Step "upload post image" {
   Assert($tk) "no auth token (earlier steps failed)"
   $png = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")

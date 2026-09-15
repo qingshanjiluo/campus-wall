@@ -314,6 +314,23 @@ def get_station_member_role(user_id, station_id):
     return row['role'] if row else None
 
 
+def get_station_membership(user_id, station_id):
+    """一行查询取回本人与该子站的关系角色（None=未加入）。"""
+    return get_station_member_role(user_id, station_id)
+
+
+def get_station_memberships(user_id, station_ids):
+    """批量成员关系：{station_id: role}（列表热路径 O(N)→O(1)）。"""
+    ids = [i for i in station_ids if i is not None]
+    if not ids:
+        return {}
+    ph = ', '.join('?' for _ in ids)
+    rows = query_db(
+        'SELECT station_id, role FROM station_members WHERE user_id = ? AND station_id IN (%s)' % ph,
+        [user_id] + list(ids))
+    return {r['station_id']: r['role'] for r in rows}
+
+
 def get_station_members(station_id):
     """子站成员列表（含用户信息）"""
     return query_db(
@@ -412,10 +429,96 @@ def delete_station(sid):
 
 # ── Post helpers ──
 
-def create_post(title, content, author_id, station_id, image='', is_anonymous=0):
+ALLOWED_POST_TYPES = ('text', 'image', 'link', 'vote')
+
+
+def parse_post_extra(post):
+    import json as _json
+    try:
+        extra = _json.loads((post or {}).get('extra') or '{}')
+        return extra if isinstance(extra, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
+def build_post_extra(post_type, data):
+    """按帖子类型构建 extra JSON（link/vote 的类型化载荷）。同步自 backend-worker。"""
+    import json as _json
+    data = data or {}
+    extra = {}
+    if post_type == 'link':
+        url = str(data.get('link_url') or '').strip()[:500]
+        if url and not url.lower().startswith(('javascript:', 'data:', 'vbscript:')):
+            extra['link_url'] = url
+    elif post_type == 'vote':
+        raw = data.get('vote_options') or []
+        if isinstance(raw, str):
+            raw = raw.split('\n')
+        options = [str(o).strip()[:100] for o in raw if str(o).strip()][:10]
+        if len(options) >= 2:
+            extra['options'] = options
+            extra['counts'] = {}
+            extra['voters'] = {}
+    return extra
+
+
+def shape_post(post, viewer=None):
+    """展开 extra 到前端消费字段（vote_options/vote_counts/user_voted/link_url），
+    并做匿名脱敏。响应形状与 Worker 版逐字段一致。"""
+    if not post:
+        return post
+    if post.get('is_anonymous'):
+        is_owner = viewer and post.get('author_id') == viewer.get('id')
+        is_admin = viewer and viewer.get('role') == 'admin'
+        if not is_owner and not is_admin:
+            post['author_name'] = '匿名用户'
+            post['author_avatar'] = '/static/images/default-avatar.svg'
+    extra = parse_post_extra(post)
+    ptype = post.get('post_type')
+    if ptype == 'vote' and extra.get('options'):
+        options = extra['options']
+        post['vote_options'] = '\n'.join(options)
+        counts = extra.get('counts') or {}
+        post['vote_counts'] = {str(i): int(counts.get(str(i), 0)) for i in range(len(options))}
+        voters = extra.get('voters') or {}
+        post['user_voted'] = bool(viewer and str(viewer.get('id')) in voters)
+    elif ptype == 'link':
+        post['link_url'] = extra.get('link_url', '')
+    return post
+
+
+def cast_vote(post, user_id, option_index):
+    """对 vote 帖投票（一人一票）。返回 (extra_dict, error_message)。"""
+    import json as _json
+    extra = parse_post_extra(post)
+    options = extra.get('options') or []
+    if not options:
+        return None, '投票选项缺失'
+    if not isinstance(option_index, int) or option_index < 0 or option_index >= len(options):
+        return None, '选项无效'
+    voters = extra.get('voters') or {}
+    if str(user_id) in voters:
+        return None, '你已经投过票了'
+    counts = extra.get('counts') or {}
+    counts[str(option_index)] = int(counts.get(str(option_index), 0)) + 1
+    voters[str(user_id)] = option_index
+    extra['counts'] = counts
+    extra['voters'] = voters
+    execute_db('UPDATE posts SET extra = ? WHERE id = ?',
+               (_json.dumps(extra, ensure_ascii=False), post['id']))
+    return extra, None
+
+
+def create_post(title, content, author_id, station_id, image='', is_anonymous=0,
+                post_type='text', images=None, extra=None):
+    import json as _json
     pid = execute_db(
-        'INSERT INTO posts (title, content, author_id, station_id, image, is_anonymous) VALUES (?, ?, ?, ?, ?, ?)',
-        (title, content, author_id, station_id, image, 1 if is_anonymous else 0)
+        'INSERT INTO posts (title, content, author_id, station_id, image, is_anonymous, post_type, images, extra) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (title, content, author_id, station_id, image, 1 if is_anonymous else 0,
+         post_type if post_type in ALLOWED_POST_TYPES else 'text',
+         _json.dumps(images or [], ensure_ascii=False),
+         _json.dumps(extra or {}, ensure_ascii=False))
     )
     if pid:
         execute_db('UPDATE stations SET post_count = post_count + 1 WHERE id = ?', (station_id,))
@@ -497,7 +600,7 @@ def get_liked_posts(user_id, limit=50, offset=0):
 
 
 def update_post(pid, **kwargs):
-    allowed = {'title', 'content', 'image', 'is_pinned'}
+    allowed = {'title', 'content', 'image', 'is_pinned', 'post_type', 'extra', 'images'}
     fields = {k: v for k, v in kwargs.items() if k in allowed}
     if not fields:
         return False
@@ -588,6 +691,19 @@ def is_liked(user_id, target_type, target_id):
         'SELECT 1 FROM likes WHERE user_id = ? AND target_type = ? AND target_id = ?',
         (user_id, target_type, target_id), one=True
     ) is not None
+
+
+def is_liked_batch(user_id, target_type, target_ids):
+    """批量点赞状态：一条 IN 查询（列表热路径 O(N)→O(1)，同步自 backend-worker）。"""
+    ids = [i for i in target_ids if i is not None]
+    if not ids:
+        return set()
+    ph = ', '.join('?' for _ in ids)
+    rows = query_db(
+        'SELECT target_id FROM likes WHERE user_id = ? AND target_type = ? AND target_id IN (%s)' % ph,
+        [user_id, target_type] + list(ids))
+    return {r['target_id'] for r in rows}
+
 
 
 # ── Follow helpers ──

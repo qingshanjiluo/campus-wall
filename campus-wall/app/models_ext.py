@@ -476,6 +476,18 @@ def create_romance_profile(user_id, **kwargs):
         fields = {k: v for k, v in kwargs.items() if k in ('nickname','gender','age','department','hobbies','looking_for','photo','is_visible')}
         if not fields:
             return False
+        # 与 INSERT 分支一致：列表列序列化、布尔转 int、age 强转（修复 UPDATE 传 list 直接 500）
+        if 'hobbies' in fields and not isinstance(fields['hobbies'], str):
+            fields['hobbies'] = json.dumps(fields['hobbies'] or [], ensure_ascii=False)
+        if 'looking_for' in fields and not isinstance(fields['looking_for'], str):
+            fields['looking_for'] = json.dumps(fields['looking_for'] or [], ensure_ascii=False)
+        if 'is_visible' in fields:
+            fields['is_visible'] = 1 if fields['is_visible'] else 0
+        if 'age' in fields:
+            try:
+                fields['age'] = int(fields['age'] or 0)
+            except (TypeError, ValueError):
+                fields['age'] = 0
         sets = ', '.join(f'{k} = ?' for k in fields)
         vals = list(fields.values()) + [user_id]
         execute_db(f'UPDATE romance_profiles SET {sets} WHERE user_id = ?', vals)
