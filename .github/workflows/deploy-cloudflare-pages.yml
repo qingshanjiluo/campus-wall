@@ -46,5 +46,5 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: campus-wall
           directory: campus-wall/frontend
-          # Direct Upload：自动携带 functions/ + _redirects + _headers
+          # Direct Upload：自动携带 _worker.js（高级控制：/api 反代 + 干净路由 + 404）
           wranglerVersion: "3"
