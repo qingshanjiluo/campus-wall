@@ -10,15 +10,13 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - name: Probe Pages projects
+      - name: Dump Pages project config
         run: |
           T="$CLOUDFLARE_API_TOKEN"; A="$CLOUDFLARE_ACCOUNT_ID"
-          H=(-H "Authorization: Bearer $T" -H 'Content-Type: application/json')
-          echo "-- all pages projects --"
-          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects" "${H[@]}" \
-            | jq -r '.result[] | select(.name|test("campus")) | "\(.name) | subdomain=\(.subdomain) | prod_branch=\(.production_branch)"'
-          for P in campus-wall campus-wall-673; do
-            echo "-- detail: $P (3 recent deployments) --"
-            curl -s "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/$P/deployments?per_page=3" "${H[@]}" \
-              | jq -r '.result[]? | "\(.id) \(.modified_on) branch=\(.deployment_tag.branch // .deployment_environment // "?") env=\(.deployment_environment // "?") url=\(.url) short=\(.short_id)"' || true
-          done
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall" \
+            -H "Authorization: Bearer $T" \
+            | jq '{success, config: {name:.result.name, subdomain:.result.subdomain, production_branch:.result.production_branch, source:(.result.source//.result.deployment_configs.production.deployment_trigger), has_pages_deployments: (.result.has_deployments), prod_env: .result.deployment_configs.production.env_vars, prod_build: {build_cmd:(.result.build_build_command//"n/a")}, preview_env: .result.deployment_configs.preview.env_vars}}'
+          echo "-- current production deployment --"
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall/production" \
+            -H "Authorization: Bearer $T" \
+            | jq '{success, id:.result.id, url:.result.url, created:.result.created_on, env:.result.deployment_config.env_and_secrets | keys}'
