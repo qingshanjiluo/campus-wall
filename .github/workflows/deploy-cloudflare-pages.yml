@@ -32,7 +32,7 @@ jobs:
             --data "{\"deployment_configs\":{\"production\":{\"env_vars\":{\"API_BASE\":{\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}}},\"preview\":{\"env_vars\":{\"API_BASE\":{\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}}}}}" \
             | jq -c '{success, errors}'
           echo "-- verify --"
-          curl -s "$P" "${H[@]}" | jq -r '.result.deployment_configs.production.env_vars.API_BASE | "type=\(.type) value=\(.value)"'
+          curl -s "$P" "${H[@]}" | jq -r '.result.deployment_configs.production.env_vars.API_BASE | if . == null then "MISSING" elif .type=="secret_text" then "configured(secret_text; value masked)" else "type=\(.type) value=\(.value)" end'
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
