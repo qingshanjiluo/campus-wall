@@ -1,0 +1,14 @@
+{
+	"name": "campus-wall-api",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"db:migrate": "uv run pywrangler d1 execute DB --remote --file migrations/0001_init.sql",
+		"dev": "uv run pywrangler dev",
+		"start": "uv run pywrangler dev",
+		"deploy": "npm run db:migrate && uv run pywrangler deploy"
+	},
+	"devDependencies": {
+		"wrangler": "^4.114.0"
+	}
+}

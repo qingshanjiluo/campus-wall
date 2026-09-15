@@ -1,0 +1,90 @@
+name: Deploy CampusWall Worker (CF Python Worker + D1)
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "backend-worker/**"
+      - ".github/workflows/deploy-cloudflare-worker.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Ensure workers.dev subdomain
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          RES=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/subdomain" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" || echo '{}')
+          SUB=$(echo "$RES" | jq -r '.result.subdomain // empty')
+          if [ -z "$SUB" ]; then
+            echo "No workers.dev subdomain; creating candidate names..."
+            for CAND in campuswall sifangzhiji campus-wall-app cwapp; do
+              OK=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/workers/subdomain" \
+                -H "Authorization: Bearer ${CF_API_TOKEN}" \
+                -H 'Content-Type: application/json' \
+                -X POST --data "{\"subdomain\":\"${CAND}\"}" | jq -r '.success')
+              if [ "$OK" = "true" ]; then echo "created subdomain ${CAND}"; break; fi
+            done
+          else
+            echo "workers.dev subdomain: ${SUB}"
+          fi
+
+      - name: Ensure D1 database (create or reconcile id)
+        working-directory: backend-worker
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          npx --yes wrangler@4.131.2 --version
+          INFO=$(npx --yes wrangler@4.131.2 d1 info campus-wall-db --json 2>/dev/null || echo '')
+          UUID=$(echo "$INFO" | jq -r '.[0].uuid // .uuid // empty' 2>/dev/null || true)
+          if [ -z "$UUID" ]; then
+            echo "D1 campus-wall-db not found; creating..."
+            CREATED=$(npx --yes wrangler@4.131.2 d1 create campus-wall-db --json)
+            UUID=$(echo "$CREATED" | jq -r '.database_id // .uuid')
+          fi
+          if [ -z "$UUID" ]; then echo "failed to resolve D1 uuid" && exit 1; fi
+          echo "D1 uuid = ${UUID}"
+          sed -i "s/^database_id = .*/database_id = \"${UUID}\"/" wrangler.toml
+          grep database_id wrangler.toml
+
+      - name: Apply D1 migrations (remote, idempotent)
+        working-directory: backend-worker
+        run: |
+          npx --yes wrangler@4.131.2 d1 execute DB --remote --file migrations/0001_init.sql
+
+      - name: Put JWT secret
+        working-directory: backend-worker
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JWT: ${{ secrets.JWT_SECRET_PROD }}
+        run: |
+          if [ -z "$JWT" ]; then echo "JWT_SECRET_PROD missing" && exit 1; fi
+          printf '%s' "$JWT" | npx --yes wrangler@4.131.2 secret put JWT_SECRET
+
+      - name: Deploy Worker
+        working-directory: backend-worker
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4.131.2 deploy
+          npx --yes wrangler@4.131.2 deployments list | head -20 || true

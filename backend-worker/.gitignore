@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv*/
+*.sqlite
+*.db
+
+# Wrangler local state / secrets / build artifacts
+.wrangler/
+.dev.vars
+_worker.bundle
+dist/
+node_modules/
+
+# Test scratch
+.tmp/

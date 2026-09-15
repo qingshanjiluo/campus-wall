@@ -1,0 +1,25 @@
+name = "campus-wall-api"
+main = "src/entry.py"
+compatibility_date = "2026-08-11"
+# 本地 wrangler 4.122 捆绑的 workers-py SDK 过旧，运行时注入会 ModuleNotFoundError，
+# 显式禁用外部 SDK（代码只用 WorkerEntrypoint/Response 基础能力，兼容）。
+# 若升级 wrangler >= 捆绑 workers-py>=1.90 的版本，可移除该 flag。
+compatibility_flags = ["python_workers", "disable_python_external_sdk"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "campus-wall-db"
+database_id = "95ad3424-e78c-4480-ac6b-d675d1f7c3c9"
+migrations_dir = "migrations"
+
+# R2 bucket 尚未启用（账户需先开通 R2）：
+# 开通后取消注释以下配置，并将 uploads.py 中 STORAGE_BACKEND 改为 'r2'
+# [[r2_buckets]]
+# binding = "UPLOADS"
+# bucket_name = "campus-wall-uploads"
+
+# JWT_SECRET 不再明文存放：
+#   本地开发 → .dev.vars（已 gitignore）
+#   生产     → CI 里 wrangler secret put JWT_SECRET（来自 repo secret JWT_SECRET_PROD）
+[vars]
+JWT_EXPIRATION_DAYS = "30"

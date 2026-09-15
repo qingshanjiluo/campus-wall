@@ -29,3 +29,14 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Wrangler / build caches
+.wrangler/
+_worker.bundle
+
+# Large binaries / downloads
+eng.traineddata
+yolov8n.pt
+mimoclaw_workspace*.tar.gz
+.opencode-autopilot/
+40
