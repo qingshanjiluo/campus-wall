@@ -27,17 +27,12 @@ jobs:
           A="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"; T="${{ secrets.CLOUDFLARE_API_TOKEN }}"
           P="https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall"
           H=(-H "Authorization: Bearer $T" -H 'Content-Type: application/json')
-          echo "-- try object-map form --"
-          R1=$(curl -s -X PATCH "$P" "${H[@]}" --data "{\"deployment_configs\":{\"production\":{\"env_vars\":{\"API_BASE\":{\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}}}}}")
-          echo "$R1" | jq -c '{success, errors}'
-          if ! echo "$R1" | grep -q '"success":true'; then
-            echo "-- try array form --"
-            R2=$(curl -s -X PATCH "$P" "${H[@]}" --data "{\"deployment_configs\":{\"production\":{\"env_vars\":[{\"name\":\"API_BASE\",\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}]}}}")
-            echo "$R2" | jq -c '{success, errors}'
-          fi
+          echo "-- set text env (also normalize preview) --"
+          curl -s -X PATCH "$P" "${H[@]}" \
+            --data "{\"deployment_configs\":{\"production\":{\"env_vars\":{\"API_BASE\":{\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}}},\"preview\":{\"env_vars\":{\"API_BASE\":{\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}}}}}" \
+            | jq -c '{success, errors}'
           echo "-- verify --"
-          curl -s "$P" -H "Authorization: Bearer $T" \
-            | jq -r '.result.deployment_configs.production.env_vars | if type=="array" then map(select(.name=="API_BASE"))[0].value else (.API_BASE.value // "MISSING") end'
+          curl -s "$P" "${H[@]}" | jq -r '.result.deployment_configs.production.env_vars.API_BASE | "type=\(.type) value=\(.value)"'
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
