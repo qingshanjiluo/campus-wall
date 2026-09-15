@@ -69,6 +69,13 @@ jobs:
         run: |
           npx --yes wrangler@4.131.2 d1 execute campus-wall-db --remote --file migrations/0001_init.sql
 
+      # 先部署：冲刷历史遗留的 plain-text JWT_SECRET vars 绑定（否则 secret put 撞 10053）
+      - name: Deploy Worker
+        working-directory: backend-worker
+        run: |
+          npx --yes wrangler@4.131.2 deploy
+          npx --yes wrangler@4.131.2 deployments list | head -20 || true
+
       - name: Put JWT secret
         working-directory: backend-worker
         env:
@@ -85,12 +92,6 @@ jobs:
               cat /tmp/sec.err; exit 1
             fi
           fi
-
-      - name: Deploy Worker
-        working-directory: backend-worker
-        run: |
-          npx --yes wrangler@4.131.2 deploy
-          npx --yes wrangler@4.131.2 deployments list | head -20 || true
 
       # ── 可选：KV 实验 worker（仅 workflow_dispatch 且勾选 deploy_kv_experiment）──
       # 放在主部署之后：任何失败都不影响生产 D1 worker 的部署结果。
