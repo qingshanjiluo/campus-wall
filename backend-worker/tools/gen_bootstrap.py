@@ -36,16 +36,29 @@ def _iter_statements(sql):
 
 
 async def ensure_ready():
-    """幂等自举：建表 + 种子。失败抛出异常由入口统一转 500。"""
+    """幂等自举 + KV 模式每请求缓存轮换。失败抛出异常由入口统一转 500。
+
+    读预算策略（D1 免费层 50k 行/日）：
+    - 每个请求先 _db.begin_request()（KV 模式轮换分片缓存；D1 模式空操作）。
+    - isolate 首请求只做一条廉价探针 SELECT 1 FROM users LIMIT 1：
+      探到 users 行（已建表且已播种）→ 完全跳过迁移语句重放。
+    - 仅当探针为空/表不存在时才重放建表并播种；
+      KV 模式下分片初始化自带全量 schema，无需重放。
+    """
     global _READY
+    import db as _db
+    _db.begin_request()
     if _READY:
         return
-    import db as _db
-    for stmt in _iter_statements(SCHEMA_SQL):
-        await _db.execute(stmt)
-    rows = await _db.query('SELECT COUNT(*) AS c FROM users')
-    c = rows[0]['c'] if rows else 0
-    if not c:
+    probe = []
+    try:
+        probe = await _db.query('SELECT 1 AS x FROM users LIMIT 1')
+    except Exception:
+        probe = []
+    if not probe:
+        if _db.backend() != 'kv':
+            for stmt in _iter_statements(SCHEMA_SQL):
+                await _db.execute(stmt)
         await seedmod.seed()
     _READY = True
 '''

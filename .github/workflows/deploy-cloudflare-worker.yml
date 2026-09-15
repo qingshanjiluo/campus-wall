@@ -6,7 +6,13 @@ on:
     paths:
       - "backend-worker/**"
       - ".github/workflows/deploy-cloudflare-worker.yml"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      deploy_kv_experiment:
+        description: 'Also deploy KV experiment worker (campus-wall-api-kv)'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   deploy:
@@ -45,29 +51,23 @@ jobs:
             echo "workers.dev subdomain: ${SUB}"
           fi
 
-      - name: Ensure D1 database (CF API directly; create or reconcile id)
+      # D1 步骤全部「宽容」：CI token 可能缺 D1:Edit；即便两步都失败，
+      # 部署照常进行 —— bootstrap.ensure_ready() 首请求会自动建表+播种。
+      # database_id 固定写在 wrangler.toml（uuid 95ad3424-e78c-4480-ac6b-d675d1f7c3c9）。
+      - name: Check D1 database (non-fatal)
         working-directory: backend-worker
         run: |
-          set -e
-          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database"
-          HDR=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json')
-          LIST=$(curl -s "${API}" "${HDR[@]}")
-          UUID=$(echo "$LIST" | jq -r '.result[]? | select(.name=="campus-wall-db") | .uuid' | head -1)
-          if [ -z "$UUID" ]; then
-            echo "D1 campus-wall-db not found; creating..."
-            CREATED=$(curl -s -X POST "${API}" "${HDR[@]}" --data '{"name":"campus-wall-db"}')
-            echo "$CREATED"
-            UUID=$(echo "$CREATED" | jq -r '.result.uuid // empty')
+          if npx --yes wrangler@4.131.2 d1 info campus-wall-db >/dev/null 2>&1; then
+            echo "D1 campus-wall-db visible to wrangler ✓"
+          else
+            echo "::warning::D1 validation failed (token perms?); continuing — bootstrap self-creates tables"
           fi
-          if [ -z "$UUID" ]; then echo "failed to resolve D1 uuid" && exit 1; fi
-          echo "D1 uuid = ${UUID}"
-          sed -i "s/^database_id = .*/database_id = \"${UUID}\"/" wrangler.toml
-          grep database_id wrangler.toml
 
-      - name: Apply D1 migrations (remote, idempotent)
+      - name: Apply D1 migrations (remote, idempotent; non-fatal)
         working-directory: backend-worker
+        continue-on-error: true
         run: |
-          npx --yes wrangler@4.131.2 d1 execute DB --remote --file migrations/0001_init.sql
+          npx --yes wrangler@4.131.2 d1 execute campus-wall-db --remote --file migrations/0001_init.sql
 
       - name: Put JWT secret
         working-directory: backend-worker
@@ -83,3 +83,34 @@ jobs:
         run: |
           npx --yes wrangler@4.131.2 deploy
           npx --yes wrangler@4.131.2 deployments list | head -20 || true
+
+      # ── 可选：KV 实验 worker（仅 workflow_dispatch 且勾选 deploy_kv_experiment）──
+      # 放在主部署之后：任何失败都不影响生产 D1 worker 的部署结果。
+      - name: Ensure KV namespace (experiment)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_kv_experiment == 'true' }}
+        id: kv_exp
+        run: |
+          set -e
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces"
+          HDR=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json')
+          KVID=$(curl -s "${API}?per_page=100" "${HDR[@]}" | jq -r '.result[]? | select(.title=="campuswall-kv-experiment") | .id' | head -1)
+          if [ -z "$KVID" ]; then
+            echo "KV namespace campuswall-kv-experiment not found; creating..."
+            KVID=$(curl -s -X POST "${API}" "${HDR[@]}" --data '{"title":"campuswall-kv-experiment"}' | jq -r '.result.id // empty')
+          fi
+          if [ -z "$KVID" ]; then echo "failed to resolve KV namespace id" && exit 1; fi
+          echo "id=$KVID" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy KV experiment worker
+        if: ${{ steps.kv_exp.outputs.id != '' }}
+        working-directory: backend-worker
+        env:
+          JWT: ${{ secrets.JWT_SECRET_PROD }}
+        run: |
+          set -e
+          sed -i -E "s|^(# *)?id = .*|\1id = \"${{ steps.kv_exp.outputs.id }}\"|" wrangler.kv.experiment.toml
+          grep -n 'id = ' wrangler.kv.experiment.toml
+          if [ -n "$JWT" ]; then
+            printf '%s' "$JWT" | npx --yes wrangler@4.131.2 secret put JWT_SECRET -c wrangler.kv.experiment.toml
+          fi
+          npx --yes wrangler@4.131.2 deploy -c wrangler.kv.experiment.toml

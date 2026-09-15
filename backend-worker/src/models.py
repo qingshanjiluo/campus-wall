@@ -1,6 +1,6 @@
 """基础数据模型层 —— 移植自 app/models.py，改为异步 D1 调用。"""
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import db
 from auth import hash_password, verify_password
@@ -150,15 +150,35 @@ async def leave_station(user_id, station_id):
     await db.execute('UPDATE stations SET user_count = MAX(0, user_count - 1) WHERE id = ?', (station_id,))
 
 
-async def is_station_member(user_id, station_id):
-    return (await db.query('SELECT 1 FROM station_members WHERE user_id = ? AND station_id = ?',
-                           (user_id, station_id), one=True)) is not None
+async def get_station_membership(user_id, station_id):
+    """单查询同时回答「是否成员 + 什么角色」（None = 非成员）。
 
-
-async def get_station_member_role(user_id, station_id):
+    替代旧的 is_station_member + get_station_member_role 两次扫描同一行，
+    子站详情热路径的 D1 行数减半。
+    """
     row = await db.query('SELECT role FROM station_members WHERE user_id = ? AND station_id = ?',
                          (user_id, station_id), one=True)
     return row['role'] if row else None
+
+
+async def get_station_memberships(user_id, station_ids):
+    """批量成员关系：{station_id: role}，供子站列表一次取回全部行。"""
+    ids = [i for i in station_ids if i is not None]
+    if not ids:
+        return {}
+    ph = ', '.join('?' for _ in ids)
+    rows = await db.query(
+        'SELECT station_id, role FROM station_members WHERE user_id = ? AND station_id IN (%s)' % ph,
+        [user_id] + list(ids))
+    return {r['station_id']: r['role'] for r in rows}
+
+
+async def is_station_member(user_id, station_id):
+    return (await get_station_membership(user_id, station_id)) is not None
+
+
+async def get_station_member_role(user_id, station_id):
+    return await get_station_membership(user_id, station_id)
 
 
 async def get_station_members(station_id):
@@ -178,18 +198,19 @@ async def get_user_stations(user_id):
 
 
 async def get_station_stats(sid, days=7):
+    """子站发帖统计：一条 GROUP BY 取代 days+1 次 COUNT（响应形状不变）。"""
     days = max(1, min(30, int(days)))
+    rows = await db.query(
+        "SELECT date(created_at) AS d, COUNT(*) AS c FROM posts "
+        "WHERE station_id = ? AND is_deleted = 0 AND created_at >= date('now', ?) "
+        "GROUP BY d", (sid, '-%d days' % days))
+    by_day = {r['d']: r['c'] for r in rows}
     labels, counts = [], []
     for i in range(days - 1, -1, -1):
         d = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
         labels.append(d[5:])
-        row = await db.query(
-            "SELECT COUNT(*) as c FROM posts WHERE station_id = ? AND date(created_at) = ? AND is_deleted = 0",
-            (sid, d), one=True)
-        counts.append(row['c'])
-    today = (await db.query(
-        "SELECT COUNT(*) as c FROM posts WHERE station_id = ? AND date(created_at) = date('now') AND is_deleted = 0",
-        (sid,), one=True))['c']
+        counts.append(by_day.get(d, 0))
+    today = by_day.get(datetime.now(timezone.utc).strftime('%Y-%m-%d'), 0)
     return {'labels': labels, 'posts': counts, 'today_posts': today}
 
 

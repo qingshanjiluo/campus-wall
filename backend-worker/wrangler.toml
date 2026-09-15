@@ -12,6 +12,9 @@ database_name = "campus-wall-db"
 database_id = "95ad3424-e78c-4480-ac6b-d675d1f7c3c9"
 migrations_dir = "migrations"
 
+# KV 模式（launch-path 实验，非生产默认）见 wrangler.kv.experiment.toml；
+# db.py 按 env.DB → env.KV 顺序选择后端。详见 README「存储后端」一节。
+
 # R2 bucket 尚未启用（账户需先开通 R2）：
 # 开通后取消注释以下配置，并将 uploads.py 中 STORAGE_BACKEND 改为 'r2'
 # [[r2_buckets]]

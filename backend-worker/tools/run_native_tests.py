@@ -1,11 +1,19 @@
 """Native test harness for the Cloudflare Worker code.
 
-Runs the REAL route handlers / models / SQL against a local sqlite3 database
-through a D1-compatible shim — no miniflare, no workerd, stable & fast.
+Runs the REAL route handlers / models / SQL locally — no miniflare, no workerd.
 
-Usage:
-    python tools/run_native_tests.py            # business-logic matrix
-    python tools/run_native_tests.py -v         # print each result line
+Modes (launch build = D1 per parent ruling; KV is the parallel experiment track;
+both modes must stay green):
+    python tools/run_native_tests.py                  # all modes (d1 + kv)
+    python tools/run_native_tests.py --mode d1        # routes vs D1Shim(sqlite3)
+    python tools/run_native_tests.py --mode kv        # routes vs KVShim + sharded engine (src/_kv.py)
+    python tools/run_native_tests.py -v               # print each result line
+
+KV mode additionally asserts: shard-blob creation, payload shape, per-request
+cache-miss reload, cross-shard JOIN after cold reload, uploads base64 roundtrip,
+KV gen monotonicity, and the export_kv_to_sql migration dump.
+If a pure-Python engine is ever vendored under backend-worker/vendor/puresql,
+KV mode can be forced onto it with env CW_SQL_ENGINE=puresql (see src/_engine.py).
 
 The suite mirrors the frontend's real API usage (see campus-wall/frontend).
 """
@@ -18,6 +26,8 @@ import tempfile
 import types
 from pathlib import Path
 from urllib.parse import urlparse
+
+from kv_shim import KVShim
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'src'
@@ -238,19 +248,31 @@ class Env:
 
 
 class Harness:
-    def __init__(self, db_path):
-        self.db_path = db_path
+    """One mode's runtime: d1 → env.DB=D1Shim; kv → env.KV=KVShim (no DB at all)."""
+
+    def __init__(self, mode, db_path=None):
+        self.mode = mode
+        self.kv = KVShim() if mode == 'kv' else None
         self.env = Env()
-        self.env.DB = D1Shim(db_path)
+        if mode == 'd1':
+            self.env.DB = D1Shim(db_path)
+        else:
+            self.env.KV = self.kv
         self.env.JWT_SECRET = 'dev-only-change-me'
         self.env.JWT_EXPIRATION_DAYS = '30'
         self.env.UPLOADS = None
 
     async def boot(self):
+        # Fresh module state per mode run (same process runs several modes):
         import context
         context.env = self.env
         import entry  # noqa: registers routes
         import bootstrap
+        import db as dbmod
+        import models_ext
+        bootstrap._READY = False
+        dbmod._kv_reset_state()
+        models_ext.reset_stats_cache()
         await bootstrap.ensure_ready()
         self.entry = entry
         self.bootstrap = bootstrap
@@ -261,6 +283,9 @@ class Harness:
         if token:
             headers['Authorization'] = f'Bearer {token}'
         req = FakeRequest(url, method=method, headers=headers, body=body, form=form)
+        # entry.py runs ensure_ready() on EVERY fetch (idempotent; rotates the
+        # KV per-request cache epoch) — mirror that faithfully here.
+        await self.bootstrap.ensure_ready()
         resp = await self.entry.router.dispatch(req)
         return resp
 
@@ -314,12 +339,24 @@ async def check(name, coro, expect=(200,), extract=None):
     return payload
 
 
-async def main():
-    tmp = tempfile.mkdtemp(prefix='cw-test-')
-    db_path = os.path.join(tmp, 'test.sqlite')
-    h = Harness(db_path)
-    await h.boot()
+async def check_fn(name, fn):
+    """Assertion helper for storage-layer (KV) specific checks: fn() → truthy/raise."""
+    global PASS, FAIL
+    try:
+        await fn()
+        PASS += 1
+        if VERBOSE:
+            print(f'  PASS {name}')
+    except Exception as e:
+        import traceback
+        FAIL += 1
+        FAILED.append((name, 'ASSERT', f'{type(e).__name__}: {e}'))
+        print(f'  FAIL {name} [ASSERT] {type(e).__name__}: {e}')
+        if VERBOSE:
+            traceback.print_exc()
 
+
+async def suite(h):
     print('== public ==')
     await check('stations list', h.call('GET', '/api/stations', query='?limit=3'))
     await check('posts list', h.call('GET', '/api/posts', query='?limit=3'))
@@ -506,8 +543,125 @@ async def main():
                                                  token=atoken), expect=(200, 201))
     await check('admin stats as user -> 403', h.call('GET', '/api/admin/stats', token=token), expect=(403,))
 
+
+async def suite_kv(h):
+    """Assertions specific to the sharded KV storage layer (mode kv)."""
+    import base64
+    print('== kv storage layer ==')
+    kv = h.kv
+    login = await check('kv admin login', h.call('POST', '/api/auth/login',
+                                                 body={'username': 'admin', 'password': 'admin123'}))
+    atoken = (login or {}).get('token')
+
+    async def _shards_created():
+        names = [k for k in kv.keys() if k.startswith('db-shard:')]
+        assert len(names) >= 2, f'db-shard keys: {names}'
+        assert 'db-shard:users' in names and 'db-shard:content' in names, names
+    await check_fn('kv >=2 db-shard blobs created (content+users present)', _shards_created)
+
+    async def _payload_shape():
+        raw = await kv.get('db-shard:users')
+        payload = json.loads(raw)
+        assert isinstance(payload['gen'], int) and payload['gen'] >= 1, payload.get('gen')
+        script = base64.b64decode(payload['db']).decode('utf-8')
+        assert 'CREATE TABLE' in script, script[:80]
+    await check_fn('kv shard payload = {gen:int, db:base64(SQL dump)}', _payload_shape)
+
+    async def _gen_bump():
+        import db as dbmod
+        before = dbmod.kv_shard_gens().get('global', -1)
+        r = await h.call('POST', '/api/admin/announcements',
+                         body={'title': 'kv gen bump', 'content': 'x', 'level': 'info'}, token=atoken)
+        assert r.status in (200, 201), r.status
+        after = dbmod.kv_shard_gens().get('global', -1)
+        assert after > before, f'gen {before} -> {after}'
+    await check_fn('kv write-through bumps shard gen', _gen_bump)
+
+    async def _cross_shard_cold():
+        import db as dbmod
+        st = await h.call('GET', '/api/stations', query='?limit=1')
+        stations = st.body if isinstance(st.body, list) else (st.body or {}).get('stations', [])
+        assert stations, 'no stations seeded'
+        po = await h.call('POST', '/api/posts',
+                          body={'station_id': stations[0]['id'], 'title': 'kv-join',
+                                'content': 'c', 'post_type': 'text'}, token=atoken)
+        pid = (po.body or {}).get('id') or (po.body or {}).get('post', {}).get('id')
+        assert pid, po.status
+        dbmod._kv_reset_state()  # simulate fresh request/isolate: only persisted shards exist
+        d = await h.call('GET', f'/api/posts/{pid}')
+        body = d.body.get('post', d.body) if isinstance(d.body, dict) else d.body
+        assert d.status == 200 and (body or {}).get('title') == 'kv-join', d.status
+        assert (body or {}).get('author_name') == 'admin', \
+            f"cross-shard JOIN lost author: {(body or {}).get('author_name')!r}"
+    await check_fn('kv cross-shard JOIN visible after cold reload (posts x users shards)', _cross_shard_cold)
+
+    async def _cache_miss_reload():
+        import db as dbmod
+        dbmod._kv_reset_state()
+        before = kv.get_calls
+        r = await h.call('GET', '/api/posts', query='?limit=3')
+        posts = r.body.get('posts', []) if isinstance(r.body, dict) else (r.body or [])
+        assert r.status == 200 and len(posts) > 0, f'status={r.status} n={len(posts)}'
+        assert kv.get_calls > before, 'KV was not re-read (cache did not miss)'
+    await check_fn('kv second-request path re-reads from KV (cache-miss reload)', _cache_miss_reload)
+
+    async def _uploads_roundtrip():
+        import db as dbmod
+        up = await h.call('POST', '/api/posts/upload-image',
+                          form={'file': FakeFile('kv.png', PNG_PIXEL)}, token=atoken)
+        assert up.status == 200, up.status
+        url = (up.body or {}).get('url')
+        assert url, up.body
+        dbmod._kv_reset_state()
+        got = await h.call('GET', url)
+        assert got.status == 200, got.status
+        assert bytes(got.body) == PNG_PIXEL, 'uploads base64 roundtrip corrupted'
+    await check_fn('kv uploads shard base64 roundtrip byte-identical', _uploads_roundtrip)
+
+    async def _export_dump():
+        from export_kv_to_sql import export_script
+        sql = export_script(kv.snapshot())
+        assert 'INSERT INTO "posts"' in sql and 'INSERT INTO "users"' in sql, sql[:200]
+        assert 'DELETE FROM "uploads"' in sql, 'uploads rows missing'
+        import bootstrap
+        conn = sqlite3.connect(':memory:')
+        conn.executescript(bootstrap.SCHEMA_SQL)  # tool contract: 0001 schema applied first
+        conn.executescript(sql)
+        import models_ext
+        models_ext.reset_stats_cache()
+        st = (await h.call('GET', '/api/admin/stats', token=atoken)).body
+        assert conn.execute('SELECT COUNT(*) FROM users').fetchone()[0] == st['users'], 'user count mismatch'
+        assert conn.execute('SELECT COUNT(*) FROM posts WHERE is_deleted = 0').fetchone()[0] == st['posts'], \
+            'post count mismatch'
+        assert conn.execute('SELECT COUNT(*) FROM uploads').fetchone()[0] >= 1, 'no uploads exported'
+        conn.close()
+    await check_fn('kv export dump reloads with counts matching live stats', _export_dump)
+
+
+async def run_mode(mode):
+    global PASS, FAIL
+    print(f'\n================ mode: {mode} ================')
+    p0, f0 = PASS, FAIL
+    tmp = tempfile.mkdtemp(prefix='cw-test-')
+    h = Harness(mode, db_path=os.path.join(tmp, 'test.sqlite'))
+    await h.boot()
+    await suite(h)
+    if mode == 'kv':
+        await suite_kv(h)
+    print(f'---------------- mode {mode}: pass={PASS - p0} fail={FAIL - f0}')
+
+
+async def main():
+    argv = sys.argv[1:]
+    modes = ['d1', 'kv']
+    if '--mode' in argv:
+        m = argv[argv.index('--mode') + 1]
+        modes = [m] if m in ('d1', 'kv') else ['d1', 'kv']
+    for mode in modes:
+        await run_mode(mode)
     print()
-    print(f'================ native suite: total={PASS + FAIL} pass={PASS} fail={FAIL} ================')
+    print(f'================ native suite: modes={"+".join(modes)} '
+          f'total={PASS + FAIL} pass={PASS} fail={FAIL} ================')
     for name, status, sample in FAILED:
         print(f'FAIL {name} [{status}] {sample}')
     sys.exit(1 if FAIL else 0)

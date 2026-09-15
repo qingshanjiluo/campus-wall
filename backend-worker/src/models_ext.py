@@ -455,36 +455,83 @@ async def smart_search(keyword, user_id=None):
 
 # ── 管理后台 ──
 
+# D1 免费层读预算（50k 行/日）敏感：整段统计合并为 4 条语句
+# （原先 totals 6 条 + 趋势 7×3 条 + 今日 2 条 = 28 条），并按 isolate 记忆 60s。
+_STATS_TTL = 60
+_stats_memo = {'ts': 0.0, 'data': None}
+
+
+def reset_stats_cache():
+    """测试/维护用：丢弃管理统计缓存。"""
+    _stats_memo['ts'] = 0.0
+    _stats_memo['data'] = None
+
+
+def _copy_stats(s):
+    out = dict(s)
+    out['trend'] = {k: list(v) for k, v in s['trend'].items()}
+    return out
+
+
 async def get_admin_stats():
-    return {
-        'users': (await db.query('SELECT COUNT(*) as c FROM users', one=True))['c'],
-        'stations': (await db.query('SELECT COUNT(*) as c FROM stations', one=True))['c'],
-        'posts': (await db.query('SELECT COUNT(*) as c FROM posts WHERE is_deleted = 0', one=True))['c'],
-        'comments': (await db.query('SELECT COUNT(*) as c FROM comments WHERE is_deleted = 0', one=True))['c'],
+    import time
+    now = time.time()
+    if _stats_memo['data'] is not None and now - _stats_memo['ts'] < _STATS_TTL:
+        return _copy_stats(_stats_memo['data'])
+    counts = await db.query('''
+        SELECT 'users' AS k, COUNT(*) AS v FROM users
+        UNION ALL SELECT 'stations', COUNT(*) FROM stations
+        UNION ALL SELECT 'posts', COUNT(*) FROM posts WHERE is_deleted = 0
+        UNION ALL SELECT 'comments', COUNT(*) FROM comments WHERE is_deleted = 0
+        UNION ALL SELECT 'coins', COALESCE(SUM(coins), 0) FROM users
+        UNION ALL SELECT 'today_posts', COUNT(*) FROM posts
+            WHERE date(created_at) = date('now') AND is_deleted = 0
+        UNION ALL SELECT 'today_users', COUNT(*) FROM users
+            WHERE date(created_at) = date('now')
+    ''')
+    m = {r['k']: r['v'] for r in counts}
+    stats = {
+        'users': m.get('users', 0),
+        'stations': m.get('stations', 0),
+        'posts': m.get('posts', 0),
+        'comments': m.get('comments', 0),
         'trend': await get_admin_stats_series(7),
-        'coins': (await db.query('SELECT COALESCE(SUM(coins),0) as c FROM users', one=True))['c'],
+        'coins': m.get('coins', 0),
         # 前端仪表盘消费的今日新增字段（date(created_at) 与 CURRENT_TIMESTAMP 同为 UTC）
-        'today_posts': (await db.query(
-            "SELECT COUNT(*) as c FROM posts WHERE date(created_at) = date('now') AND is_deleted = 0",
-            one=True))['c'],
-        'today_users': (await db.query(
-            "SELECT COUNT(*) as c FROM users WHERE date(created_at) = date('now')",
-            one=True))['c'],
+        'today_posts': m.get('today_posts', 0),
+        'today_users': m.get('today_users', 0),
     }
+    _stats_memo['ts'] = now
+    _stats_memo['data'] = stats
+    return _copy_stats(stats)
 
 
 async def get_admin_stats_series(days=7):
+    """近 N 日趋势：每张表 1 条 GROUP BY（原为 days×3 条按日 COUNT）。响应形状不变。"""
     days = max(1, min(30, int(days)))
-    labels, users, posts, comments = [], [], [], []
-    for i in range(days - 1, -1, -1):
-        d = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
-        labels.append(d[5:])
-        users.append((await db.query("SELECT COUNT(*) as c FROM users WHERE date(created_at) = ?", (d,), one=True))['c'])
-        posts.append((await db.query("SELECT COUNT(*) as c FROM posts WHERE date(created_at) = ? AND is_deleted = 0",
-                                     (d,), one=True))['c'])
-        comments.append((await db.query("SELECT COUNT(*) as c FROM comments WHERE date(created_at) = ? AND is_deleted = 0",
-                                        (d,), one=True))['c'])
-    return {'labels': labels, 'users': users, 'posts': posts, 'comments': comments}
+    cutoff = '-%d days' % days  # 多取一天，兼容标签为本地时区而 UTC 日期的边缘日
+    labels = [(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+              for i in range(days - 1, -1, -1)]
+
+    async def _by_day(sql):
+        rows = await db.query(sql, (cutoff,))
+        return {r['d']: r['c'] for r in rows}
+
+    users = await _by_day(
+        "SELECT date(created_at) AS d, COUNT(*) AS c FROM users "
+        "WHERE created_at >= date('now', ?) GROUP BY d")
+    posts = await _by_day(
+        "SELECT date(created_at) AS d, COUNT(*) AS c FROM posts "
+        "WHERE is_deleted = 0 AND created_at >= date('now', ?) GROUP BY d")
+    comments = await _by_day(
+        "SELECT date(created_at) AS d, COUNT(*) AS c FROM comments "
+        "WHERE is_deleted = 0 AND created_at >= date('now', ?) GROUP BY d")
+    return {
+        'labels': [d[5:] for d in labels],
+        'users': [users.get(d, 0) for d in labels],
+        'posts': [posts.get(d, 0) for d in labels],
+        'comments': [comments.get(d, 0) for d in labels],
+    }
 
 
 async def get_all_users_admin(limit=100, offset=0):

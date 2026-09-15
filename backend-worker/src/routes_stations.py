@@ -6,6 +6,7 @@ import auth as authmod
 from models import (
     create_station, get_stations, get_station_by_id, search_stations,
     join_station, leave_station, is_station_member, get_station_member_role,
+    get_station_membership, get_station_memberships,
     get_station_members, get_user_stations, remove_station_member,
     transfer_station_ownership, update_station, delete_station,
     get_station_stats, get_station_categories, get_posts, get_post_count,
@@ -48,14 +49,13 @@ async def list_stations(request, params):
     category = q.get('category', '').strip() or None
 
     stations = await get_stations(limit=limit, offset=offset, sort=sort, tag=tag, category=category)
+    # 批量成员关系：一条查询取代原来每站 2 次扫描（读预算关键热路径）
+    roles = await get_station_memberships(user['id'], [s['id'] for s in stations]) if user else {}
     for s in stations:
         s['tags'] = json.loads(s['tags']) if s.get('tags') else []
-        if user:
-            s['is_member'] = await is_station_member(user['id'], s['id'])
-            s['is_owner'] = await get_station_member_role(user['id'], s['id']) == 'owner'
-        else:
-            s['is_member'] = False
-            s['is_owner'] = False
+        role = roles.get(s['id'])
+        s['is_member'] = role is not None
+        s['is_owner'] = role == 'owner'
     return httpmod.jsonify(stations)
 
 
@@ -71,8 +71,10 @@ async def get_station(request, params):
         return httpmod.error('子站不存在', 404)
     station['tags'] = json.loads(station['tags']) if station.get('tags') else []
     if user:
-        station['is_member'] = await is_station_member(user['id'], sid)
-        station['is_owner'] = await get_station_member_role(user['id'], sid) == 'owner'
+        # 单查询同时得出 is_member / is_owner（原为同一行的 2 次扫描）
+        role = await get_station_membership(user['id'], sid)
+        station['is_member'] = role is not None
+        station['is_owner'] = role == 'owner'
     else:
         station['is_member'] = False
         station['is_owner'] = False
