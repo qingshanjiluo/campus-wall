@@ -25,14 +25,16 @@ jobs:
         run: |
           set -e
           A="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"; T="${{ secrets.CLOUDFLARE_API_TOKEN }}"
-          curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall" \
+          echo "-- PATCH project env --"
+          curl -s -X PATCH "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall" \
             -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
             --data "{\"deployment_configs\":{\"production\":{\"env_vars\":{\"API_BASE\":{\"type\":\"text\",\"value\":\"${API_BASE_URL}\"}}}}}" \
-            | jq -c '{success, errors}'
+            | tee /tmp/resp.json | jq -c '{success, errors}'
+          grep -q '"success":true' /tmp/resp.json || { echo "PATCH failed"; cat /tmp/resp.json; exit 1; }
           echo "-- verify --"
           curl -s "https://api.cloudflare.com/client/v4/accounts/$A/pages/projects/campus-wall" \
             -H "Authorization: Bearer $T" \
-            | jq -r '.result.deployment_configs.production.env_vars.API_BASE.value // "MISSING"'
+            | jq -r '.result.deployment_configs.production.env_vars | if type=="array" then map(select(.name=="API_BASE"))[0].value else (.API_BASE.value // "MISSING") end'
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
