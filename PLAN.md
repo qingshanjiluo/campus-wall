@@ -7,6 +7,16 @@
 
 ## 一、决策
 
+### 1.0 R2 修订：数据层 KV 化（权限现实驱动，2026-09-16）
+
+CI 权限探测结论（token = sifangzhiji@qq.com 账户 API token）：
+- ✅ Workers Scripts 部署（probe worker 真实上线又删除）；✅ KV 建/写/删；✅ Pages 部署；workers.dev 子域 = `sifangzhiji`
+- ❌ **D1 读写（code 10000 Authentication error，token 未含 D1 scope）**；❌ R2（账户未开通）
+
+决策：**上线构建 = Python Worker + KV**。db.py 双后端：KV 分片快照内嵌 SQL 引擎执行（业务代码零改动）；
+D1 路径原样保留，token 勾选 `Account | D1 | Read+Edit` 后即按 `docs/LAUNCH_CHECKLIST.md` §4.1 升级回 D1，
+数据经 `tools/export_kv_to_sql.py` 迁移。
+
 ### 1.1 上线架构（选定）
 
 ```
