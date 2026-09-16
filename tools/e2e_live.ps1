@@ -224,6 +224,47 @@ Step "serve uploaded image" {
   Assert($resp.StatusCode -eq 200) "img http=$($resp.StatusCode)"
   Assert($resp.RawContentLength -gt 0) "empty image body" }
 
+Step "coin ledger (shop transactions)" {
+  Assert($tk) "no auth token (earlier steps failed)"
+  $tx = Api GET "/api/shop/transactions" $null $tk
+  Assert($null -ne $tx) "no response from /api/shop/transactions"
+  $arr = @($tx)
+  Assert($arr.Count -ge 1) "coin ledger empty after checkin/buy"
+  $first = $arr[0]
+  Assert($null -ne $first.amount) "ledger row missing amount"
+  Assert($null -ne $first.type) "ledger row missing type"
+  Assert($null -ne $first.created_at) "ledger row missing created_at" }
+Step "checkin credits ledger" {
+  $before = @(Api GET "/api/shop/transactions" $null $tk).Count
+  $ci = Api POST "/api/checkin" @{} $tk
+  $after = @(Api GET "/api/shop/transactions" $null $tk).Count
+  Assert($after -ge $before) "ledger shrank after checkin"
+  if ($ci.already) {
+    Assert($after -eq $before) "duplicate checkin wrote a ledger row"
+  } else {
+    Assert($after -gt $before) "checkin did not write a ledger row" } }
+Step "frontend pages reachable" {
+  $pages = @('/', '/waterfall', '/trade', '/gossip', '/romance', '/shop', '/checkin',
+             '/messages', '/search', '/stations', '/rank', '/square', '/tasks',
+             '/notifications', '/about', '/help', '/create', '/admin', '/login', '/404')
+  $bad = @()
+  foreach ($pg in $pages) {
+    try {
+      $r = Invoke-WebRequest -Uri "$BaseUrl$pg" -TimeoutSec 20 -UseBasicParsing -ErrorAction Stop
+      if ($r.StatusCode -ne 200) { $bad += "$pg=$($r.StatusCode)" }
+    } catch {
+      $code = try { [int]$_.Exception.Response.StatusCode } catch { 0 }
+      if ($code -ne 404 -and $pg -ne '/404') { $bad += "$pg=ERR$code" }
+    }
+  }
+  Assert($bad.Count -eq 0) ("unreachable pages: " + ($bad -join ',')) }
+Step "vendored lucide served" {
+  $r = Invoke-WebRequest -Uri "$BaseUrl/static/vendor/lucide.min.js" -TimeoutSec 30 -UseBasicParsing
+  Assert($r.StatusCode -eq 200) "lucide http=$($r.StatusCode)"
+  Assert($r.RawContentLength -gt 100000) "lucide bundle too small: $($r.RawContentLength)"
+  Assert($r.Content -like "*createIcons*") "bundle missing createIcons"
+  Assert($r.Content -like "*1.46.0*") "bundle version not pinned" }
+
 Write-Host ""
 Write-Host ("== live E2E: pass={0} fail={1} ==" -f $pass, $fail) -ForegroundColor $(if($fail){'Red'}else{'Green'})
 if ($fail) { $failList | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }; exit 1 } else { exit 0 }

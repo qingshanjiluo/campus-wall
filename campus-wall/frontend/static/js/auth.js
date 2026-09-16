@@ -79,24 +79,8 @@ async function handleRegister(event) {
     return false;
 }
 
-async function handleForgotPassword(event) {
-    event.preventDefault();
-    const form = event.target;
-    const email = form.email.value.trim();
-    if (!email) {
-        CampusUtils.showToast('请输入邮箱', 'error');
-        return false;
-    }
-    try {
-        await api.post('/api/auth/forgot-password', { email });
-        CampusUtils.showToast('重置链接已发送到邮箱', 'success');
-        closeModal('forgotPasswordModal');
-        form.reset();
-    } catch (e) {
-        CampusUtils.showToast(e.message || '发送失败', 'error');
-    }
-    return false;
-}
+// openForgotPassword / handleForgotPassword 的唯一定义在 app.js
+// （支持开发模式直接展示重置链接）；此处重复实现靠加载顺序被覆盖，已删除。
 
 async function handleLogout() {
     api.setToken(null);
@@ -106,11 +90,6 @@ async function handleLogout() {
     if (window.location.pathname !== '/') {
         window.location.href = '/';
     }
-}
-
-function openForgotPassword() {
-    closeModal('loginModal');
-    openModal('forgotPasswordModal');
 }
 
 function updateNavRight() {

@@ -1,28 +1,11 @@
 /**
  * CampusWall 模态框管理模块
+ *
+ * 注意：openModal / closeModal / switchModal 的唯一定义在 app.js（使用 .show 类，
+ * 与 style.css 的 .modal-overlay.show 一致，且带页面初始化钩子）。
+ * 本文件此前另有一份用 .active 的实现，永远是死代码；一旦脚本加载顺序变化就会
+ * 让全站弹窗静默失效（.active 无任何样式），故删除以消除隐患。
  */
-
-function openModal(id) {
-    const modal = document.getElementById(id);
-    if (!modal) return;
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-
-    const firstInput = modal.querySelector('input:not([type="hidden"]), textarea');
-    if (firstInput) setTimeout(() => firstInput.focus(), 100);
-}
-
-function closeModal(id) {
-    const modal = document.getElementById(id);
-    if (!modal) return;
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
-}
-
-function switchModal(fromId, toId) {
-    closeModal(fromId);
-    setTimeout(() => openModal(toId), 200);
-}
 
 function openEditProfile() {
     const user = window.CampusAuth?.currentUser();

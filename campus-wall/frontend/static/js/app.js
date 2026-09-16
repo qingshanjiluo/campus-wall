@@ -24,12 +24,15 @@ window.addEventListener('scroll', () => {
     if (nav) nav.classList.toggle('scrolled', window.scrollY > 60);
 }, { passive: true });
 
-// ── 模态框 ──
+// ── 模态框（全站唯一定义；modal.js 的同名死代码已删除）──
 function openModal(id) {
     const modal = document.getElementById(id);
     if (modal) {
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
+        // 自动聚焦首个可输入项（原 modal.js 版行为，合并保留）
+        const firstInput = modal.querySelector('input:not([type="hidden"]), textarea');
+        if (firstInput) setTimeout(() => firstInput.focus(), 100);
         if (id === 'createPostModal') {
             loadStationOptions('postStationSelect');
             initPostTypeSelector();
@@ -442,10 +445,8 @@ function closeUserMenu() {
 }
 
 // ── 工具函数 ──
-function escHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+// escHtml / safeUrl / showToast 的唯一定义在 utils.js（先于本文件加载）。
+// 此处曾有同名重复实现，靠加载顺序覆盖，属隐性炸弹，已删除。
 
 // 渲染帖子内容：转义 HTML，并将 Markdown 图片 ![alt](url) 转为安全的 <img>
 function renderContent(content, full) {
@@ -523,35 +524,9 @@ function renderPostCard(p) {
     `;
 }
 
-function formatTime(timestamp) {
-    if (!timestamp) return '刚刚';
-    try {
-        let date;
-        if (typeof timestamp === 'string' && !timestamp.includes('T')) {
-            date = new Date(timestamp + 'Z');
-        } else {
-            date = new Date(timestamp);
-        }
-        if (isNaN(date.getTime())) return '刚刚';
-        const now = new Date();
-        const diff = Math.floor((now - date) / 1000);
-        if (diff < 60) return '刚刚';
-        if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
-        if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
-        if (diff < 2592000) return Math.floor(diff / 86400) + '天前';
-        return date.toLocaleDateString('zh-CN');
-    } catch { return '刚刚'; }
-}
+// formatTime 唯一定义在 utils.js（先于本文件加载）；此处重复实现已删除。
 
-function showToast(message, type) {
-    type = type || '';
-    const toast = document.getElementById('toast');
-    if (!toast) return;
-    toast.textContent = message;
-    toast.className = 'toast show' + (type ? ' ' + type : '');
-    clearTimeout(toast._timer);
-    toast._timer = setTimeout(() => toast.classList.remove('show'), 2500);
-}
+// showToast 唯一定义见 utils.js（支持 duration 参数）；此处重复实现已删除。
 
 // ── 投票功能 ──
 function renderVoteSection(p) {

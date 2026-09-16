@@ -211,24 +211,29 @@ const ICON_MAP = {
   '🔫': 'gun',
 };
 
-// Lucide CDN 基础路径
+// Lucide 图标：优先本地自托管（校园网可达性/版本锁定），CDN 仅作兜底
+const LUCIDE_LOCAL = '/static/vendor/lucide.min.js';
 const LUCIDE_CDN = 'https://unpkg.com/lucide@1.46.0/dist/umd/lucide.min.js';
 
 /**
  * 加载 Lucide Icons
+ * 先试本地 vendor 包（离线可用、版本可控），失败再回退 unpkg CDN。
  */
 function loadLucideIcons() {
   if (typeof lucide !== 'undefined') {
     lucide.createIcons();
     return;
   }
-  
-  const script = document.createElement('script');
-  script.src = LUCIDE_CDN;
-  script.onload = () => {
-    lucide.createIcons();
+
+  const inject = (src, onFail) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => { if (typeof lucide !== 'undefined') lucide.createIcons(); };
+    if (onFail) script.onerror = onFail;
+    document.head.appendChild(script);
   };
-  document.head.appendChild(script);
+
+  inject(LUCIDE_LOCAL, () => inject(LUCIDE_CDN));
 }
 
 /**

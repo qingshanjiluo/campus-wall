@@ -162,7 +162,7 @@ function renderSearchHistory() {
     }
     section.style.display = '';
     list.innerHTML = history.map(h => `
-        <span class="tag search-history-tag" onclick="useSearchHistory('${CampusUtils.escHtml(h)}')">
+        <span class="tag search-history-tag" onclick="useSearchHistory(this.dataset.h)" data-h="${CampusUtils.escHtml(h)}">
             <i data-lucide="history" class="icon icon-sm"></i> ${CampusUtils.escHtml(h)}
         </span>
     `).join('');
