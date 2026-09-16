@@ -72,6 +72,17 @@ Step "admin login"  { $r = Api POST "/api/auth/login" @{username="admin"; passwo
 Step "admin stats today fields" { $r = Api GET "/api/admin/stats" $null $atk; Assert($r.users -ge 1) "no users count"; Assert($r.PSObject.Properties.Name -contains "today_posts") "missing today_posts" }
 Step "admin users"  { $r = Api GET "/api/admin/users?limit=5" $null $atk; Assert($r) "fail" }
 Step "notifications"{ $r = Api GET "/api/social/notifications" $null $tk; Assert($null -ne $r) "fail" }
+Step "forgot+reset roundtrip" {
+  $fp = Api POST "/api/auth/forgot-password" @{email="$u@t.dev"}
+  if ($fp.reset_token) {
+    $rs = Api POST "/api/auth/reset-password" @{token=$fp.reset_token; new_password="e2epw1234"}
+    Assert($rs.message) "reset rejected"
+    $l2 = Api POST "/api/auth/login" @{username=$u; password="e2epw1234"}
+    Assert($l2.token) "login after reset failed"
+    $still = $true
+    try { $old = Api POST "/api/auth/login" @{username=$u; password="pass1234"}; $still = [bool]$old.token } catch { $still = $false }
+    Assert(-not $still) "old password still works"
+  } else { Assert($fp.message) "no message either" } }
 # ---- direct messages (R4-M4) ----
 Step "dm send"       { $r = Api POST "/api/dm" @{to=1; content="e2e hello dm"} $tk; Assert($r.id) "send fail" }
 Step "dm threads"    { $r = Api GET "/api/dm/threads" $null $tk; Assert(@($r | Where-Object { $_.peer_id -eq 1 }).Count -ge 1) "thread missing" }

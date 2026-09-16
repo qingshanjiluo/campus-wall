@@ -56,7 +56,7 @@
   可见性闸（作者/管理员例外）+ `/api/admin/review` + admin「帖子审核」Tab + 作者徽标；
   E2E +6 步
 - **M4 私信** ✅：dm_messages 双索引表 + 4 端点（聚合 threads 单 SQL）+ messages.html
-  双栏聊天（移动适配/未读/深链/8s 轮询）+ profile 私信按钮 + 通知联动；E2E +5 步 → **49/49**
+  双栏聊天（移动适配/未读/深链/8s 轮询）+ profile 私信按钮 + 通知联动；E2E +5 步 → **54/54**
 - **M5 UI** ✅：深色模式（localStorage + prefers-color-scheme + 导航开关，全页覆盖）、
   页面路由矩阵 11/11、静态资源统一到 frontend/static（uploads 同盘）、JS 门 0 失败
 - **M6 部署包** ✅：deploy/（Dockerfile/compose 四服务/nginx cache 分级/backup.py 实跑/
@@ -66,7 +66,7 @@
   标注演示+契约蓝本；seed 已是 lucide 图标与前端一致
 
 剩余人工项（需外部资源）：真实服务器 `docker compose up -d --build` →
-对线上域名跑 49 步 E2E → 改 admin 密码 → 浏览器 22 页双主题走查 → 公告。
+对线上域名跑 54 步 E2E → 改 admin 密码 → 浏览器 22 页双主题走查 → 公告。
 
 ## 5. 风险与对策
 - 旧 templates 版仍在工作目录：保留但文档声明冻结，避免误改双份。

@@ -19,7 +19,7 @@ Cloudflare Pages/Worker 轨降级为演示环境（backend-worker 保留作 API 
 
 ## 1. 后端与契约（本地全栈可证明）
 
-- [x] Flask 主线 E2E **49/49 全绿**（tools/e2e_live.ps1 -BaseUrl http://127.0.0.1:5000）：
+- [x] Flask 主线 E2E **54/54 全绿**（tools/e2e_live.ps1 -BaseUrl http://127.0.0.1:5000）：
   注册/登录/资料 · 子站(加入/退出/成员) · 帖子四类型（**vote 一人一票/重投拒/link 消毒/
   images 数组**）· 点赞/收藏 · 评论 · 签到 · 商店/金币 · 恋爱档案（含 UPDATE 回归）·
   树洞 · 二手 · 搜索/推荐 · **私信 5 步**（发送/会话/已读/未读/坏参数拒）·
@@ -54,7 +54,7 @@ Cloudflare Pages/Worker 轨降级为演示环境（backend-worker 保留作 API 
 - [x] 无 Docker 备选：systemd 单元（ProtectSystem/PrivateTmp/降权用户）
 - [ ] 购买/准备服务器 + 域名备案（如需大陆访问）
 - [ ] 服务器上 `docker compose up -d --build` 成功 → 本机跑
-      `tools/e2e_live.ps1 -BaseUrl https://域名` **49/49** → GO
+      `tools/e2e_live.ps1 -BaseUrl https://域名` **54/54** → GO
 - [ ] 改演示 admin 密码 / 或清 instance 库重新种子（手册 §3）
 - [ ] 首日观察：`docker compose logs`、备份文件生成、429 是否误伤
 

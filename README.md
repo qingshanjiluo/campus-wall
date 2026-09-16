@@ -9,7 +9,7 @@
 | 🚀 **正式部署** | 普通服务器自托管（Nginx + Gunicorn + Flask + SQLite）——[部署手册](docs/DEPLOYMENT-SERVER.md) |
 | 🧪 **演示环境** | https://campus-wall-673.pages.dev（Cloudflare 轨，仅作参考，非主线） |
 | 👤 **演示账号** | 管理员 `admin / admin123` · 普通用户 `xiaohua / 123456` |
-| ✅ **质量门** | 本地全栈 E2E **49/49** 绿 · 原生断言 205 绿 · 内联/外链 JS `node --check` 0 失败 |
+| ✅ **质量门** | 本地全栈 E2E **54/54** 绿 · 原生断言 205 绿 · 内联/外链 JS `node --check` 0 失败 |
 | 📦 **仓库** | qingshanjiluo/campus-wall（master = 生产） |
 
 ## 架构（主线）
@@ -38,7 +38,7 @@ campus-wall/app/          Flask 后端主线（routes/18 蓝图、models*.py、s
 campus-wall/frontend/     静态前端 22 页（线上唯一前端版本）
 campus-wall/deploy/       Dockerfile · compose · nginx · systemd · 备份/发布脚本 · .env.example
 backend-worker/           Cloudflare Python Worker + D1（演示轨 & API 契约蓝本）
-tools/e2e_live.ps1        49 步全功能 E2E（-BaseUrl 可指 Flask/Worker 任一后端）
+tools/e2e_live.ps1        54 步全功能 E2E（-BaseUrl 可指 Flask/Worker 任一后端）
 docs/                     DEPLOYMENT-SERVER · SERVER_ARCHITECTURE · LAUNCH_CHECKLIST · frontend-audit
 ```
 
