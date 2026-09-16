@@ -13,6 +13,11 @@ function Step($name, [scriptblock]$body) {
   catch { $script:fail++; $script:failList += $name; Write-Host "  FAIL $name :: $($_.Exception.Message)" -ForegroundColor Red }
 }
 function Assert($cond, $msg) { if (-not $cond) { throw $msg } }
+function BadCode($e) {
+  # cross-platform HTTP status from IRM exception (PS5.1 WebException / PS7 HttpResponseException)
+  try { if ($e.Exception.Response) { return [int]$e.Exception.Response.StatusCode } } catch {}
+  0
+}
 function Api($method, $path, $body = $null, $token = $null) {
   $hdr = @{}
   if ($token) { $hdr["Authorization"] = "Bearer $token" }
@@ -90,7 +95,7 @@ Step "dm read thread"{ $r = Api GET "/api/dm/1" $null $tk; Assert($r.peer.userna
 Step "dm unread seen"{ $r = Api GET "/api/dm/unread" $null $atk; Assert($null -ne $r.count) "no count field" }
 Step "dm bad to rejected" {
   try { Api POST "/api/dm" @{to=$null; content="x"} $tk; throw "expected 400" }
-  catch [System.Net.WebException] { Assert($_.Exception.Response.StatusCode.value__ -eq 400) "wrong code" } }
+  catch { Assert((BadCode $_) -eq 400) "wrong code" } }
 # ---- content review pipeline (R4-M3) ----
 $W_RV1 = [regex]::Unescape('\u8fd9\u662f\u4e00\u4e2a\u50bb\u903c\u6d4b\u8bd5\u5e16\u5b50')
 $W_RV2 = [regex]::Unescape('\u516d\u5408\u5f69\u5f00\u76d8')
@@ -113,10 +118,10 @@ Step "review visible after" {
   Assert($r.status -eq "approved") "still not visible: $($r.status)" }
 Step "block word rejected" {
   try { Api POST "/api/posts" @{station_id=1; title="e2e blk $Suffix"; content=$W_RV2} $atk; throw "expected HTTP 400" }
-  catch [System.Net.WebException] { Assert($_.Exception.Response.StatusCode.value__ -eq 400) "wrong code for block word" } }
+  catch { Assert((BadCode $_) -eq 400) "wrong code for block word" } }
 Step "edit bypass blocked" {
   try { Api PUT "/api/posts/$pid1" @{content=$W_RV2} $atk; throw "expected HTTP 400" }
-  catch [System.Net.WebException] { Assert($_.Exception.Response.StatusCode.value__ -eq 400) "edit bypass not caught" } }
+  catch { Assert((BadCode $_) -eq 400) "edit bypass not caught" } }
 Step "edit triggers review + search leak" {
   $uniq = "e2ebyp$Suffix"
   $z = Api PUT "/api/posts/$pid1" @{title=$uniq; content=$W_RV1} $atk
