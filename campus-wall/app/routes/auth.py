@@ -189,10 +189,14 @@ def forgot_password():
         except Exception as e:
             current_app.logger.warning(f'邮件发送失败: {e}')
             return jsonify({'message': '邮件发送失败，请稍后再试'}), 500
-    else:
-        # 开发模式：直接返回 token
+    elif os.environ.get('FLASK_ENV') != 'production':
+        # 仅开发模式：token 直接返回便于联调（生产绝不外发——防任意邮箱接管账号）
         current_app.logger.info(f'重置密码 token: {reset_token}')
         return jsonify({'message': '（开发模式）重置token已生成', 'reset_token': reset_token})
+    else:
+        # 生产未配 SMTP：只走日志，不回客户端
+        current_app.logger.error('SMTP 未配置，重置邮件无法发送（请配置 SMTP_* 环境变量）')
+        return jsonify({'error': '邮件服务未就绪，请稍后再试或联系管理员'}), 503
 
     return jsonify({'message': '如果该邮箱已注册，重置链接已发送'})
 
