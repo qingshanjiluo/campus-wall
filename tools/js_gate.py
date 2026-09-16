@@ -4,6 +4,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FRONT = ROOT / 'campus-wall' / 'frontend'
@@ -14,7 +15,8 @@ for f in sorted((FRONT / 'static' / 'js').glob('*.js')):
         fails += 1
         print('EXTERNAL FAIL:', f)
 
-tmp = pathlib.Path('/tmp' if sys.platform != 'win32' else '.')
+tmpdir = tempfile.TemporaryDirectory()
+tmp = pathlib.Path(tmpdir.name)
 for page in sorted((FRONT / 'pages').glob('*.html')):
     html = page.read_text(encoding='utf-8')
     for i, m in enumerate(re.finditer(r'<script(?![^>]*src)[^>]*>([\s\S]*?)</script>', html)):
@@ -28,6 +30,8 @@ for page in sorted((FRONT / 'pages').glob('*.html')):
             fails += 1
             print('INLINE FAIL:', page, f'#{i}')
             print(r.stderr[:400])
+
+tmpdir.cleanup()
 
 print(f'js_gate: {"PASS (0 fails)" if fails == 0 else f"FAIL ({fails})"}')
 sys.exit(1 if fails else 0)
