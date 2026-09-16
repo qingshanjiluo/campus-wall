@@ -26,6 +26,8 @@ Cloudflare Pages/Worker 轨降级为演示环境（backend-worker 保留作 API 
   **审核 6 步**（review 入队/公开隐藏/作者可见/approve 发布/block 拒/重复处理拒）·
   上传（multipart→落盘→可访问往返）· admin 统计/用户 · 通知
 - [x] Worker 契约蓝本原生断言 205 绿（--mode all --budget），差异已全部移植回 Flask
+- [x] **GitHub Actions `Backend CI` 全绿**：干净 ubuntu 冷库生产模式起服 → 54 步 E2E →
+      路由矩阵 → JS 门（badge 见 README；发布验证链任何人 fresh clone 可重放）
 - [x] 热路径批量化：feed/子站帖列表 is_liked_batch、子站列表 membership 批量、admin stats 4 查询+memo
 - [x] 隐私闸：匿名帖在 列表/详情/子站页/搜索 全通道脱敏；pending/rejected 对外 404
 - [x] 安全：上传内容校验(PIL verify 防伪扩展名)+EXIF 剥离+长边压缩 · 生产限流

@@ -1,5 +1,7 @@
 # 校园墙 CampusWall
 
+![Backend CI](https://github.com/qingshanjiluo/campus-wall/actions/workflows/backend-ci.yml/badge.svg?branch=master)
+
 > 连接校园，分享青春 —— 面向高校学生的社区站：子站（表白墙/失物招领/二手交易…）、
 > 瀑布流、投票/链接帖、匿名树洞、私信、恋爱匹配、签到积分商店、二手市场、
 > 敏感词+人工审核、管理后台、深色模式。
