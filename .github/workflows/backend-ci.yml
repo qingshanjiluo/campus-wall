@@ -39,16 +39,18 @@ jobs:
       - name: Boot Flask in production config (cold DB → auto init+seed)
         run: |
           cd campus-wall
-          FLASK_ENV=production \
-          JWT_SECRET=*** -lc 'head -c 32 /dev/urandom | base64') \
-          SECRET_KEY=*** -lc 'head -c 32 /dev/urandom | base64') \
+          export FLASK_ENV=production
+          export JWT_SECRET=ci-onl…e-me
+          export SECRET_KEY=ci-fla…e-me
           nohup python run.py > /tmp/flask.log 2>&1 &
           for i in $(seq 1 30); do
             sleep 2
             code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/api/stations || true)
             if [ "$code" = "200" ]; then echo "up after $((i*2))s"; exit 0; fi
           done
-          echo "== flask.log =="; cat /tmp/flask.log; exit 1
+          echo "== flask.log =="
+          cat /tmp/flask.log
+          exit 1
 
       - name: Full E2E (54 steps)
         shell: pwsh
