@@ -10,12 +10,19 @@ $pass = 0; $fail = 0; $failList = @()
 
 function Step($name, [scriptblock]$body) {
   try { & $body; $script:pass++; Write-Host "  PASS $name" -ForegroundColor Green }
-  catch { $script:fail++; $script:failList += $name; Write-Host "  FAIL $name :: $($_.Exception.Message)" -ForegroundColor Red }
+  catch {
+    $script:fail++; $script:failList += $name
+    $ln = $_.InvocationInfo.ScriptLineNumber
+    Write-Host "  FAIL $name :: $($_.Exception.Message) [line $ln]" -ForegroundColor Red
+  }
 }
 function Assert($cond, $msg) { if (-not $cond) { throw $msg } }
 function BadCode($e) {
-  # cross-platform HTTP status from IRM exception (PS5.1 WebException / PS7 HttpResponseException)
+  # compatible with 3 shapes: IRM native response / Api() wrapped "HTTP <code> ..." / PS5.1 native "(<code>) ..."
   try { if ($e.Exception.Response) { return [int]$e.Exception.Response.StatusCode } } catch {}
+  $msg = "$($e.Exception.Message)"
+  if ($msg -match 'HTTP (\d{3})') { return [int]$Matches[1] }
+  if ($msg -match '\((\d{3})\)') { return [int]$Matches[1] }
   0
 }
 function Api($method, $path, $body = $null, $token = $null) {
@@ -27,7 +34,22 @@ function Api($method, $path, $body = $null, $token = $null) {
     $p.Body = [Text.Encoding]::UTF8.GetBytes($json)
     $p.ContentType = "application/json; charset=utf-8"
   }
-  Invoke-RestMethod @p
+  try {
+    Invoke-RestMethod @p
+  } catch {
+    # surface the server JSON error body so failing steps are self-explanatory
+    $detail = ''
+    try { $detail = "$($_.ErrorDetails.Message)" } catch {}
+    if (-not $detail) {
+      try {
+        $sr = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $detail = $sr.ReadToEnd()
+      } catch {}
+    }
+    $code = 0; try { $code = [int]$_.Exception.Response.StatusCode } catch {}
+    if ($detail) { throw "HTTP $code $method $path :: $detail" }
+    throw "HTTP $code $method $path :: $($_.Exception.Message)"
+  }
 }
 
 $u = "e2e_$Suffix"
@@ -52,13 +74,19 @@ Step "vote shaping" { $r = Api GET "/api/posts/$pid2" $null $tk; Assert($r.vote_
 Step "vote cast"    { $r = Api POST "/api/posts/$pid2/vote" @{option_index=0} $tk; Assert($r) "vote fail" }
 Step "vote twice rejected" {
   try { Api POST "/api/posts/$pid2/vote" @{option_index=1} $tk; throw "expected HTTP 400" }
-  catch { if ($_.Exception.Response -and $_.Exception.Response.StatusCode.value__ -eq 400) { } else { throw } } }
+  catch { Assert((BadCode $_) -eq 400) "second vote not rejected" } }
 Step "vote counts"  { $r = Api GET "/api/posts/$pid2" $null $tk; Assert([int]$r.vote_counts."0" -eq 1) ("counts=" + ($r.vote_counts | ConvertTo-Json -Compress)) }
 Step "link create"  {
   $r = Api POST "/api/posts" @{station_id=1; title="e2e link"; content="ref"; post_type="link"; link_url="https://example.com"} $tk
   $script:pid3 = if ($r.id) {$r.id} else {$r.post.id}; Assert($pid3) "no link post" }
 Step "link shaping" { $r = Api GET "/api/posts/$pid3"; Assert($r.link_url -eq "https://example.com") "link_url=$($r.link_url)" }
-Step "like toggle"  { $r = Api POST "/api/posts/$pid1/like" @{} $tk; Assert($null -ne $r) "fail" }
+Step "like toggle"  {
+  $r = Api POST "/api/posts/$pid1/like" @{} $tk
+  Assert($r.liked) "not liked"
+  Assert($r.likes_count -eq 1) "likes_count=$($r.likes_count) (want 1)"
+  $r2 = Api POST "/api/posts/$pid1/like" @{} $tk
+  Assert(-not $r2.liked) "still liked"
+  Assert($r2.likes_count -eq 0) "unlike count=$($r2.likes_count) (want 0)" }
 Step "comment"      { $r = Api POST "/api/posts/$pid1/comments" @{content="e2e comment"} $tk; Assert($r) "fail" }
 Step "comments list"{ $r = Api GET "/api/posts/$pid1/comments"; Assert($null -ne $r) "fail" }
 Step "checkin"      { $r = Api POST "/api/checkin" @{} $tk; Assert($r) "fail" }
@@ -69,7 +97,41 @@ Step "romance save" { $r = Api POST "/api/romance/profile" @{nickname="e2e"; gen
 Step "romance update-path" { $r = Api POST "/api/romance/profile" @{nickname="e2e2"; gender="u"; hobbies=@("a","b","c")} $tk; Assert($r) "UPDATE list-hobbies regression" }
 Step "gossip create"{ $r = Api POST "/api/gossip" @{content="e2e gossip"} $tk; Assert($r) "fail" }
 Step "trade list"   { $r = Api GET "/api/trade"; Assert($null -ne $r) "fail" }
-Step "trade create" { $r = Api POST "/api/trade" @{title="e2e item"; content="good cond"; price=9.9; condition="like_new"} $tk; Assert($r.post_id -or $r.trade_id) "fail" }
+Step "trade create" {
+  $r = Api POST "/api/trade" @{title="e2e item"; content="good cond"; price=9.9; condition="like_new"} $tk
+  Assert($r.post_id -or $r.trade_id) "fail"
+  $script:tid = $r.trade_id }
+Step "trade status flow" {
+  $s1 = Api PUT "/api/trade/$tid/status" @{status="reserved"} $tk
+  Assert($s1.status -eq "reserved") "owner update failed"
+  $s2 = Api PUT "/api/trade/$tid/status" @{status="sold"} $tk
+  Assert($s2.status -eq "sold") "sold update failed"
+  $s3 = Api PUT "/api/trade/$tid/status" @{status="available"} $tk
+  Assert($s3.status -eq "available") "relist failed" }
+Step "trade status validation" {
+  try { Api PUT "/api/trade/$tid/status" @{status="bogus"} $tk; throw "expected 400" }
+  catch { Assert((BadCode $_) -eq 400) "bogus status not rejected" }
+  try { Api PUT "/api/trade/999999/status" @{status="sold"} $tk; throw "expected 404" }
+  catch { Assert((BadCode $_) -eq 404) "missing trade not 404" }
+  # cross-user privilege check: another user must not change someone else's trade status (R5 owner guard)
+  $u2 = 'e2e_b' + $Suffix
+  $r2 = Api POST "/api/auth/register" @{username=$u2; password="pass1234"; email=($u2 + '@t.dev')}
+  try { Api PUT "/api/trade/$tid/status" @{status="sold"} $r2.token; throw "expected 403" }
+  catch { Assert((BadCode $_) -eq 403) "cross-user trade update not forbidden" } }
+Step "multi-image gallery" {
+  $imgs = @("/static/uploads/posts/a.png", "/static/uploads/posts/b.png", "/static/uploads/posts/c.png")
+  $p = Api POST "/api/posts" @{station_id=1; title="e2e imgs"; content="gallery"; images=$imgs} $tk
+  $script:pid4 = if ($p.id) {$p.id} else {$p.post.id}
+  $d = Api GET "/api/posts/$pid4"
+  Assert($d.images.Count -eq 3) "detail images=$($d.images.Count) (want 3)"
+  Assert($d.images[0] -eq "/static/uploads/posts/a.png") "first image mismatch"
+  $f = Api GET "/api/posts?limit=50"
+  $row = @($f.posts | Where-Object { $_.id -eq $pid4 })
+  Assert($row.Count -ge 1) "post missing in feed"
+  Assert($row[0].images.Count -eq 3) "feed images not expanded (got $($row[0].images.GetType().Name))"
+  $rp = Api GET "/api/recommend/posts"
+  $rrow = @($rp | Where-Object { $_.id -eq $pid4 })
+  if ($rrow.Count -ge 1) { Assert($rrow[0].images -is [array] -or $rrow[0].images.Count -ge 0) "recommend images broken" } }
 Step "search posts" { $r = Api GET "/api/recommend/search?q=e2e"; Assert($null -ne $r) "fail" }
 Step "search stations" { $r = Api GET "/api/stations/search?q=e2e"; Assert($null -ne $r) "fail" }
 Step "recommend posts" { $r = Api GET "/api/recommend/posts"; Assert($null -ne $r) "fail" }

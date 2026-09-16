@@ -33,5 +33,15 @@ for page in sorted((FRONT / 'pages').glob('*.html')):
 
 tmpdir.cleanup()
 
+# ── PowerShell 脚本必须纯 ASCII ──
+# PS 5.1 默认以 GBK 读取无 BOM 的 UTF-8 文件：CJK 注释会把下一行吞进注释，
+# 造成"变量莫名未定义/步骤莫名失败"的诡异 bug（已实际踩过）。CJK 文本一律走 [regex]::Unescape('\uXXXX')。
+for ps in sorted(ROOT.glob('tools/*.ps1')):
+    text = ps.read_text(encoding='utf-8')
+    bad_lines = [i for i, line in enumerate(text.split('\n'), 1) if not line.isascii()]
+    if bad_lines:
+        fails += 1
+        print(f'ASCII FAIL: {ps.name} 非 ASCII 行 {bad_lines[:5]}（PS5.1 解析风险）')
+
 print(f'js_gate: {"PASS (0 fails)" if fails == 0 else f"FAIL ({fails})"}')
 sys.exit(1 if fails else 0)

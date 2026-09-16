@@ -110,6 +110,24 @@ function loadRelated(stationId, currentPostId) {
     });
 }
 
+function renderPostGallery(p) {
+    const imgs = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+    if (!imgs.length) return '';
+    const cls = imgs.length === 1 ? 'post-gallery single' : 'post-gallery';
+    return `<div class="${cls}">` + imgs.map(u =>
+        `<img src="${safeUrl(u, '')}" alt="帖子图片" loading="lazy" onclick="openImageLightbox('${safeUrl(u, '')}')" onerror="this.style.display='none'">`
+    ).join('') + '</div>';
+}
+
+function openImageLightbox(url) {
+    if (!url) return;
+    const box = document.createElement('div');
+    box.className = 'image-lightbox';
+    box.innerHTML = `<img src="${url}" alt="">`;
+    box.onclick = () => box.remove();
+    document.body.appendChild(box);
+}
+
 function renderPostDetail(p) {
     const time = formatTime(p.created_at);
     const isAuthor = currentUser && currentUser.id === p.author_id;
@@ -144,6 +162,7 @@ function renderPostDetail(p) {
             </div>
             <h1 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.5rem;margin-bottom:12px;line-height:1.4;">${escHtml(p.title)}</h1>
             <div class="post-content full" style="margin-bottom:16px;word-break:break-word;">${renderContent(p.content, true)}</div>
+            ${renderPostGallery(p)}
             ${p.post_type === 'vote' && p.vote_options ? renderVoteSection(p) : ''}
             <div class="post-actions">
                 <button class="post-action ${p.is_liked?'liked':''}" onclick="toggleLike(${p.id},this)" data-likes="${p.likes_count||0}">

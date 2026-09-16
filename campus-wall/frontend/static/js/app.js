@@ -304,7 +304,10 @@ function toggleLike(postId, btn) {
     if (!requireAuth()) return;
     const currentLikes = parseInt(btn.dataset.likes || btn.textContent.replace(/[^\d]/g, '')) || 0;
     api.post('/api/posts/' + postId + '/like').then(data => {
-        const newLikes = data.liked ? currentLikes + 1 : Math.max(0, currentLikes - 1);
+        // 服务端回传真实计数（P2-9），仅在缺失时回退本地推算
+        const newLikes = (typeof data.likes_count === 'number')
+            ? data.likes_count
+            : (data.liked ? currentLikes + 1 : Math.max(0, currentLikes - 1));
         btn.dataset.likes = newLikes;
         btn.className = 'post-action' + (data.liked ? ' liked' : '');
         btn.innerHTML = `<i data-lucide="${data.liked ? 'heart' : 'heart'}" class="icon icon-sm"></i> ${newLikes}`;

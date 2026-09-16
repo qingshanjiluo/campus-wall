@@ -367,8 +367,14 @@ def update_status(tid):
     status = data.get('status', 'available')
     if status not in ('available', 'reserved', 'sold'):
         return jsonify({'error': '无效状态'}), 400
+    # 属主校验：此前任何人可改任意在售商品的状态（审计修复）
+    row = query_db('SELECT user_id FROM trade_posts WHERE id = ?', (tid,), one=True)
+    if not row:
+        return jsonify({'error': '商品不存在'}), 404
+    if row['user_id'] != g.current_user['id'] and g.current_user.get('role') != 'admin':
+        return jsonify({'error': '无权修改该商品'}), 403
     update_trade_status(tid, status)
-    return jsonify({'message': '更新成功'})
+    return jsonify({'message': '更新成功', 'status': status})
 
 
 # ══════════════════════════════════════════════

@@ -1,4 +1,5 @@
 import os
+import json as _json
 import sqlite3
 import bcrypt
 from datetime import datetime
@@ -480,6 +481,16 @@ def shape_post(post, viewer=None):
         if not is_owner and not is_admin:
             post['author_name'] = '匿名用户'
             post['author_avatar'] = '/static/images/default-avatar.svg'
+    # images 列是 JSON 串：展开为数组供前端画廊渲染（兼容脏数据/单图旧字段）
+    raw_images = post.get('images')
+    if isinstance(raw_images, str):
+        try:
+            parsed = _json.loads(raw_images) if raw_images.strip() else []
+        except (ValueError, TypeError):
+            parsed = []
+        post['images'] = [u for u in parsed if isinstance(u, str) and u] if isinstance(parsed, list) else []
+    elif not isinstance(raw_images, list):
+        post['images'] = []
     extra = parse_post_extra(post)
     ptype = post.get('post_type')
     if ptype == 'vote' and extra.get('options'):

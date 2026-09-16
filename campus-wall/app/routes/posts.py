@@ -3,6 +3,7 @@ import uuid
 from flask import Blueprint, request, jsonify, g, current_app
 from app.models import (
     create_post, get_post_by_id, get_posts, get_post_count,
+    query_db,
     update_post, delete_post, increment_views, get_liked_posts,
     record_post_version, get_post_versions,
     create_comment, get_comments, delete_comment,
@@ -234,7 +235,10 @@ def like_post(pid):
             f'{g.current_user["username"]} 赞了你的帖子「{post["title"]}」',
             f'/post/{pid}'
         )
-    return jsonify({'liked': liked, 'message': '已点赞' if liked else '已取消点赞'})
+    # 返回真实计数，前端不再靠解析按钮文本（P2-9）
+    row = query_db('SELECT likes_count FROM posts WHERE id = ?', (pid,), one=True)
+    return jsonify({'liked': liked, 'likes_count': (row or {}).get('likes_count', 0),
+                    'message': '已点赞' if liked else '已取消点赞'})
 
 
 @posts_bp.route('/<int:pid>/vote', methods=['POST'])
