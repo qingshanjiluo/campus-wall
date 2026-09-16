@@ -1,0 +1,67 @@
+name: Backend CI (Flask fullstack + E2E)
+
+# 正式主线的可复现上线门：干净 Ubuntu + 生产配置启动 Flask，跑 54 步全功能 E2E。
+# 与服务器 compose 等效（gunicorn 为 POSIX-only，CI 用同代码路径的 werkzeug 生产模式）。
+
+on:
+  push:
+    paths:
+      - 'campus-wall/app/**'
+      - 'campus-wall/frontend/**'
+      - 'campus-wall/run.py'
+      - 'campus-wall/requirements.txt'
+      - 'campus-wall/deploy/**'
+      - 'tools/e2e_live.ps1'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'campus-wall/app/**'
+      - 'campus-wall/frontend/**'
+      - 'tools/e2e_live.ps1'
+  workflow_dispatch:
+
+jobs:
+  fullstack-e2e:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps
+        run: pip install -r campus-wall/requirements.txt
+
+      - name: JS syntax gate (all frontend scripts)
+        run: python3 tools/js_gate.py
+
+      - name: Boot Flask in production config (cold DB → auto init+seed)
+        run: |
+          cd campus-wall
+          FLASK_ENV=production \
+          JWT_SECRET=*** -lc 'head -c 32 /dev/urandom | base64') \
+          SECRET_KEY=*** -lc 'head -c 32 /dev/urandom | base64') \
+          nohup python run.py > /tmp/flask.log 2>&1 &
+          for i in $(seq 1 30); do
+            sleep 2
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/api/stations || true)
+            if [ "$code" = "200" ]; then echo "up after $((i*2))s"; exit 0; fi
+          done
+          echo "== flask.log =="; cat /tmp/flask.log; exit 1
+
+      - name: Full E2E (54 steps)
+        shell: pwsh
+        run: ./tools/e2e_live.ps1 -BaseUrl http://127.0.0.1:5000
+
+      - name: Page routing matrix
+        run: |
+          for p in / /waterfall /admin /post/1 /station/2 /profile/3 /messages /static/js/app.js; do
+            printf "%-24s %s\n" "$p" "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5000$p)"
+          done
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/no-such-page)
+          [ "$code" = "404" ] && echo "404 gate ok" || { echo "404 gate FAIL ($code)"; exit 1; }
+
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/flask.log || true
