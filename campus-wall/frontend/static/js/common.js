@@ -32,6 +32,9 @@
         <ul class="nav-links" id="navLinks">
             <li><a href="/" id="navHome"><i data-lucide="home" class="icon nav-icon"></i> 首页</a></li>
             <li><a href="/waterfall" id="navWaterfall"><i data-lucide="layout-grid" class="icon nav-icon"></i> 瀑布流</a></li>
+            <li><a href="/forum" id="navForum"><i data-lucide="messages-square" class="icon nav-icon"></i> 论坛</a></li>
+            <li><a href="/world" id="navWorld"><i data-lucide="network" class="icon nav-icon"></i> 角色图</a></li>
+            <li><a href="/expose" id="navExpose"><i data-lucide="megaphone" class="icon nav-icon"></i> 爆料</a></li>
             <li><a href="/trade" id="navTrade"><i data-lucide="shopping-bag" class="icon nav-icon"></i> 交易</a></li>
             <li><a href="/romance" id="navRomance"><i data-lucide="heart-handshake" class="icon nav-icon"></i> 恋爱</a></li>
             <li><a href="/gossip" id="navGossip"><i data-lucide="message-circle" class="icon nav-icon"></i> 树洞</a></li>
@@ -351,11 +354,14 @@
 
   function initCommon() {
     injectCommon();
+    // 广告位：预留占位（管理员可在后台开关/改文案）
+    initAdSlots();
     // 高亮当前导航
     const path = window.location.pathname;
     const navMap = {
       '/': 'navHome', '/waterfall': 'navWaterfall', '/trade': 'navTrade',
-      '/romance': 'navRomance', '/gossip': 'navGossip', '/shop': 'navShop', '/search': 'navSearch'
+      '/romance': 'navRomance', '/gossip': 'navGossip', '/shop': 'navShop', '/search': 'navSearch',
+      '/world': 'navWorld', '/forum': 'navForum', '/expose': 'navExpose'
     };
     const activeId = navMap[path];
     if (activeId) {
@@ -366,6 +372,39 @@
     initTheme();
     // 注入主题切换按钮
     injectThemeToggle();
+  }
+
+  // ── 广告位占位（保留位）──
+  // 在导航下方 / 页脚上方各留一个 ad-slot；读取 /api/site/config 决定显隐与文案。
+  function initAdSlots() {
+    const mk = (text, cls) => {
+      const d = document.createElement('div');
+      d.className = 'ad-slot ' + cls;
+      d.innerHTML = '<i data-lucide="megaphone" class="icon icon-sm"></i> <span class="ad-text"></span>';
+      d.querySelector('.ad-text').textContent = text;
+      return d;
+    };
+    const apply = (cfg) => {
+      const enabled = cfg && cfg.ad_enabled !== false;
+      if (!enabled) return;
+      const nav = document.getElementById('navbar');
+      const footer = document.querySelector('.footer');
+      // 顶部广告位（导航下）
+      if (nav && !document.getElementById('adHeader')) {
+        const h = mk(cfg.ad_header || '广告位', 'ad-slot-header');
+        h.id = 'adHeader';
+        nav.insertAdjacentElement('afterend', h);
+      }
+      // 底部广告位（页脚上方）
+      if (footer && !document.getElementById('adFooter')) {
+        const f = mk(cfg.ad_footer || '广告位', 'ad-slot-footer');
+        f.id = 'adFooter';
+        footer.insertAdjacentElement('beforebegin', f);
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+    // 静默降级：读配置失败也保留占位（默认文案）
+    api.get('/api/site/config').then(apply).catch(() => apply({ ad_enabled: true, ad_header: '广告位 · 品牌合作 招商中（预留）', ad_footer: '广告位招租 · 联系站务（预留）' }));
   }
 
   // ── 主题管理 ──

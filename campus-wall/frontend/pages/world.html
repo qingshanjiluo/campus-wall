@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>角色关系图 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕸️</text></svg>">
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;max-width:1200px;margin:0 auto;width:100%;">
+            <div class="container" style="max-width:1200px;width:100%;">
+                <div class="section-header reveal">
+                    <h2 class="chapter-title"><i data-lucide="network" class="icon"></i> 角色关系图</h2>
+                    <p class="chapter-sub">多人共同绘制的校园人物关系图谱 · 点击节点查看关系，拖动节点重新布局</p>
+                </div>
+
+                <!-- 工具栏 -->
+                <div class="speech-bubble reveal" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                        <button class="btn btn-primary btn-sm" onclick="toggleNodeForm()"><i data-lucide="user-plus" class="icon icon-sm"></i> 新增角色</button>
+                        <button class="btn btn-sm" onclick="toggleRelForm()"><i data-lucide="link-2" class="icon icon-sm"></i> 新增关系</button>
+                        <button class="btn btn-sm" onclick="reLayout()"><i data-lucide="refresh-cw" class="icon icon-sm"></i> 重新布局</button>
+                    </div>
+                    <div id="graphHelp" style="font-size:0.75rem;color:var(--text-muted);">
+                        <i data-lucide="info" class="icon icon-sm"></i> 登录即可共同参与编辑
+                    </div>
+                </div>
+
+                <!-- 新增角色 -->
+                <div id="nodeForm" class="speech-bubble reveal" style="display:none;margin-top:16px;">
+                    <h4 style="margin:0 0 10px;color:var(--pink-4);"><i data-lucide="user-plus" class="icon icon-sm"></i> 新增角色</h4>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                        <div style="flex:1;min-width:140px;">
+                            <label style="font-size:0.75rem;color:var(--text-muted);">头像（emoji）</label>
+                            <input class="input" id="nodePortrait" placeholder="🦊" maxlength="10">
+                        </div>
+                        <div style="flex:2;min-width:180px;">
+                            <label style="font-size:0.75rem;color:var(--text-muted);">角色名 *</label>
+                            <input class="input" id="nodeName" placeholder="给 TA 起个外号" maxlength="30">
+                        </div>
+                        <div style="flex:2;min-width:180px;">
+                            <label style="font-size:0.75rem;color:var(--text-muted);">一句话人设</label>
+                            <input class="input" id="nodeTagline" placeholder="安静观察员 / 篮球队长…" maxlength="80">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-muted);">颜色</label>
+                            <input type="color" id="nodeColor" value="#B5EAD7" style="width:44px;height:38px;border:none;background:none;cursor:pointer;">
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="createNode()"><i data-lucide="check" class="icon icon-sm"></i> 保存</button>
+                    </div>
+                </div>
+
+                <!-- 新增关系 -->
+                <div id="relForm" class="speech-bubble reveal" style="display:none;margin-top:16px;">
+                    <h4 style="margin:0 0 10px;color:var(--pink-4);"><i data-lucide="link-2" class="icon icon-sm"></i> 新增关系</h4>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                        <div style="flex:1;min-width:140px;">
+                            <label style="font-size:0.75rem;color:var(--text-muted);">角色 A</label>
+                            <select class="input" id="relFrom"><option value="">选择角色…</option></select>
+                        </div>
+                        <div style="flex:1;min-width:100px;">
+                            <label style="font-size:0.75rem;color:var(--text-muted);">关系</label>
+                            <input class="input" id="relLabel" placeholder="挚友 / 暗恋 / 同桌" maxlength="20">
+                        </div>
+                        <div style="flex:1;min-width:140px;">
+                            <label style="font-size:0.75rem;color:var(--text-muted);">角色 B</label>
+                            <select class="input" id="relTo"><option value="">选择角色…</option></select>
+                        </div>
+                        <div style="flex:1;min-width:180px;">
+                            <label style="font-size:0.75rem;color:var(--text-muted);">备注</label>
+                            <input class="input" id="relDesc" placeholder="怎么个关系？" maxlength="120">
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:var(--text-muted);">
+                            <input type="checkbox" id="relReciprocal" checked> <i data-lucide="repeat" class="icon icon-sm"></i> 双向
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="createRel()"><i data-lucide="check" class="icon icon-sm"></i> 连接</button>
+                    </div>
+                </div>
+
+                <!-- 图谱画布 -->
+                <div class="reveal" id="graphWrap" style="margin-top:16px;position:relative;border:1px solid rgba(0,0,0,0.06);border-radius:16px;background:var(--bg-card);overflow:hidden;">
+                    <svg id="worldGraph" viewBox="0 0 960 620" preserveAspectRatio="xMidYMid meet" width="100%" height="520"
+                         style="display:block;touch-action:none;user-select:none;cursor:grab;">
+                        <g id="graphEdges"></g>
+                        <g id="graphNodes"></g>
+                    </svg>
+                    <div id="graphEmpty" class="loading" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;">暂无角色，点击「新增角色」共建吧</div>
+                </div>
+
+                <!-- 选中角色详情 -->
+                <div id="nodeDetail" class="speech-bubble reveal" style="display:none;margin-top:16px;"></div>
+            </div>
+        </div>
+    </main>
+</div>
+<script>
+let world = { nodes: [], relations: [] };
+let simNodes = [];
+let selNode = null;
+let anim = null;
+const W = 960, H = 620;
+
+function isOwner(n) {
+    return currentUser && (n.created_by === currentUser.id || currentUser.role === 'admin');
+}
+
+function loadWorld() {
+    api.get('/api/world/graph').then(data => {
+        world = data || { nodes: [], relations: [] };
+        if (!world.nodes.length) {
+            document.getElementById('graphEmpty').style.display = 'flex';
+            if (window.lucide) lucide.createIcons();
+            return;
+        }
+        document.getElementById('graphEmpty').style.display = 'none';
+        initSimulation();
+        drawGraph();
+        runAnim(160);
+        fillRelSelects();
+    }).catch(err => showToast(err.message || '加载失败', 'error'));
+}
+
+// ── 力导向布局（简化 Fruchterman-Reingold）──
+function initSimulation() {
+    const n = world.nodes.length;
+    const area = W * H;
+    const k = Math.sqrt(area / Math.max(n, 1));
+    simNodes = world.nodes.map((nd, i) => ({
+        n: nd, x: W / 2 + (k * Math.cos((2 * Math.PI * i) / n) * 0.6),
+        y: H / 2 + (k * Math.sin((2 * Math.PI * i) / n) * 0.6),
+        vx: 0, vy: 0
+    }));
+    // map relations to indices
+    const id2i = {};
+    simNodes.forEach((s, i) => id2i[s.n.id] = i);
+    world._edges = world.relations
+        .filter(r => id2i[r.from_id] != null && id2i[r.to_id] != null)
+        .map(r => ({ from: id2i[r.from_id], to: id2i[r.to_id] }));
+}
+
+function stepSimulation() {
+    const n = simNodes.length;
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            let dx = simNodes[j].x - simNodes[i].x;
+            let dy = simNodes[j].y - simNodes[i].y;
+            let d2 = Math.max(dx * dx + dy * dy, 1);
+            let d = Math.sqrt(d2);
+            let force = 4000 / (d2 * 3);          // repulsion
+            let fx = (dx / d) * force * 0.08, fy = (dy / d) * force * 0.08;
+            simNodes[i].vx -= fx; simNodes[i].vy -= fy;
+            simNodes[j].vx += fx; simNodes[j].vy += fy;
+        }
+    }
+    for (const e of world._edges || []) {
+        const a = simNodes[e.from], b = simNodes[e.to];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+        let target = 180;
+        let force = (d - target) * 0.02;          // spring
+        let fx = (dx / d) * force, fy = (dy / d) * force;
+        a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+    }
+    for (const s of simNodes) {
+        s.vx *= 0.85; s.vy *= 0.85;
+        s.x += s.vx; s.y += s.vy;
+        // gentle centering keeps it inside viewBox
+        s.vx += (W / 2 - s.x) * 0.003;
+        s.vy += (H / 2 - s.y) * 0.003;
+        s.x = Math.min(W - 40, Math.max(40, s.x));
+        s.y = Math.min(H - 40, Math.max(40, s.y));
+    }
+}
+
+function runAnim(iterations) {
+    cancelAnimationFrame(anim);
+    const iters = iterations == null ? -1 : iterations;
+    let run = 0;
+    function frame() {
+        if (iters >= 0 && run++ >= iters) return;
+        stepSimulation();
+        drawGraph();
+        anim = requestAnimationFrame(frame);
+    }
+    frame();
+}
+
+function reLayout() { initSimulation(); runAnim(220); }
+
+// ── 渲染 ──
+function nodeColor(nd) {
+    return nd.color || (selNode && selNode.id === nd.id ? '#FFB5BA' : '#B5EAD7');
+}
+
+function drawGraph() {
+    const eg = document.getElementById('graphEdges');
+    const ng = document.getElementById('graphNodes');
+    const selected = selNode ? selNode.id : null;
+    let eHtml = '';
+    for (const r of world.relations) {
+        const a = simNodes.find(s => s.n.id === r.from_id);
+        const b = simNodes.find(s => s.n.id === r.to_id);
+        if (!a || !b) continue;
+        const connected = selected && (selected === r.from_id || selected === r.to_id);
+        const stroke = connected ? 'var(--pink-4)' : 'rgba(150,150,160,0.45)';
+        const width = connected ? 3 : r.reciprocal ? 2.5 : 1.5;
+        const dash = r.reciprocal ? '' : '6 4';
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        eHtml += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}">`;
+        eHtml += `<title>${escHtml(r.label)}：${escHtml(r.description || '')}</title></line>`;
+        // label on the line (reciprocal shows the label once)
+        if (!connected) eHtml += `<text x="${mx}" y="${my - 6}" font-size="13" text-anchor="middle" fill="${stroke}" style="pointer-events:none;">${escHtml(r.label)}</text>`;
+    }
+    eg.innerHTML = eHtml;
+    let nHtml = '';
+    for (const s of simNodes) {
+        const nd = s.n;
+        const isSel = selected === nd.id;
+        const connected = selected && world.relations.some(r => (r.from_id === selected && r.to_id === nd.id) || (r.to_id === selected && r.from_id === nd.id));
+        const r = isSel ? 26 : (connected ? 22 : 19);
+        const fill = nd.color || '#B5EAD7';
+        const opacity = selected && !isSel && !connected ? 0.35 : 1;
+        const stroke = isSel ? 'var(--pink-4)' : connected ? 'var(--mint)' : 'rgba(0,0,0,0.08)';
+        nHtml += `<g transform="translate(${s.x},${s.y})" data-id="${nd.id}" style="cursor:pointer;opacity:${opacity}">`
+            + `<circle r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${isSel ? 3 : 2}"></circle>`
+            + `<text y="3" font-size="${isSel ? 20 : 17}" text-anchor="middle" dominant-baseline="central">${escHtml(nd.portrait || '🎭')}</text>`
+            + `<text y="${r + 16}" font-size="14" text-anchor="middle" font-weight="600" fill="var(--text-primary)">${escHtml(nd.name)}</text>`
+            + `</g>`;
+    }
+    ng.innerHTML = nHtml;
+    ng.querySelectorAll('g[data-id]').forEach(g => {
+        g.addEventListener('click', ev => selectNode(ev, +g.dataset.id));
+        g.addEventListener('mousedown', ev => startDrag(ev, g));
+    });
+}
+
+// ── 交互：点选 / 拖拽 ──
+function selectNode(ev, id) {
+    ev.stopPropagation();
+    const nd = world.nodes.find(x => x.id === id);
+    if (!nd) return;
+    selNode = nd;
+    drawGraph();
+    renderNodeDetail(nd);
+}
+
+function renderNodeDetail(nd) {
+    const d = document.getElementById('nodeDetail');
+    const rels = world.relations.filter(r => r.from_id === nd.id || r.to_id === nd.id);
+    const nameOf = id => { const x = world.nodes.find(n => n.id === id); return x ? (x.portrait || '') + ' ' + x.name : '未知'; };
+    const linked = rels.map(r => {
+        const other = r.from_id === nd.id ? r.to_id : r.from_id;
+        const dir = r.reciprocal ? '⇄' : (r.from_id === nd.id ? '→' : '←');
+        return `<div style="padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.05);display:flex;align-items:center;gap:8px;justify-content:space-between;">
+            <div style="font-size:0.85rem;"><span style="color:var(--pink-4);font-weight:600;">${escHtml(r.label)}</span> ${dir} <span style="font-weight:600;">${escHtml(nameOf(other))}</span>
+                ${r.description ? `<div style="font-size:0.72rem;color:var(--text-muted);">${escHtml(r.description)}</div>` : ''}</div>
+            ${isOwner(r) ? `<button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:0.7rem;color:var(--danger);" onclick="deleteRel(${r.id},${nd.id})">删</button>` : ''}
+        </div>`;
+    }).join('');
+    d.style.display = 'block';
+    d.innerHTML = `
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+            <div style="display:flex;gap:12px;align-items:center;">
+                <span style="font-size:32px;">${escHtml(nd.portrait || '🎭')}</span>
+                <div>
+                    <div style="font-weight:700;font-size:1.05rem;">${escHtml(nd.name)}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);">${escHtml(nd.tagline || '—')}</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);">关系 ${rels.length} 条 · 共同谱写在时间 ${escHtml((nd.created_at||'').slice(5,16))}</div>
+                </div>
+            </div>
+            ${isOwner(nd) ? `<button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="deleteNode(${nd.id})"><i data-lucide="trash-2" class="icon icon-sm"></i> 删除角色</button>` : ''}
+        </div>
+        ${rels.length ? `<div style="margin-top:12px;"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">关系链</div>${linked}</div>` : `<div style="color:var(--text-muted);font-size:0.85rem;margin-top:8px;">这个角色还没有关系，点「新增关系」连上 TA 吧</div>`}
+    `;
+    if (window.lucide) lucide.createIcons();
+}
+
+// drag support
+let dragState = null;
+function startDrag(ev, g) {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    let rect = g.ownerSVGElement.getBoundingClientRect();
+    const scaleX = W / rect.width, scaleY = H / rect.height;
+    const pt = (e) => ({ x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY });
+    const id = +g.dataset.id;
+    const node = simNodes.find(s => s.n.id === id);
+    const move = (e) => { if (node) { const p = pt(e); node.x = p.x; node.y = p.y; dragState = { id, node }; drawGraph(); } };
+    const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        // small tail physics so it settles gently
+        runAnim(30);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+}
+
+// ── 新增角色 / 关系 ──
+function toggleNodeForm() {
+    const f = document.getElementById('nodeForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    if (f.style.display === 'block') setTimeout(() => document.getElementById('nodeName').focus(), 50);
+}
+function toggleRelForm() {
+    const f = document.getElementById('relForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    fillRelSelects();
+    const from = document.getElementById('relFrom');
+    from.innerHTML = '<option value="">选择角色…</option>' + world.nodes.map(n => `<option value="${n.id}">${escHtml(n.portrait || '')} ${escHtml(n.name)}</option>`).join('');
+    const to = document.getElementById('relTo');
+    to.innerHTML = '<option value="">选择角色…</option>' + world.nodes.map(n => `<option value="${n.id}">${escHtml(n.portrait || '')} ${escHtml(n.name)}</option>`).join('');
+}
+
+function fillRelSelects() {
+    const opts = world.nodes.map(n => `<option value="${n.id}">${escHtml(n.portrait || '')} ${escHtml(n.name)}</option>`).join('');
+    const a = document.getElementById('relFrom'), b = document.getElementById('relTo');
+    if (a.options.length <= 1) a.innerHTML = '<option value="">选择角色…</option>' + opts;
+    if (b.options.length <= 1) b.innerHTML = '<option value="">选择角色…</option>' + opts;
+}
+
+function createNode() {
+    if (!requireAuth()) return;
+    const name = document.getElementById('nodeName').value.trim();
+    if (!name) return showToast('请填写角色名', 'error');
+    api.post('/api/world/nodes', {
+        name, portrait: document.getElementById('nodePortrait').value.trim(),
+        tagline: document.getElementById('nodeTagline').value.trim(),
+        color: document.getElementById('nodeColor').value
+    }).then(() => {
+        showToast('角色已添加', 'success');
+        resetNodeForm();
+        loadWorld();
+    }).catch(err => showToast(err.message || '添加失败', 'error'));
+}
+
+function resetNodeForm() {
+    document.getElementById('nodeName').value = '';
+    document.getElementById('nodePortrait').value = '';
+    document.getElementById('nodeTagline').value = '';
+    document.getElementById('nodeForm').style.display = 'none';
+}
+
+function createRel() {
+    if (!requireAuth()) return;
+    const from = +document.getElementById('relFrom').value;
+    const to = +document.getElementById('relTo').value;
+    const label = document.getElementById('relLabel').value.trim();
+    if (!from || !to) return showToast('请选择两个角色', 'error');
+    if (!label) return showToast('请填写关系标签', 'error');
+    if (from === to) return showToast('不能和自己建立关系', 'error');
+    api.post('/api/world/relations', {
+        from_id: from, to_id: to, label,
+        description: document.getElementById('relDesc').value.trim(),
+        reciprocal: document.getElementById('relReciprocal').checked
+    }).then(() => {
+        showToast('关系已连接', 'success');
+        document.getElementById('relLabel').value = '';
+        document.getElementById('relDesc').value = '';
+        document.getElementById('relForm').style.display = 'none';
+        selNode = null;
+        loadWorld();
+    }).catch(err => showToast(err.message || '连接失败', 'error'));
+}
+
+function deleteNode(id) {
+    if (!confirm('删除该角色会连同其所有关系？')) return;
+    api.delete('/api/world/nodes/' + id).then(() => {
+        showToast('已删除', 'success'); selNode = null; loadWorld();
+    }).catch(err => showToast(err.message || '删除失败', 'error'));
+}
+function deleteRel(id, nodeId) {
+    if (!confirm('删除这条关系？')) return;
+    api.delete('/api/world/relations/' + id).then(() => {
+        showToast('已删除', 'success'); selectNodeRef(nodeId); loadWorld();
+    }).catch(err => showToast(err.message || '删除失败', 'error'));
+}
+function selectNodeRef(id) { const nd = world.nodes.find(x => x.id === id); if (nd) { selNode = nd; renderNodeDetail(nd); } }
+
+// mouse wheel zoom optional (skip to keep simple) — drag only
+window.addEventListener('load', () => { if (window.lucide) lucide.createIcons(); });
+onUserReady(function () {
+    loadWorld();
+});
+</script>
+</body>
+</html>

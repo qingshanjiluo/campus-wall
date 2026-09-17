@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爆料台 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📢</text></svg>">
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:760px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title"><i data-lucide="megaphone" class="icon"></i> 爆料台</h2>
+            <p class="chapter-sub">匿名说出你看到的事 · 先审后发，替你保密到底</p>
+        </div>
+
+        <!-- 发布区 -->
+        <div class="speech-bubble reveal" style="margin-bottom:24px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <i data-lucide="venetian-mask" class="icon"></i>
+                <span style="font-weight:600;font-size:0.9rem;color:var(--text-muted);">匿名同学</span>
+                <span style="font-size:0.7rem;background:var(--red-light,#ffe0e0);color:#c0392b;padding:2px 8px;border-radius:8px;">不存在举报人，放心发声</span>
+            </div>
+            <textarea class="input" id="exposeContent" placeholder="爆料内容…（如：食堂某窗口用预制菜 / 期末某课涉嫌泄题 / 校园里见到的异常）" rows="3" maxlength="10000" style="resize:vertical;"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+                <span style="font-size:0.72rem;color:var(--text-muted);"><i data-lucide="shield-check" class="icon icon-sm"></i> 需管理员人工审核后公开展示</span>
+                <button class="btn btn-primary btn-sm" onclick="postExpose()"><i data-lucide="send" class="icon icon-sm"></i> 匿名爆料</button>
+            </div>
+        </div>
+
+        <!-- 审核中提示（仅作者自己的） -->
+        <div id="myPendingWrap" style="display:none;margin-bottom:16px;">
+            <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px;"><i data-lucide="clock" class="icon icon-sm"></i> 我的待审核爆料</div>
+            <div id="myPendingList"></div>
+        </div>
+
+        <!-- 已审核爆料流 -->
+        <div id="exposeList"><div class="loading">加载中</div></div>
+        <div style="text-align:center;margin-top:8px;"><button class="btn" id="exposeMore" onclick="loadMoreExpose()" style="display:none;"><i data-lucide="chevrons-down" class="icon icon-sm"></i> 加载更多</button></div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+let exposeOffset = 0;
+const EXPOSE_LIMIT = 20;
+
+onUserReady(function () {
+    loadExpose();
+    if (currentUser) loadMyPending();
+});
+
+function renderExposeCard(p) {
+    const liked = p.is_liked ? 'liked' : '';
+    const heartColor = p.is_liked ? 'icon-danger' : '';
+    return `
+    <div class="post-card reveal" style="padding:18px 20px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:1.15rem;"><i data-lucide="venetian-mask" class="icon"></i></span>
+            <span style="font-weight:600;font-size:0.9rem;">${escHtml(p.author_name || '匿名同学')}</span>
+            <span style="font-size:0.7rem;background:var(--pink-1);padding:2px 8px;border-radius:8px;color:var(--pink-4);"><i data-lucide="flame" class="icon icon-sm"></i> 爆料</span>
+            <span style="font-size:0.72rem;color:var(--text-muted);margin-left:auto;">${formatTime(p.created_at)} · ${escHtml(p.station_name || '')}</span>
+        </div>
+        <a href="/post/${p.id}" style="text-decoration:none;color:inherit;">
+            <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px;">${escHtml(p.title)}</div>
+            <div style="font-size:0.93rem;line-height:1.7;color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(p.content)}</div>
+        </a>
+        <div style="display:flex;gap:18px;font-size:0.82rem;color:var(--text-muted);margin-top:10px;">
+            <a class="${liked}" style="cursor:pointer;" onclick="event.preventDefault();likeExpose(${p.id},this)"><i data-lucide="heart" class="icon icon-sm ${heartColor}"></i> ${p.likes_count || 0}</a>
+            <a href="/post/${p.id}"><i data-lucide="message-circle" class="icon icon-sm"></i> ${p.comments_count || 0} 讨论</a>
+        </div>
+    </div>`;
+}
+
+function loadExpose(append) {
+    if (!append) exposeOffset = 0;
+    api.get(`/api/posts?post_type=expose&limit=${EXPOSE_LIMIT}&offset=${exposeOffset}&sort=newest`).then(d => {
+        const posts = (d && d.posts) || [];
+        const list = document.getElementById('exposeList');
+        if (!posts.length && !append) {
+            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="megaphone" class="icon icon-lg"></i></div><div class="text">还没有已审核爆料，来发第一条吧</div></div>';
+            return;
+        }
+        const html = posts.map(renderExposeCard).join('');
+        if (append) list.insertAdjacentHTML('beforeend', html); else list.innerHTML = html;
+        initReveal();
+        if (window.lucide) lucide.createIcons();
+        document.getElementById('exposeMore').style.display = posts.length >= EXPOSE_LIMIT ? 'block' : 'none';
+    });
+}
+
+function loadMoreExpose() { exposeOffset += EXPOSE_LIMIT; loadExpose(true); }
+
+function likeExpose(pid, el) {
+    if (!requireAuth()) return;
+    api.post('/api/posts/' + pid + '/like', {}).then(r => {
+        const like = r.likes_count;
+        el.innerHTML = `<i data-lucide="heart" class="icon icon-sm ${like > (el._last || 0) ? 'icon-danger' : ''}"></i> ${like}`;
+        el.classList.toggle('liked', !!r.liked);
+        el._last = like;
+        if (window.lucide) lucide.createIcons();
+    }).catch(err => showToast(err.message || '操作失败', 'error'));
+}
+
+function loadMyPending() {
+    if (!currentUser) return;
+    // author_id 视野会自动放出自己的 pending/rejected（get_posts 行为），前端按状态过滤
+    api.get('/api/posts?post_type=expose&author_id=' + currentUser.id + '&limit=20').then(d => {
+        const mine = ((d && d.posts) || []).filter(p => p.status === 'pending');
+        const wrap = document.getElementById('myPendingWrap');
+        if (!mine.length) return;
+        wrap.style.display = 'block';
+        document.getElementById('myPendingList').innerHTML = mine.map(p => `
+            <div style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.02);border-radius:10px;padding:10px 14px;margin-bottom:8px;">
+                <i data-lucide="clock" class="icon icon-sm" style="color:var(--text-muted);"></i>
+                <span style="flex:1;font-size:0.88rem;">${escHtml(p.title)}</span>
+                <span style="font-size:0.72rem;color:var(--yellow-dark);">审核中…</span>
+            </div>`).join('');
+        if (window.lucide) lucide.createIcons();
+    }).catch(() => {});
+}
+
+function postExpose() {
+    if (!requireAuth()) return;
+    const content = document.getElementById('exposeContent').value.trim();
+    const firstLine = content.split('\n')[0].trim().slice(0, 100);
+    if (!content) return showToast('请输入爆料内容', 'error');
+    api.post('/api/posts', {
+        title: firstLine || '爆料',
+        content,
+        post_type: 'expose'
+    }).then(() => {
+        document.getElementById('exposeContent').value = '';
+        showToast('已提交，审核通过后自动展示', 'success');
+        loadMyPending();
+    }).catch(err => showToast(err.message || '提交失败', 'error'));
+}
+</script>
+</body>
+</html>

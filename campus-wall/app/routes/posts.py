@@ -104,6 +104,16 @@ def create():
             station_id = None
     image = data.get('image', '')
     is_anonymous = data.get('is_anonymous', 0)
+    post_type = data.get('post_type', 'text')
+    if post_type not in ALLOWED_POST_TYPES:
+        post_type = 'text'
+    # 爆料帖恒匿名 + 落到默认公开子站（无需前端指定）
+    is_expose = (post_type == 'expose')
+    if is_expose:
+        is_anonymous = 1
+        if not station_id:
+            from app.models_ext import get_first_public_station
+            station_id = get_first_public_station()
 
     if not title:
         return jsonify({'error': '标题不能为空'}), 400
@@ -130,9 +140,6 @@ def create():
         if not is_station_member(g.current_user['id'], station_id):
             return jsonify({'error': '私密子站仅成员可发帖，请先加入'}), 403
 
-    post_type = data.get('post_type', 'text')
-    if post_type not in ALLOWED_POST_TYPES:
-        post_type = 'text'
     extra = build_post_extra(post_type, data)
     if post_type == 'vote' and 'options' not in extra:
         return jsonify({'error': '投票帖至少需要2个选项'}), 400
@@ -140,10 +147,11 @@ def create():
         return jsonify({'error': '请填写有效链接'}), 400
 
     # 敏感词三级判定：block 拒绝 / review 进人工审核队列 / 否则直接发布
+    # （爆料帖恒走 pending 人工审核，先审后发，防匿名诽谤）
     level = scan_text(title) or scan_text(content)
     if level == 'block':
         return jsonify({'error': '内容包含违规信息，已被拒绝发布'}), 400
-    status = 'pending' if level == 'review' else 'approved'
+    status = 'pending' if (level == 'review' or is_expose) else 'approved'
 
     pid = create_post(title, content, g.current_user['id'], station_id, image,
                       is_anonymous=1 if is_anonymous else 0,

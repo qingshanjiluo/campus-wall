@@ -25,6 +25,9 @@ from app.models_ext import (
     create_report, get_reports, handle_report,
     get_user_settings, save_user_settings,
     get_announcements, create_announcement, update_announcement, toggle_announcement, delete_announcement,
+    get_character_graph, create_character_node, update_character_node, delete_character_node,
+    get_character_node, create_character_relation, delete_character_relation,
+    get_site_config, set_site_config, get_ad_config,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
 from app.models import shape_post, is_liked_batch
@@ -404,9 +407,10 @@ recommend_bp = Blueprint('recommend', __name__)
 def recommended_posts():
     limit = request.args.get('limit', 20, type=int)
     offset = request.args.get('offset', 0, type=int)
+    station_id = request.args.get('station_id', type=int)
     posts = get_recommended_posts(
         g.current_user['id'] if g.current_user else None,
-        limit, offset
+        limit, offset, station_id
     )
     # 与 /api/posts 对齐：匿名脱敏（owner/admin 例外）+ vote/link 展开 + 批量点赞态
     liked = is_liked_batch(g.current_user['id'], 'post', [p['id'] for p in posts]) if (g.current_user and posts) else set()
@@ -723,3 +727,127 @@ def handle(rid):
     handle_report(rid, g.current_user['id'], status, note)
     admin_log(g.current_user['id'], 'handle_report', 'report', rid, status)
     return jsonify({'message': '已处理'})
+
+
+# ══════════════════════════════════════════════
+# 角色关系图（world）：多人共同维护、可视化
+# ══════════════════════════════════════════════
+
+world_bp = Blueprint('world', __name__, url_prefix='/api/world')
+
+
+@world_bp.route('/graph', methods=['GET'])
+@optional_auth
+def graph():
+    return jsonify(get_character_graph())
+
+
+@world_bp.route('/nodes/<int:nid>', methods=['GET'])
+def node_detail(nid):
+    node = get_character_node(nid)
+    if not node:
+        return jsonify({'error': '角色不存在'}), 404
+    return jsonify(node)
+
+
+@world_bp.route('/nodes', methods=['POST'])
+@token_required
+def create_node():
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': '角色名不能为空'}), 400
+    if len(name) > 30:
+        return jsonify({'error': '角色名过长'}), 400
+    portrait = (data.get('portrait') or '').strip()[:10]
+    tagline = (data.get('tagline') or '').strip()[:80]
+    color = (data.get('color') or '').strip()[:20]
+    nid = create_character_node(name, portrait, tagline, color, g.current_user['id'])
+    return jsonify({'id': nid, 'message': '角色已添加'})
+
+
+@world_bp.route('/nodes/<int:nid>', methods=['PUT'])
+@token_required
+def update_node(nid):
+    node = query_db('SELECT * FROM character_nodes WHERE id = ?', (nid,), one=True)
+    if not node:
+        return jsonify({'error': '角色不存在'}), 404
+    if node['created_by'] != g.current_user['id'] and g.current_user['role'] != 'admin':
+        return jsonify({'error': '无权修改他人角色'}), 403
+    data = request.get_json(silent=True) or {}
+    fields = {
+        'name': (data.get('name') or '').strip()[:30],
+        'portrait': (data.get('portrait') or '').strip()[:10],
+        'tagline': (data.get('tagline') or '').strip()[:80],
+        'color': (data.get('color') or '').strip()[:20],
+    }
+    update_character_node(nid, **fields)
+    return jsonify({'message': '已更新'})
+
+
+@world_bp.route('/nodes/<int:nid>', methods=['DELETE'])
+@token_required
+def remove_node(nid):
+    node = query_db('SELECT * FROM character_nodes WHERE id = ?', (nid,), one=True)
+    if not node:
+        return jsonify({'error': '角色不存在'}), 404
+    if node['created_by'] != g.current_user['id'] and g.current_user['role'] != 'admin':
+        return jsonify({'error': '无权删除他人角色'}), 403
+    delete_character_node(nid)
+    return jsonify({'message': '已删除'})
+
+
+@world_bp.route('/relations', methods=['POST'])
+@token_required
+def create_rel():
+    data = request.get_json(silent=True) or {}
+    label = (data.get('label') or '').strip()
+    from_id = data.get('from_id')
+    to_id = data.get('to_id')
+    if not label:
+        return jsonify({'error': '关系标签不能为空'}), 400
+    if len(label) > 20:
+        return jsonify({'error': '关系标签过长'}), 400
+    description = (data.get('description') or '').strip()[:120]
+    reciprocal = 1 if data.get('reciprocal') else 0
+    rid = create_character_relation(from_id, to_id, label, description, reciprocal, g.current_user['id'])
+    if not rid:
+        return jsonify({'error': '来源/目标角色无效，或不能指向自己'}), 400
+    return jsonify({'id': rid, 'message': '关系已添加'})
+
+
+@world_bp.route('/relations/<int:rid>', methods=['DELETE'])
+@token_required
+def remove_rel(rid):
+    rel = query_db('SELECT * FROM character_relations WHERE id = ?', (rid,), one=True)
+    if not rel:
+        return jsonify({'error': '关系不存在'}), 404
+    if rel['created_by'] != g.current_user['id'] and g.current_user['role'] != 'admin':
+        return jsonify({'error': '无权删除他人关系'}), 403
+    delete_character_relation(rid)
+    return jsonify({'message': '已删除'})
+
+
+# ══════════════════════════════════════════════
+# 站点配置 / 广告位
+# ══════════════════════════════════════════════
+
+site_bp = Blueprint('site', __name__, url_prefix='/api/site')
+
+
+@site_bp.route('/config', methods=['GET'])
+def site_config():
+    """公开读取广告位等站点配置，前端据此决定是否渲染占位。"""
+    return jsonify(get_ad_config())
+
+
+# admin_bp 内新增：广告位配置
+@admin_bp.route('/site/config', methods=['PUT'])
+@token_required
+@admin_required
+def admin_site_config():
+    data = request.get_json(silent=True) or {}
+    for k in ('ad_enabled', 'ad_header', 'ad_footer'):
+        if k in data:
+            set_site_config(k, data[k])
+    return jsonify({'message': '已保存', **get_ad_config()})

@@ -14,6 +14,9 @@ pages_bp = Blueprint('pages', __name__)
 ROUTES = {
     '/': 'index.html',
     '/waterfall': 'waterfall.html',
+    '/world': 'world.html',
+    '/expose': 'expose.html',
+    '/forum': 'forum.html',
     '/trade': 'trade.html',
     '/romance': 'romance.html',
     '/gossip': 'gossip.html',

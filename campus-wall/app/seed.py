@@ -291,6 +291,30 @@ def seed():
         c.execute('INSERT INTO gossip (content, is_anonymous, likes_count) VALUES (?,1,?)',
                   (content, random.randint(5, 100)))
 
+    # ── Extended: 角色关系图 world 示例（多人共同谱写的图谱）──
+    world_nodes = [
+        ('林晚晴', '🌙', '成绩永远第一的学委', '#B5EAD7'),
+        ('顾一川', '🏀', '篮球队长，阳光开朗', '#FFB5BA'),
+        ('苏小满', '🧁', '甜品同好会会长', '#C9E4F5'),
+        ('江离离', '🎧', '独立音乐社主唱', '#E2D5F5'),
+        ('老班长', '📎', '严肃但护短', '#FDFFB6'),
+    ]
+    world_ids = []
+    for name, portrait, tagline, color in world_nodes:
+        c.execute('INSERT INTO character_nodes (name, portrait, tagline, color) VALUES (?,?,?,?)',
+                  (name, portrait, tagline, color))
+        world_ids.append(c.lastrowid)
+    w_rel = [
+        (world_ids[0], world_ids[1], '暗恋', '全班都知道，只有他嘴硬', 0),
+        (world_ids[1], world_ids[2], '青梅竹马', '从小一起长大', 1),
+        (world_ids[2], world_ids[3], '闺蜜', '甜品社 × 音乐社搭子', 1),
+        (world_ids[0], world_ids[4], '被针对', '班长总没收她的课外书', 0),
+        (world_ids[1], world_ids[4], '兄弟', '篮球队正副队长', 1),
+    ]
+    for f, t, label, desc, rp in w_rel:
+        c.execute('INSERT INTO character_relations (from_id, to_id, label, description, reciprocal) VALUES (?,?,?,?,?)',
+                  (f, t, label, desc, rp))
+
     conn.commit()
     conn.close()
     print(f'Seeded: {len(USERS)} users, {len(STATIONS)} stations, {len(POSTS)} posts, {len(COMMENTS)} comments + extended data')

@@ -437,7 +437,7 @@ def delete_station(sid):
 
 # ── Post helpers ──
 
-ALLOWED_POST_TYPES = ('text', 'image', 'link', 'vote')
+ALLOWED_POST_TYPES = ('text', 'image', 'link', 'vote', 'expose')
 
 
 def parse_post_extra(post):
@@ -475,7 +475,12 @@ def shape_post(post, viewer=None):
     并做匿名脱敏。响应形状与 Worker 版逐字段一致。"""
     if not post:
         return post
-    if post.get('is_anonymous'):
+    # 爆料帖：恒匿名（对所有人，含作者本人/管理员）→ 取证责任仍在，但公开信息不指向举报人
+    if post.get('post_type') == 'expose':
+        post['author_name'] = '匿名同学'
+        post['author_avatar'] = '/static/images/default-avatar.svg'
+        post['is_anonymous'] = 1
+    elif post.get('is_anonymous'):
         is_owner = viewer and post.get('author_id') == viewer.get('id')
         is_admin = viewer and viewer.get('role') == 'admin'
         if not is_owner and not is_admin:

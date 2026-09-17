@@ -1215,3 +1215,36 @@ main {
 @media (max-width: 640px) {
     .post-gallery { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
 }
+
+/* ── 广告位占位（预留）── */
+.ad-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 0.82rem;
+    color: var(--text-muted, #8a8a93);
+    letter-spacing: 0.02em;
+    cursor: default;
+    user-select: none;
+    border-bottom: 1px dashed rgba(150, 150, 160, 0.25);
+    text-align: center;
+}
+.ad-slot-header {
+    background: rgba(0, 0, 0, 0.015);
+    min-height: 44px;
+}
+.ad-slot-footer {
+    border-bottom: none;
+    border-top: 1px dashed rgba(150, 150, 160, 0.25);
+    background: rgba(0, 0, 0, 0.012);
+    min-height: 40px;
+}
+.ad-slot i { color: var(--pink-3, #fb6f92); }
+[data-theme="dark"] .ad-slot,
+[data-theme="dark"] .ad-slot-header,
+[data-theme="dark"] .ad-slot-footer {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.08);
+}

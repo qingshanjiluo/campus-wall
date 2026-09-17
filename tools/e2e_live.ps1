@@ -244,20 +244,73 @@ Step "checkin credits ledger" {
   } else {
     Assert($after -gt $before) "checkin did not write a ledger row" } }
 Step "frontend pages reachable" {
-  $pages = @('/', '/waterfall', '/trade', '/gossip', '/romance', '/shop', '/checkin',
-             '/messages', '/search', '/stations', '/rank', '/square', '/tasks',
-             '/notifications', '/about', '/help', '/create', '/admin', '/login', '/404')
+  # Strict assert: every real public route must return 200; /404 must return 404.
+  # (older version swallowed 404s via catch - this now catches page regressions)
+  $ok = @('/', '/waterfall', '/world', '/forum', '/expose', '/trade', '/romance',
+          '/gossip', '/shop', '/checkin', '/search', '/favorites', '/messages',
+          '/notifications', '/create', '/create-station', '/about', '/terms',
+          '/privacy', '/reset-password', '/admin', '/profile/1')
   $bad = @()
-  foreach ($pg in $pages) {
-    try {
-      $r = Invoke-WebRequest -Uri "$BaseUrl$pg" -TimeoutSec 20 -UseBasicParsing -ErrorAction Stop
-      if ($r.StatusCode -ne 200) { $bad += "$pg=$($r.StatusCode)" }
-    } catch {
-      $code = try { [int]$_.Exception.Response.StatusCode } catch { 0 }
-      if ($code -ne 404 -and $pg -ne '/404') { $bad += "$pg=ERR$code" }
-    }
+  foreach ($pg in $ok) {
+    $r = Invoke-WebRequest -Uri "$BaseUrl$pg" -TimeoutSec 20 -UseBasicParsing
+    if ($r.StatusCode -ne 200) { $bad += "$pg=$($r.StatusCode)" }
   }
-  Assert($bad.Count -eq 0) ("unreachable pages: " + ($bad -join ',')) }
+  # ps5.1 Invoke-WebRequest throws on non-2xx, so wrap the /404 assertion
+  $r404code = 0
+  try { Invoke-WebRequest -Uri "$BaseUrl/404" -TimeoutSec 20 -UseBasicParsing -ErrorAction Stop | Out-Null } catch { $r404code = (BadCode $_) }
+  if ($r404code -ne 404) { $bad += "/404=$r404code" }
+  Assert($bad.Count -eq 0) ("page status wrong: " + ($bad -join ',')) }
+Step "world graph api" {
+  $g = Api GET "/api/world/graph"
+  Assert($null -ne $g) "no graph"
+  Assert($null -ne $g.nodes) "graph missing nodes"
+  Assert($g.nodes.Count -ge 3) "graph too small"
+  Assert($null -ne $g.relations) "graph missing relations" }
+Step "world node create/delete" {
+  Assert($tk) "no token (earlier steps failed)"
+  $n1 = Api POST "/api/world/nodes" @{name="e2e_w$Suffix"; portrait="E"; tagline="t"} $tk
+  Assert($n1.id) "no node id"
+  # self-relation (node -> itself) must be rejected with 400
+  $selfRejected = $false
+  try { Api POST "/api/world/relations" @{from_id=$n1.id; to_id=$n1.id; label="self"} $tk; } catch { $selfRejected = ((BadCode $_) -eq 400) }
+  Assert($selfRejected) "self-relation not rejected"
+  $d = Api DELETE "/api/world/nodes/$($n1.id)" $null $tk
+  Assert($d.message) "node delete failed"
+  $after = Api GET "/api/world/graph"
+  $gone = -not (@($after.nodes | Where-Object { $_.id -eq $n1.id }).Count)
+  Assert($gone) "node not actually removed" }
+Step "expose create + review + anon" {
+  Assert($tk) "no token (earlier steps failed)"
+  $ep = Api POST "/api/posts" @{title="e2e_ex$Suffix"; content="expose body"; post_type="expose"} $tk
+  Assert($ep.post_id) "expose create no post_id"
+  # pending: must NOT appear in the public expose feed
+  $pub = Api GET "/api/posts?post_type=expose&limit=50"
+  Assert(-not (@($pub.posts | Where-Object { $_.id -eq $ep.post_id }).Count)) "expose leaked pre-review"
+  # admin sees it in review queue and approves
+  $q = Api GET "/api/admin/review" $null $atk
+  Assert(@($q.posts | Where-Object { $_.id -eq $ep.post_id }).Count -ge 1) "expose not in review queue"
+  Api POST "/api/admin/review" @{post_id=$ep.post_id; action="approve"} $atk | Out-Null
+  $pub = Api GET "/api/posts?post_type=expose&limit=50"
+  $appr = @($pub.posts | Where-Object { $_.id -eq $ep.post_id })
+  Assert($appr.Count -eq 1) "expose not public after approve"
+  # forced anonymity: even the creator/admin see a masked name, never the username
+  Assert($appr[0].author_name -ne $u) "expose author leaked"
+  Assert($appr[0].author_name -ne $u2) "expose author leaked (u2)"
+  Assert([string]$appr[0].author_name -ne "") "expose author empty" }
+Step "forum boards + feed api" {
+  $st = Api GET "/api/stations?limit=100"
+  Assert(@($st).Count -ge 1) "no stations for forum"
+  $feed = Api GET "/api/posts?limit=5&sort=newest"
+  Assert($null -ne $feed.posts) "forum feed missing" }
+Step "site config + ad toggle" {
+  $cfg = Api GET "/api/site/config"
+  Assert($null -ne $cfg) "no site config"
+  Assert($null -ne $cfg.ad_enabled) "ad_enabled missing"
+  $r = Api PUT "/api/admin/site/config" @{ad_enabled="0"} $atk
+  Assert($null -ne $r) "admin site config failed"
+  $cfg2 = Api GET "/api/site/config"
+  Assert($cfg2.ad_enabled -ne $true) "ad toggle off not honored"
+  Api PUT "/api/admin/site/config" @{ad_enabled="1"} $atk | Out-Null }
 Step "vendored lucide served" {
   $r = Invoke-WebRequest -Uri "$BaseUrl/static/vendor/lucide.min.js" -TimeoutSec 30 -UseBasicParsing
   Assert($r.StatusCode -eq 200) "lucide http=$($r.StatusCode)"

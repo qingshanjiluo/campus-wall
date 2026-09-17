@@ -39,6 +39,7 @@
             <span class="tag" onclick="switchAdminTab(this,'shop')"><i data-lucide="gift" class="icon icon-sm"></i> 商城管理</span>
             <span class="tag" onclick="switchAdminTab(this,'reports')"><i data-lucide="flag" class="icon icon-sm"></i> 举报中心</span>
             <span class="tag" onclick="switchAdminTab(this,'announcements')"><i data-lucide="megaphone" class="icon icon-sm"></i> 公告管理</span>
+            <span class="tag" onclick="switchAdminTab(this,'ads')"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位</span>
             <span class="tag" onclick="switchAdminTab(this,'logs')"><i data-lucide="scroll" class="icon icon-sm"></i> 操作日志</span>
         </div>
 
@@ -319,7 +320,36 @@ function switchAdminTab(el, tab) {
                 </div>
             `).join('');
         });
+    } else if (tab === 'ads') {
+        api.get('/api/site/config').then(cfg => {
+            const checked = cfg.ad_enabled ? 'checked' : '';
+            content.innerHTML = `
+                <div class="speech-bubble" style="max-width:560px;">
+                    <h4 style="margin:0 0 12px;color:var(--pink-4);"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位配置</h4>
+                    <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:14px;">
+                        广告位为预留占位：导航下方与页脚上方各一处。默认开启并显示招商文案，可在此关闭或自定义。
+                    </p>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;margin-bottom:14px;cursor:pointer;">
+                        <input type="checkbox" id="adEnabled" ${checked}> <i data-lucide="megaphone" class="icon icon-sm"></i> 显示广告位
+                    </label>
+                    <div class="form-group"><label class="form-label">顶部广告文案</label>
+                        <input class="input" id="adHeader" maxlength="200" value="${escHtml(cfg.ad_header||'')}"></div>
+                    <div class="form-group"><label class="form-label">底部广告文案</label>
+                        <input class="input" id="adFooter" maxlength="200" value="${escHtml(cfg.ad_footer||'')}"></div>
+                    <button class="btn btn-primary" onclick="saveAdConfig()"><i data-lucide="save" class="icon icon-sm"></i> 保存</button>
+                </div>`;
+            if (window.lucide) lucide.createIcons();
+        });
     }
+}
+
+function saveAdConfig() {
+    const enabled = document.getElementById('adEnabled') ? document.getElementById('adEnabled').checked : true;
+    api.put('/api/admin/site/config', {
+        ad_enabled: enabled ? '1' : '0',
+        ad_header: document.getElementById('adHeader') ? document.getElementById('adHeader').value.trim() : '',
+        ad_footer: document.getElementById('adFooter') ? document.getElementById('adFooter').value.trim() : ''
+    }).then(() => showToast('已保存，刷新页面生效', 'success')).catch(err => showToast(err.message || '保存失败', 'error'));
 }
 
 function setUserField(uid, field, value) {

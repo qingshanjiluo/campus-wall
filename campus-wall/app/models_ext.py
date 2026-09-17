@@ -61,6 +61,12 @@ def init_extended_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # ── 站点配置（键值）：广告位等可配置占位 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS site_config (
+        key TEXT PRIMARY KEY,
+        value TEXT DEFAULT ''
+    )''')
+
     # ── 签到 ──
     c.execute('''CREATE TABLE IF NOT EXISTS checkins (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -247,6 +253,30 @@ def init_extended_db():
         theme TEXT DEFAULT 'auto',
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+
+    # ── 角色关系图（world）：多人共同新建/串联维护的关系图谱 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS character_nodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        portrait TEXT DEFAULT '',
+        tagline TEXT DEFAULT '',
+        color TEXT DEFAULT '',
+        status TEXT DEFAULT 'active',
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS character_relations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_id INTEGER NOT NULL REFERENCES character_nodes(id),
+        to_id INTEGER NOT NULL REFERENCES character_nodes(id),
+        label TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        reciprocal INTEGER DEFAULT 0,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_char_rel_src ON character_relations(from_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_char_rel_dst ON character_relations(to_id)")
 
     # ── 私信 ──
     init_dm_tables(c)
@@ -666,17 +696,25 @@ def get_kanban_message():
 # 推流算法
 # ══════════════════════════════════════════════
 
-def get_recommended_posts(user_id=None, limit=20, offset=0):
+def get_recommended_posts(user_id=None, limit=20, offset=0, station_id=None):
     """推流算法：综合热度、时间、用户兴趣。
-    审核闸：仅 approved；脱敏交 handler 层 shape_post（保留 owner/admin 例外）。"""
-    sql = '''
+    审核闸：仅 approved；脱敏交 handler 层 shape_post（保留 owner/admin 例外）。
+    station_id：可选，仅返回该子站内容（供「我关注的子站」筛选）。"""
+    where = "p.is_deleted = 0 AND p.status = 'approved'"
+    params = []
+    if station_id:
+        where += " AND p.station_id = ?"
+        params.append(station_id)
+    params.append(limit)
+    params.append(offset)
+    sql = f'''
         SELECT p.*, u.username as author_name, u.avatar as author_avatar,
                s.name as station_name, s.icon as station_icon,
                (p.likes_count * 3 + p.comments_count * 5 + p.views * 0.1) as hot_score
         FROM posts p
         JOIN users u ON p.author_id = u.id
         JOIN stations s ON p.station_id = s.id
-        WHERE p.is_deleted = 0 AND p.status = 'approved'
+        WHERE {where}
         ORDER BY
             p.is_pinned DESC,
             (p.likes_count * 3 + p.comments_count * 5 + p.views * 0.1) * 0.6
@@ -684,7 +722,7 @@ def get_recommended_posts(user_id=None, limit=20, offset=0):
             DESC
         LIMIT ? OFFSET ?
     '''
-    return query_db(sql, (limit, offset))
+    return query_db(sql, params)
 
 
 def get_user_interest_stations(user_id, limit=5):
@@ -794,6 +832,39 @@ def get_admin_logs(limit=100):
         '''SELECT al.*, u.username as admin_name
            FROM admin_log al LEFT JOIN users u ON al.admin_id = u.id
            ORDER BY al.created_at DESC LIMIT ?''', (limit,))
+
+
+# ── 站点配置（键值）──
+_SITE_CONFIG_DEFAULTS = {
+    'ad_enabled': '1',
+    'ad_header': '校园墙 · 商业合作 / 品牌橱窗 招商中（预留广告位）',
+    'ad_footer': '广告位招租 · 联系站务合作（预留）',
+}
+
+
+def get_site_config():
+    rows = query_db('SELECT key, value FROM site_config')
+    cfg = dict(_SITE_CONFIG_DEFAULTS)
+    for r in rows:
+        cfg[r['key']] = r['value']
+    return cfg
+
+
+def set_site_config(key, value):
+    if key not in _SITE_CONFIG_DEFAULTS:
+        return False
+    execute_db('INSERT INTO site_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+               (key, str(value)[:200]))
+    return True
+
+
+def get_ad_config():
+    cfg = get_site_config()
+    return {
+        'ad_enabled': cfg.get('ad_enabled') in ('1', 'true', 'True', 'on'),
+        'ad_header': cfg.get('ad_header', ''),
+        'ad_footer': cfg.get('ad_footer', ''),
+    }
 
 
 # ── 站内公告 ──
@@ -1000,3 +1071,102 @@ def save_user_settings(user_id, **kwargs):
             ON CONFLICT(user_id) DO UPDATE SET {sets}, updated_at = CURRENT_TIMESTAMP''',
         [user_id] + list(fields.values()) + vals)
     return True
+
+
+# ══════════════════════════════════════════════
+# 角色关系图（world）：多人共同维护的关系图谱
+# ══════════════════════════════════════════════
+
+def _node_to_dict(r):
+    return {
+        'id': r['id'], 'name': r['name'], 'portrait': r['portrait'],
+        'tagline': r['tagline'], 'color': r['color'], 'status': r['status'],
+        'created_by': r['created_by'], 'created_at': r['created_at'],
+    }
+
+
+def get_first_public_station():
+    """爆料帖未指定子站时，回退到首个公开子站。"""
+    r = query_db('SELECT id FROM stations WHERE is_public = 1 ORDER BY id ASC LIMIT 1', one=True)
+    return r['id'] if r else None
+
+
+def create_character_node(name, portrait='', tagline='', color='', created_by=None):
+    name = (name or '').strip()
+    if not name:
+        return None
+    return execute_db(
+        'INSERT INTO character_nodes (name, portrait, tagline, color, created_by) VALUES (?,?,?,?,?)',
+        (name, portrait or '', tagline or '', color or '', created_by))
+
+
+def update_character_node(node_id, **fields):
+    allowed = ('name', 'portrait', 'tagline', 'color')
+    upd = {k: v for k, v in fields.items() if k in allowed}
+    if not upd:
+        return False
+    sets = ', '.join(f'{k} = ?' for k in upd)
+    vals = list(upd.values()) + [node_id]
+    execute_db(f'UPDATE character_nodes SET {sets} WHERE id = ?', vals)
+    return True
+
+
+def delete_character_node(node_id):
+    execute_db('DELETE FROM character_relations WHERE from_id = ? OR to_id = ?', (node_id, node_id))
+    execute_db('DELETE FROM character_nodes WHERE id = ?', (node_id,))
+
+
+def get_character_node(node_id):
+    r = query_db('SELECT * FROM character_nodes WHERE id = ? AND status = "active"', (node_id,), one=True)
+    if not r:
+        return None
+    node = _node_to_dict(r)
+    rels = query_db(
+        'SELECT * FROM character_relations WHERE (from_id = ? OR to_id = ?) ORDER BY id ASC',
+        (node_id, node_id))
+    node['relations'] = [_rel_to_dict(x) for x in rels]
+    return node
+
+
+def get_character_graph():
+    """全量图谱：active 节点 + 其关系，供 /world 页一次拉取渲染。"""
+    nodes = [dict(r) for r in query_db('SELECT * FROM character_nodes WHERE status = "active" ORDER BY id ASC')]
+    ids = [n['id'] for n in nodes]
+    if ids:
+        ph = ','.join('?' for _ in ids)
+        raw = query_db(
+            f'SELECT * FROM character_relations WHERE from_id IN ({ph}) AND to_id IN ({ph}) ORDER BY id ASC',
+            ids + ids)
+        rels = [_rel_to_dict(r) for r in raw]
+    else:
+        rels = []
+    for n in nodes:
+        n.pop('status')  # 前端不关心
+    return {'nodes': nodes, 'relations': rels}
+
+
+def _rel_to_dict(r):
+    return {
+        'id': r['id'], 'from_id': r['from_id'], 'to_id': r['to_id'],
+        'label': r['label'], 'description': r['description'],
+        'reciprocal': bool(r['reciprocal']), 'created_by': r['created_by'],
+        'created_at': r['created_at'],
+    }
+
+
+def create_character_relation(from_id, to_id, label, description='', reciprocal=0, created_by=None):
+    label = (label or '').strip()
+    from_id = int(from_id or 0)
+    to_id = int(to_id or 0)
+    if not label or from_id <= 0 or to_id <= 0 or from_id == to_id:
+        return None
+    if not query_db('SELECT 1 FROM character_nodes WHERE id = ?', (from_id,), one=True) or \
+       not query_db('SELECT 1 FROM character_nodes WHERE id = ?', (to_id,), one=True):
+        return None
+    return execute_db(
+        'INSERT INTO character_relations (from_id, to_id, label, description, reciprocal, created_by) VALUES (?,?,?,?,?,?)',
+        (from_id, to_id, label, description or '', 1 if reciprocal else 0, created_by))
+
+
+def delete_character_relation(rel_id):
+    execute_db('DELETE FROM character_relations WHERE id = ?', (rel_id,))

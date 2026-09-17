@@ -89,6 +89,9 @@
             <span class="tag" onclick="sortWaterfall(this,'hot')"><i data-lucide="flame" class="icon icon-sm"></i> 热门推荐</span>
         </div>
 
+        <!-- 我关注的子站（来自 /api/recommend/interests，点击可筛选） -->
+        <div id="interestBar" class="tag-bar reveal" style="display:none;"></div>
+
         <div id="waterfallGrid" class="masonry">
             <div class="loading">加载中</div>
         </div>
@@ -117,7 +120,36 @@ const wfColors = [
 
 document.addEventListener('DOMContentLoaded', function() {
     loadWaterfall();
+    loadInterestStations();
 });
+
+// 我关注的子站（/api/recommend/interests）：作为快捷筛选栏展示
+let wfStationId = null;
+function loadInterestStations() {
+    if (!currentUser) return;
+    api.get('/api/recommend/interests').then(list => {
+        const bar = document.getElementById('interestBar');
+        if (!bar || !list || !list.length) return;
+        const arr = Array.isArray(list) ? list : (list.stations || []);
+        if (!arr.length) return;
+        bar.style.display = '';
+        bar.innerHTML = '<span class="tag active" data-sid="" onclick="filterByStation(this,\'\')">'
+            + '<i data-lucide="layout-grid" class="icon icon-sm"></i> 全部</span>'
+            + arr.map(s => `<span class="tag" data-sid="${s.id}" onclick="filterByStation(this,'${s.id}')">`
+                + `<i data-lucide="${getStationIcon(s.icon)}" class="icon icon-sm"></i> ${escHtml(s.name)}</span>`).join('');
+        if (window.lucide) lucide.createIcons();
+    }).catch(() => {});
+}
+
+function filterByStation(el, sid) {
+    document.querySelectorAll('#interestBar .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    wfStationId = sid || null;
+    wfOffset = 0;
+    document.getElementById('waterfallGrid').innerHTML = '';
+    document.getElementById('waterfallEnd').style.display = 'none';
+    loadWaterfall();
+}
 
 function sortWaterfall(el, sort) {
     document.querySelectorAll('#waterfallSort .tag').forEach(t => t.classList.remove('active'));
@@ -131,9 +163,10 @@ function sortWaterfall(el, sort) {
 
 function loadWaterfall(append) {
     if (!append) wfOffset = 0;
+    const sidParam = wfStationId ? `&station_id=${encodeURIComponent(wfStationId)}` : '';
     const url = wfSort === 'hot'
-        ? `/api/recommend/posts?limit=${wfLimit}&offset=${wfOffset}`
-        : `/api/posts?limit=${wfLimit}&offset=${wfOffset}&sort=newest`;
+        ? `/api/recommend/posts?limit=${wfLimit}&offset=${wfOffset}${sidParam}`
+        : `/api/posts?limit=${wfLimit}&offset=${wfOffset}&sort=newest${sidParam}`;
 
     api.get(url).then(data => {
         // /api/posts 返回 {posts,total}；/api/recommend/posts 返回裸数组
