@@ -64,9 +64,21 @@
   compose YAML/脚本语法与 backup 链路均本地验证，容器整备冒烟留待目标服务器执行
 - **M7 收尾** ✅：README/DEPLOYMENT/LAUNCH_CHECKLIST 重定位为服务器主线，Cloudflare 轨
   标注演示+契约蓝本；seed 已是 lucide 图标与前端一致
+- **R5** ✅：多图画廊 images[]（upload≤9 张/预览/渲染）、trade 状态机前端（越权 403）、
+  like 服务端真计数、金币明细接入孤儿 `/api/shop/transactions`、重复 JS 函数单例化、
+  lucide 本地自托管锁版（vendor）、P2-10 批量修复（checkin 文案/游离标签/搜索注入/admin 改名）；
+  E2E → **57/57**
+- **R6** ✅（新增四功能，见下）：
+  ① 角色关系图 `/world` —— 多用户共同新建/串联维护角色节点与关系，/api/world/* 蓝图 +
+  力导向 SVG 可视化（拖拽/点选/关系高亮/双向虚线）+ seed 示例；② 爆料台 `/expose` ——
+  `post_type=expose` 恒匿名 + 先审后发（pending 人工审核门），连管理员都只见匿名名；
+  ③ 公开论坛 `/forum` —— 子站=版块矩阵 + 跨版块最新热议聚合；④ 广告位保留 ——
+  `site_config` 键值表 + `/api/site/config` + admin 广告位配置页 + common.js 注入 ad-slot 占位。
+  另：`/api/recommend/posts` 支持 `station_id`（兴趣子站热门筛选真正生效）；E2E → **66/66**，
+  严格页面矩阵（真实公开路由全 200）、cold-boot 冷库 66/66 复验
 
 剩余人工项（需外部资源）：真实服务器 `docker compose up -d --build` →
-对线上域名跑 54 步 E2E → 改 admin 密码 → 浏览器 22 页双主题走查 → 公告。
+对线上域名跑 66 步 E2E → 改 admin 密码 → 浏览器 25 页双主题走查 → 公告。
 
 ## 5. 风险与对策
 - 旧 templates 版仍在工作目录：保留但文档声明冻结，避免误改双份。

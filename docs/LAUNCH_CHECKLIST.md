@@ -8,9 +8,9 @@
 ```
 Nginx(80/443, TLS, gzip, uploads 直出, /api 透传真实IP)
   └─ Gunicorn 4w×2t --preload :8000
-       └─ Flask app（campus-wall/app · 18 蓝图 · JWT/bcrypt/限流/敏感词审核）
+       └─ Flask app（campus-wall/app · 20 蓝图 · JWT/bcrypt/限流/敏感词审核）
             └─ SQLite WAL（/data volume · DATABASE_PATH 可指任意盘 · 单点可换 PG）
-前端 = campus-wall/frontend 静态 22 页（Flask 页路由 + Nginx 静态直出双通道）
+前端 = campus-wall/frontend 静态 25 页（Flask 页路由 + Nginx 静态直出双通道）
 部署资产 = campus-wall/deploy/（Dockerfile · compose · nginx · systemd · backup · deploy.sh）
 ```
 
@@ -19,15 +19,17 @@ Cloudflare Pages/Worker 轨降级为演示环境（backend-worker 保留作 API 
 
 ## 1. 后端与契约（本地全栈可证明）
 
-- [x] Flask 主线 E2E **54/54 全绿**（tools/e2e_live.ps1 -BaseUrl http://127.0.0.1:5000）：
+- [x] Flask 主线 E2E **66/66 全绿**（tools/e2e_live.ps1 -BaseUrl http://127.0.0.1:5000）【R6】：
   注册/登录/资料 · 子站(加入/退出/成员) · 帖子四类型（**vote 一人一票/重投拒/link 消毒/
-  images 数组**）· 点赞/收藏 · 评论 · 签到 · 商店/金币 · 恋爱档案（含 UPDATE 回归）·
-  树洞 · 二手 · 搜索/推荐 · **私信 5 步**（发送/会话/已读/未读/坏参数拒）·
+  images 数组**）· 点赞/收藏 · 评论 · 签到 · 商店/金币+**金币明细** · 恋爱档案（含 UPDATE 回归）·
+  树洞 · 二手 · 搜索/推荐(含**兴趣子站筛选**) · **私信 5 步**（发送/会话/已读/未读/坏参数拒）·
   **审核 6 步**（review 入队/公开隐藏/作者可见/approve 发布/block 拒/重复处理拒）·
-  上传（multipart→落盘→可访问往返）· admin 统计/用户 · 通知
-- [x] Worker 契约蓝本原生断言 205 绿（--mode all --budget），差异已全部移植回 Flask
-- [x] **GitHub Actions `Backend CI` 全绿**：干净 ubuntu 冷库生产模式起服 → 54 步 E2E →
-      路由矩阵 → JS 门（badge 见 README；发布验证链任何人 fresh clone 可重放）
+  上传（multipart→落盘→可访问往返）· admin 统计/用户 · 通知 ·
+  **严格页面矩阵**（23 真实公开路由全 200 + /404=404）· **world 角色关系图**（graph 断言语义/
+  自反关系拒）· **expose 爆料**（create→review→approve→恒匿名，连管理员都只见匿名名）·
+  **forum 论坛版块/最新聚合** · **site 配置 + 广告位开关**
+- [x] **GitHub Actions `Backend CI` 全绿**：干净 ubuntu 冷库生产模式起服 → 66 步 E2E →
+      路由矩阵(含 world/forum/expose/lucide 自托管) → JS 门（badge 见 README；发布验证链可重放）
 - [x] 热路径批量化：feed/子站帖列表 is_liked_batch、子站列表 membership 批量、admin stats 4 查询+memo
 - [x] 隐私闸：匿名帖在 列表/详情/子站页/搜索 全通道脱敏；pending/rejected 对外 404
 - [x] 安全：上传内容校验(PIL verify 防伪扩展名)+EXIF 剥离+长边压缩 · 生产限流
@@ -44,8 +46,8 @@ Cloudflare Pages/Worker 轨降级为演示环境（backend-worker 保留作 API 
 - [x] 深色模式：`[data-theme]` 双表覆盖 + localStorage + prefers-color-scheme + 导航开关
 - [x] XSS/toast/路由门禁/编辑历史等（见 frontend-audit.md 处置表）
 - [x] JS 语法门：29 外链 + 全页面内联 node --check 0 失败
-- [ ] 真实浏览器 22 页走查（桌面+移动宽度、明暗双主题）——部署完成后执行
-- [ ] P2 遗留（低优先）：重复函数收敛、trade 状态机前端接入、lucide 版本锁定
+- [ ] 真实浏览器 25 页走查（桌面+移动宽度、明暗双主题）——部署完成后执行
+- [x] P2 遗留（前端收敛）：重复 JS 函数单例化、trade 状态机前端接入、lucide 本地自托管锁版 【R5】
 
 ## 3. 部署与运维（目标服务器执行）
 
@@ -56,7 +58,7 @@ Cloudflare Pages/Worker 轨降级为演示环境（backend-worker 保留作 API 
 - [x] 无 Docker 备选：systemd 单元（ProtectSystem/PrivateTmp/降权用户）
 - [ ] 购买/准备服务器 + 域名备案（如需大陆访问）
 - [ ] 服务器上 `docker compose up -d --build` 成功 → 本机跑
-      `tools/e2e_live.ps1 -BaseUrl https://域名` **54/54** → GO
+      `tools/e2e_live.ps1 -BaseUrl https://域名` **66/66** → GO
 - [ ] 改演示 admin 密码 / 或清 instance 库重新种子（手册 §3）
 - [ ] 首日观察：`docker compose logs`、备份文件生成、429 是否误伤
 
@@ -76,4 +78,4 @@ Cloudflare Pages/Worker 轨降级为演示环境（backend-worker 保留作 API 
 | admin | admin123 | 管理员（审核/后台全权限） |
 | xiaohua | 123456 | 普通用户 |
 
-种子：8 用户 / 15 子站(lucide 图标) / 25 帖 / 16 评论 + 商店/签到/交易/身份组样例。
+种子：8 用户 / 15 子站(lucide 图标) / 25 帖 / 16 评论 + 商店/签到/交易/身份组样例 + **角色关系图示例(5 角色 6 关系)**【R6】。

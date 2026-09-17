@@ -3,15 +3,15 @@
 ![Backend CI](https://github.com/qingshanjiluo/campus-wall/actions/workflows/backend-ci.yml/badge.svg?branch=master)
 
 > 连接校园，分享青春 —— 面向高校学生的社区站：子站（表白墙/失物招领/二手交易…）、
-> 瀑布流、投票/链接帖、匿名树洞、私信、恋爱匹配、签到积分商店、二手市场、
-> 敏感词+人工审核、管理后台、深色模式。
+> 瀑布流、投票/链接帖、匿名树洞、**角色关系图**、**匿名爆料台**、**公开论坛**、私信、
+> 恋爱匹配、签到积分商店、二手市场、**广告位占位**、敏感词+人工审核、管理后台、深色模式。
 
 | | |
 |---|---|
 | 🚀 **正式部署** | 普通服务器自托管（Nginx + Gunicorn + Flask + SQLite）——[部署手册](docs/DEPLOYMENT-SERVER.md) |
 | 🧪 **演示环境** | https://campus-wall-673.pages.dev（Cloudflare 轨，仅作参考，非主线） |
 | 👤 **演示账号** | 管理员 `admin / admin123` · 普通用户 `xiaohua / 123456` |
-| ✅ **质量门** | 本地全栈 E2E **54/54** 绿 · 原生断言 205 绿 · 内联/外链 JS `node --check` 0 失败 |
+| ✅ **质量门** | 本地全栈 E2E **66/66** 绿 · 内联/外链 JS `node --check` 0 失败 |
 | 📦 **仓库** | qingshanjiluo/campus-wall（master = 生产） |
 
 ## 架构（主线）
@@ -26,7 +26,7 @@
 │  Flask app（campus-wall/app）17+1 蓝图 · JWT · bcrypt · 限流 · 敏感词审核   │
 │  SQLite WAL（DATABASE_PATH=/data volume，可平滑换 PostgreSQL）              │
 └────────────────────────────────────────────────────────────────────────────┘
-  前端 = campus-wall/frontend 静态 22 页（Nginx 直出静态资源 + Flask 页路由）
+  前端 = campus-wall/frontend 静态 25 页（Nginx 直出静态资源 + Flask 页路由）
 ```
 
 - **一键上线**：`cd campus-wall/deploy && cp .env.example .env`（填密钥）→ `docker compose up -d --build`
@@ -36,11 +36,11 @@
 ## 目录速览
 
 ```
-campus-wall/app/          Flask 后端主线（routes/18 蓝图、models*.py、seed.py）
-campus-wall/frontend/     静态前端 22 页（线上唯一前端版本）
+campus-wall/app/          Flask 后端主线（routes/20 蓝图、models*.py、seed.py）
+campus-wall/frontend/     静态前端 25 页（线上唯一前端版本）
 campus-wall/deploy/       Dockerfile · compose · nginx · systemd · 备份/发布脚本 · .env.example
 backend-worker/           Cloudflare Python Worker + D1（演示轨 & API 契约蓝本）
-tools/e2e_live.ps1        54 步全功能 E2E（-BaseUrl 可指 Flask/Worker 任一后端）
+tools/e2e_live.ps1        66 步全功能 E2E（-BaseUrl 可指 Flask/Worker 任一后端）
 docs/                     DEPLOYMENT-SERVER · SERVER_ARCHITECTURE · LAUNCH_CHECKLIST · frontend-audit
 ```
 
@@ -65,10 +65,14 @@ cd campus-wall/deploy && docker compose up -d --build
 | 域 | 亮点 |
 |---|---|
 | 帖子 | text/image/**vote/link** 四类型；投票一人一票；编辑保留票数；编辑历史 |
+| 角色图 | **/world 多人共同维护的角色-关系图谱**，力导向图可视化（拖拽/点选/关系高亮/双向虚线） |
+| 爆料 | **/expose 匿名爆料**：post_type=expose 恒匿名（连管理员只见匿名名）+ 先审后发 |
+| 论坛 | **/forum 公开论坛**：子站=版块矩阵 + 跨版块最新热议聚合 |
+| 广告 | **广告位占位**：site_config 可配，导航/页脚 ad-slot，admin 可开关与改文案 |
 | 审核 | 敏感词三级（block 拒/review 队列/直发）· admin 审核 Tab · 作者状态徽标 |
 | 私信 | 会话列表/未读徽标/深链 `?with=uid` · 移动端单栏 · 发信即通知 |
 | 社区 | 子站(私密/仅站长发贴) · 树洞马甲 · 二手 · 恋爱匹配 · 签到/任务/商店 |
-| 管理 | 统计+趋势图 · 用户/子站/帖子/身份组/商城/公告/举报/操作日志 |
+| 管理 | 统计+趋势图 · 用户/子站/帖子/身份组/商城/公告/举报/广告位/操作日志 |
 | 安全 | JWT+bcrypt · 接口限流(生产开) · 上传防伪+Pillow 压缩+EXIF 剥离 · 匿名脱敏 |
 
 ## 文档
