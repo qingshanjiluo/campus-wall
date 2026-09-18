@@ -113,3 +113,26 @@ entry.py 每请求 `context.env = self.env`，Python 在 isolate 内单线程事
 - 邮件找回密码 SMTP（Worker 无凭据；保持 dev-token 回显或在 UI 隐藏入口并给提示）
 - R2 图床（未开通；uploads 走 D1 base64，5MB 上限，够 MVP）
 - Live2D 看板娘资源优化（有 /api/kanban/message 文案轮播，足够）
+
+---
+
+## ⚠️ 方案更迭记录（以本节为准，上文 Cloudflare-first 内容为历史存档）
+
+> **R4 决策（用户指示）：放弃 Cloudflare 作为部署目标，转为普通服务器完整自托管。**
+> 生产主线 = `campus-wall/app/`（Flask）+ Nginx + Gunicorn + SQLite WAL（Docker Compose）。
+> `backend-worker/`（Cloudflare Worker + D1）降级为**线上演示轨 + API 契约蓝本**（代码保留不删）。
+> 上文「一、选型」「二、里程碑」「三、风险」中把 Worker 当 SSOT、把 Flask 镜像列入「不做清单」的表述**已被本节取代**。
+> 权威运维/架构文档见 `docs/SERVER_ARCHITECTURE.md`、`docs/DEPLOYMENT-SERVER.md`、`docs/LAUNCH_CHECKLIST.md`。
+
+### 开发波次执行记录（全部 E2E + CI 门绿，已推送 master）
+
+| 波次 | 交付 | 提交 |
+|---|---|---|
+| **R4** | 架构转服务器自托管；M1-M7（契约对齐/图片安全/审核/私信/UI深色/部署包/文档重定位）；Backend CI 冷启全栈跑通 | 多个 |
+| **R5-A/B** | 多图画廊 images[]、trade 状态机前端+越权修复、like 真计数、金币明细接入孤儿路由、重复 JS 函数单例化、lucide 本地自托管锁版、P2-10 批量 | `54d83c8`,`61f1a51` |
+| **R6** | 角色关系图 `/world`（多用户共同维护+力导向图）、爆料台 `/expose`（恒匿名+先审后发）、公开论坛 `/forum`、广告位保留（site_config）；recommend/posts 支持 station_id；E2E 严格页面矩阵 | `91375b2`,`499a28a` |
+| **R7-A/B** | shell 层历史 bug 根治（重复空 `main#page-main` 致 footer 渲染在正文前，改 beforeend 注入）、admin Tab 高亮复位、窄桌面导航折叠、world 图谱 v2（箭头/搜索/取消选中/移动端）、forum 排序+加载更多、expose 配图；E2E 66→68 | `992c7d3` |
+| **R7-C** | `<option>` 去不可渲染的 `<i>`、romance openSendLink 去重复 desc 询问、审计文档处置表 | `4c1669f` |
+| **R7-D** | js_gate 壳层结构守卫（防 main/footer 回归）、新页面暗色边框一致性 | `773879d`,`b6b09c8` |
+
+**当前状态**：代码侧已达可上线（launch-ready）——本地 dev 与冷库（fresh DB·production 配置）E2E 双 **68/68** 绿、js_gate（外链+内联 node --check + PS ASCII + 壳层守卫）全绿、Backend CI 工作流覆盖同等链路。**唯一剩余为外部人工步骤**（非代码可自动完成）：购买/准备服务器与域名 → `cd campus-wall/deploy && cp .env.example .env`（填密钥）→ `docker compose up -d --build` → 对线上域名跑 `tools/e2e_live.ps1 -BaseUrl https://域名` 68/68 → 改演示 admin 密码 → 浏览器 25 页双主题人工走查。
