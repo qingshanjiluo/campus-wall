@@ -155,3 +155,40 @@ onclick/onsubmit 全局函数交叉核对：除 `toggleNavMenu`（P1-6）外，�
 6. **P1-4/5/6/7** today_* 字段、create.html 上传选择器、toggleNavMenu 导出、romance hobbies 序列化
 
 > 本审计未修改任何源文件。全部行号以当前工作区文件为准。
+
+---
+
+## 处置状态（R5–R7 波次，审计后落地）
+
+> 以下为审计登记项在后续开发波中的实际处置；行号可能因改动漂移，以「结论」为准。
+
+| 编号 | 项 | 处置 | 波次 |
+|---|---|---|---|
+| P0-1 | waterfall 响应解包 | ✅ 前端双形状兼容（`Array.isArray`） | R4 |
+| P0-2 | vote/link 后端支持 | ✅ 序列化进 `posts.extra` + shape 展开 | R4 |
+| P1-1 | showToast 统一 | ✅ 保留 utils 版（带 `.show`/duration），app 版删除 | R5-B |
+| P1-2 | avatar/cover/icon/数值转义 | ✅ 各页插值 escHtml；shop icon 本轮补 esc | R4→R7 |
+| P1-3 | `querySelector('.modal-overlay').remove()` 误删登录框 | ✅ 全部改 `form.closest('.modal-overlay').remove()` | R4/R5 |
+| P1-4 | 仪表盘 today_* undefined | ✅ 后端 stats 补字段 | R4 |
+| P1-5 | create.html 上传选择器 | ✅ 多图上传重写（≤9） | R5-A |
+| P1-6 | toggleNavMenu 未导出 | ✅ `window.toggleNavMenu` | R4 |
+| P2-5 | 同名全局函数互相覆盖（隐性炸弹） | ✅ 全部收敛为单一定义；`handleReport`→`handleReportAdmin`；`CampusModal.*` 委托为有意设计 | R5-B |
+| P2-6 | Lucide 仅 CDN/无本地 | ✅ 本地自托管 vendor 锁版 1.46.0 + CDN 兜底 | R5-B |
+| P2-9 | 孤儿路由 | ✅ `/api/shop/transactions`→金币明细；`/api/recommend/interests`→瀑布流兴趣筛选；expose/forum 新页；identity/* 属管理端经 `/api/admin/identity-groups` | R5-B/R6 |
+| P2-10 | 文案/细节杂项 | ✅ checkin 连签文案、profile 游离 `</script>`、search 历史注入、admin Tab 高亮复位、`<option>` 塞图标（本轮）、openSendLink 丢弃 desc（本轮）、死代码 saveProfile（本轮）、`<main id="page-main">` 重复 + footer 位置错乱（本轮） | R5→R7 |
+
+**R7 波次额外（本轮）**：
+- shell 重构：`common.js` 拆分 `NAV_HTML`/`TAIL_HTML`，footer 等页尾结构改 `beforeend` 注入，消除重复空 `main` 与「footer 渲染在正文之前」的历史布局缺陷。
+- 导航 769–1024px 区间折叠汉堡（10 项不再溢出）+ 移动端菜单超高滚动兜底。
+- admin Tab `data-tab` + `adminTab(name)`，动作后高亮不再跳回仪表盘。
+- `<option>` 去 HTML（原生下拉无法渲染 lucide `<i>`，改纯文本名）。
+- romance `openSendLink` 去掉与 `sendRomanceLink` 内部重复的 desc 询问。
+- shop `data-lucide` icon 属性统一 escHtml。
+- world 图谱 v2：单向/双向端点裁剪 + SVG 箭头 + 搜索高亮 + 空白取消选中 + 移动端降高。
+- forum 版块排序（最新/最热）+ 加载更多；expose composer 配图接入既有上传链路。
+- E2E 66→68 步（world 关系往返、expose 图片往返），dev 与冷库（文件日志法，规避管道背压）双 68/68 绿。
+
+**仍属演示轨、非生产主线（不在 gate 内）**：CF debug 响应头仅在 `backend-worker/` Cloudflare 参考实现中；Flask 主线无 `cf-ray`/`CF-Debug` 类头（已核验）。
+
+> 结论：审计登记的 P0/P1/P2 全部生产主线项已处置；剩余仅外部人工步骤（真实服务器 compose + 浏览器 25 页双主题走查）。
+

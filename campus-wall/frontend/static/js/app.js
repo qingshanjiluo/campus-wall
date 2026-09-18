@@ -364,8 +364,9 @@ function loadStationOptions(selectId) {
         const current = sel.value;
         sel.innerHTML = '<option value="">请选择子站...</option>';
         (data || []).forEach(s => {
-            const iconHtml = `<i data-lucide="${getStationIcon(s.icon)}" class="icon icon-sm"></i>`;
-            sel.innerHTML += `<option value="${s.id}">${iconHtml} ${escHtml(s.name)}</option>`;
+            // 原生 <option> 内容模型仅允许文本：浏览器会丢弃其中的 <i> 子元素，
+            // lucide 图标也不会被替换渲染，故这里只放名称（P2-10 修复，去死代码）。
+            sel.innerHTML += `<option value="${s.id}">${escHtml(s.name)}</option>`;
         });
         if (current) sel.value = current;
     }).catch(() => {});

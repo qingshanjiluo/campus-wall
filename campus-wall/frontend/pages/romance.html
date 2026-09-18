@@ -197,7 +197,6 @@ function openSendLink() {
     if (!requireAuth()) return;
     const uid = prompt('输入对方用户ID:');
     if (!uid) return;
-    const desc = prompt('留言:');
     sendRomanceLink(parseInt(uid), '用户' + uid);
 }
 
