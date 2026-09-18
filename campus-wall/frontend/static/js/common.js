@@ -47,7 +47,8 @@
 
   // 页尾公共结构（footer/toast/modal容器/看板娘）——注入到页面内容之后，
   // 此前与导航拼在一起 afterbegin 注入，导致 footer 渲染在所有页面内容之上，
-  // 且携带一个与页面自身重复的空 <main id="page-main">（重复 ID，footer 位置错乱）。
+  // 且携带一个与页面自身重复的空 main 标签（重复 ID，footer 位置错乱）。
+  // 注意：js_gate 的壳层守卫会检查本文件模板中不得再出现 main 注入，勿在此类注释里写完整标签字面量。
   const TAIL_HTML = `
     <footer class="footer">
         <p>Made with <i data-lucide="heart" class="icon icon-sm" style="color:var(--pink-3);"></i> for every student · 校园墙 CampusWall</p>
