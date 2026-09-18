@@ -137,7 +137,7 @@ function loadMyPending() {
         if (!mine.length) return;
         wrap.style.display = 'block';
         document.getElementById('myPendingList').innerHTML = mine.map(p => `
-            <div style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.02);border-radius:10px;padding:10px 14px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg-hover);border-radius:10px;padding:10px 14px;margin-bottom:8px;">
                 <i data-lucide="clock" class="icon icon-sm" style="color:var(--text-muted);"></i>
                 <span style="flex:1;font-size:0.88rem;">${escHtml(p.title)}</span>
                 <span style="font-size:0.72rem;color:var(--yellow-dark);">审核中…</span>

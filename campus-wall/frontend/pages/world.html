@@ -93,7 +93,7 @@
                 </div>
 
                 <!-- 图谱画布 -->
-                <div class="reveal" id="graphWrap" style="margin-top:16px;position:relative;border:1px solid rgba(0,0,0,0.06);border-radius:16px;background:var(--bg-card);overflow:hidden;">
+                <div class="reveal" id="graphWrap" style="margin-top:16px;position:relative;border:1px solid var(--border-primary);border-radius:16px;background:var(--bg-card);overflow:hidden;">
                     <svg id="worldGraph" viewBox="0 0 960 620" preserveAspectRatio="xMidYMid meet" width="100%" height="520"
                          style="display:block;touch-action:none;user-select:none;cursor:grab;">
                         <defs>
@@ -289,7 +289,7 @@ function renderNodeDetail(nd) {
     const linked = rels.map(r => {
         const other = r.from_id === nd.id ? r.to_id : r.from_id;
         const dir = r.reciprocal ? '⇄' : (r.from_id === nd.id ? '→' : '←');
-        return `<div style="padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.05);display:flex;align-items:center;gap:8px;justify-content:space-between;">
+        return `<div style="padding:5px 0;border-bottom:1px solid var(--border-primary);display:flex;align-items:center;gap:8px;justify-content:space-between;">
             <div style="font-size:0.85rem;"><span style="color:var(--pink-4);font-weight:600;">${escHtml(r.label)}</span> ${dir} <span style="font-weight:600;">${escHtml(nameOf(other))}</span>
                 ${r.description ? `<div style="font-size:0.72rem;color:var(--text-muted);">${escHtml(r.description)}</div>` : ''}</div>
             ${isOwner(r) ? `<button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:0.7rem;color:var(--danger);" onclick="deleteRel(${r.id},${nd.id})">删</button>` : ''}
