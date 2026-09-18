@@ -188,16 +188,8 @@ async function handleEditProfile(event) {
     return false;
 }
 
-function saveProfile(data, form) {
-    api.put('/api/auth/me', data).then(res => {
-        currentUser = res.user;
-        closeModal('editProfileModal');
-        updateNavRight();
-        showToast('资料更新成功！', 'success');
-        form.reset();
-        if (typeof loadProfile === 'function') loadProfile();
-    }).catch(err => showToast(err.message || '更新失败', 'error'));
-}
+// saveProfile 曾在此处定义但全站零调用（编辑资料实际走 CampusModal.handleEditProfile），已删除。
+
 
 function openForgotPassword() {
     closeModal('loginModal');

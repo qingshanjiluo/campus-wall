@@ -36,9 +36,14 @@
                 <span style="font-size:0.7rem;background:var(--red-light,#ffe0e0);color:#c0392b;padding:2px 8px;border-radius:8px;">不存在举报人，放心发声</span>
             </div>
             <textarea class="input" id="exposeContent" placeholder="爆料内容…（如：食堂某窗口用预制菜 / 期末某课涉嫌泄题 / 校园里见到的异常）" rows="3" maxlength="10000" style="resize:vertical;"></textarea>
+            <input type="file" id="exposeImages" accept="image/*" multiple style="display:none;" onchange="uploadExposeImages(this)">
+            <div id="exposeImagePreview" class="image-preview-grid" style="display:none;"></div>
             <div style="display:flex;gap:8px;margin-top:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
                 <span style="font-size:0.72rem;color:var(--text-muted);"><i data-lucide="shield-check" class="icon icon-sm"></i> 需管理员人工审核后公开展示</span>
-                <button class="btn btn-primary btn-sm" onclick="postExpose()"><i data-lucide="send" class="icon icon-sm"></i> 匿名爆料</button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="btn btn-sm" onclick="document.getElementById('exposeImages').click()"><i data-lucide="image-plus" class="icon icon-sm"></i> 配图</button>
+                    <button class="btn btn-primary btn-sm" onclick="postExpose()"><i data-lucide="send" class="icon icon-sm"></i> 匿名爆料</button>
+                </div>
             </div>
         </div>
 
@@ -67,6 +72,12 @@ onUserReady(function () {
 function renderExposeCard(p) {
     const liked = p.is_liked ? 'liked' : '';
     const heartColor = p.is_liked ? 'icon-danger' : '';
+    // 爆料配图（最多预览 3 张，点击进详情看全图）
+    const imgs = (p.images && p.images.length) ? p.images : [];
+    const imgHtml = imgs.length ? `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;">
+            ${imgs.slice(0, 3).map(u => `<img src="${safeUrl(u, '')}" loading="lazy" alt="" style="width:100%;height:88px;object-fit:cover;border-radius:8px;">`).join('')}
+        </div>${imgs.length > 3 ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">等 ${imgs.length} 张图</div>` : ''}` : '';
     return `
     <div class="post-card reveal" style="padding:18px 20px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -78,6 +89,7 @@ function renderExposeCard(p) {
         <a href="/post/${p.id}" style="text-decoration:none;color:inherit;">
             <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px;">${escHtml(p.title)}</div>
             <div style="font-size:0.93rem;line-height:1.7;color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(p.content)}</div>
+            ${imgHtml}
         </a>
         <div style="display:flex;gap:18px;font-size:0.82rem;color:var(--text-muted);margin-top:10px;">
             <a class="${liked}" style="cursor:pointer;" onclick="event.preventDefault();likeExpose(${p.id},this)"><i data-lucide="heart" class="icon icon-sm ${heartColor}"></i> ${p.likes_count || 0}</a>
@@ -142,12 +154,49 @@ function postExpose() {
     api.post('/api/posts', {
         title: firstLine || '爆料',
         content,
-        post_type: 'expose'
+        post_type: 'expose',
+        images: expImages.slice()
     }).then(() => {
         document.getElementById('exposeContent').value = '';
+        expImages = [];
+        renderExpImages();
         showToast('已提交，审核通过后自动展示', 'success');
         loadMyPending();
     }).catch(err => showToast(err.message || '提交失败', 'error'));
+}
+
+// ── 爆料配图：上传到 /api/posts/upload-image，与发帖页同链路（≤9 张、单张 ≤5MB）──
+let expImages = [];
+async function uploadExposeImages(input) {
+    const files = Array.from(input.files || []);
+    input.value = '';
+    for (const f of files) {
+        if (expImages.length >= 9) { showToast('最多 9 张图', 'error'); break; }
+        if (f.size > 5 * 1024 * 1024) { showToast(f.name + ' 超过 5MB', 'error'); continue; }
+        const fd = new FormData();
+        fd.append('file', f);
+        try {
+            const res = await fetch('/api/posts/upload-image', {
+                method: 'POST',
+                headers: api.getToken() ? { 'Authorization': 'Bearer ' + api.getToken() } : {},
+                body: fd
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || '上传失败');
+            if (data.url) { expImages.push(data.url); renderExpImages(); }
+        } catch (e) { showToast(e.message || '上传失败', 'error'); }
+    }
+}
+function removeExpImage(i) { expImages.splice(i, 1); renderExpImages(); }
+function renderExpImages() {
+    const box = document.getElementById('exposeImagePreview');
+    if (!box) return;
+    box.style.display = expImages.length ? 'grid' : 'none';
+    box.innerHTML = expImages.map((u, i) => `
+        <div class="image-preview-item">
+            <img src="${safeUrl(u, '')}" alt="">
+            <button type="button" class="image-preview-remove" onclick="removeExpImage(${i})" aria-label="移除">&times;</button>
+        </div>`).join('');
 }
 </script>
 </body>

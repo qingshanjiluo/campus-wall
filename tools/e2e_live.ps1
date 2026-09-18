@@ -279,6 +279,21 @@ Step "world node create/delete" {
   $after = Api GET "/api/world/graph"
   $gone = -not (@($after.nodes | Where-Object { $_.id -eq $n1.id }).Count)
   Assert($gone) "node not actually removed" }
+Step "world relation flow" {
+  Assert($tk) "no token (earlier steps failed)"
+  $a = Api POST "/api/world/nodes" @{name="e2e_ra$Suffix"} $tk
+  $b = Api POST "/api/world/nodes" @{name="e2e_rb$Suffix"} $tk
+  Assert($a.id -and $b.id) "nodes not created"
+  $rel = Api POST "/api/world/relations" @{from_id=$a.id; to_id=$b.id; label="e2e-rel"; reciprocal=1} $tk
+  Assert($rel.id) "relation not created"
+  $g = Api GET "/api/world/graph"
+  Assert(@($g.relations | Where-Object { $_.id -eq $rel.id }).Count -eq 1) "relation missing from graph"
+  $dr = Api DELETE "/api/world/relations/$($rel.id)" $null $tk
+  Assert($dr.message) "relation delete failed"
+  $g2 = Api GET "/api/world/graph"
+  Assert(-not (@($g2.relations | Where-Object { $_.id -eq $rel.id }).Count)) "relation not removed"
+  Api DELETE "/api/world/nodes/$($a.id)" $null $tk | Out-Null
+  Api DELETE "/api/world/nodes/$($b.id)" $null $tk | Out-Null }
 Step "expose create + review + anon" {
   Assert($tk) "no token (earlier steps failed)"
   $ep = Api POST "/api/posts" @{title="e2e_ex$Suffix"; content="expose body"; post_type="expose"} $tk
@@ -297,6 +312,16 @@ Step "expose create + review + anon" {
   Assert($appr[0].author_name -ne $u) "expose author leaked"
   Assert($appr[0].author_name -ne $u2) "expose author leaked (u2)"
   Assert([string]$appr[0].author_name -ne "") "expose author empty" }
+Step "expose images roundtrip" {
+  Assert($tk -and $imgurl) "no token or no uploaded image (earlier steps failed)"
+  $epi = Api POST "/api/posts" @{title="e2e_exi$Suffix"; content="with pics"; post_type="expose"; images=@($imgurl,$imgurl)} $tk
+  Api POST "/api/admin/review" @{post_id=$epi.post_id; action="approve"} $atk | Out-Null
+  $pub = Api GET "/api/posts?post_type=expose&limit=50"
+  $row = @($pub.posts | Where-Object { $_.id -eq $epi.post_id })
+  Assert($row.Count -eq 1) "expose-image post not public"
+  $imgs = @($row[0].images)
+  Assert($imgs.Count -eq 2) ("images not list of 2: " + ($row[0].images | ConvertTo-Json -Compress))
+  Assert($imgs[0] -eq $imgurl) "image url mismatch" }
 Step "forum boards + feed api" {
   $st = Api GET "/api/stations?limit=100"
   Assert(@($st).Count -ge 1) "no stations for forum"

@@ -30,17 +30,17 @@
 
         <!-- 标签 -->
         <div class="tag-bar reveal" id="adminTabs">
-            <span class="tag active" onclick="switchAdminTab(this,'dashboard')"><i data-lucide="layout-dashboard" class="icon icon-sm"></i> 仪表盘</span>
-            <span class="tag" onclick="switchAdminTab(this,'users')"><i data-lucide="users" class="icon icon-sm"></i> 用户管理</span>
-            <span class="tag" onclick="switchAdminTab(this,'stations')"><i data-lucide="building-2" class="icon icon-sm"></i> 子站管理</span>
-            <span class="tag" onclick="switchAdminTab(this,'posts')"><i data-lucide="file-text" class="icon icon-sm"></i> 帖子管理</span>
-            <span class="tag" onclick="switchAdminTab(this,'review')"><i data-lucide="clipboard-check" class="icon icon-sm"></i> 帖子审核</span>
-            <span class="tag" onclick="switchAdminTab(this,'groups')"><i data-lucide="shield" class="icon icon-sm"></i> 身份组</span>
-            <span class="tag" onclick="switchAdminTab(this,'shop')"><i data-lucide="gift" class="icon icon-sm"></i> 商城管理</span>
-            <span class="tag" onclick="switchAdminTab(this,'reports')"><i data-lucide="flag" class="icon icon-sm"></i> 举报中心</span>
-            <span class="tag" onclick="switchAdminTab(this,'announcements')"><i data-lucide="megaphone" class="icon icon-sm"></i> 公告管理</span>
-            <span class="tag" onclick="switchAdminTab(this,'ads')"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位</span>
-            <span class="tag" onclick="switchAdminTab(this,'logs')"><i data-lucide="scroll" class="icon icon-sm"></i> 操作日志</span>
+            <span class="tag active" data-tab="dashboard" onclick="adminTab('dashboard')"><i data-lucide="layout-dashboard" class="icon icon-sm"></i> 仪表盘</span>
+            <span class="tag" data-tab="users" onclick="adminTab('users')"><i data-lucide="users" class="icon icon-sm"></i> 用户管理</span>
+            <span class="tag" data-tab="stations" onclick="adminTab('stations')"><i data-lucide="building-2" class="icon icon-sm"></i> 子站管理</span>
+            <span class="tag" data-tab="posts" onclick="adminTab('posts')"><i data-lucide="file-text" class="icon icon-sm"></i> 帖子管理</span>
+            <span class="tag" data-tab="review" onclick="adminTab('review')"><i data-lucide="clipboard-check" class="icon icon-sm"></i> 帖子审核</span>
+            <span class="tag" data-tab="groups" onclick="adminTab('groups')"><i data-lucide="shield" class="icon icon-sm"></i> 身份组</span>
+            <span class="tag" data-tab="shop" onclick="adminTab('shop')"><i data-lucide="gift" class="icon icon-sm"></i> 商城管理</span>
+            <span class="tag" data-tab="reports" onclick="adminTab('reports')"><i data-lucide="flag" class="icon icon-sm"></i> 举报中心</span>
+            <span class="tag" data-tab="announcements" onclick="adminTab('announcements')"><i data-lucide="megaphone" class="icon icon-sm"></i> 公告管理</span>
+            <span class="tag" data-tab="ads" onclick="adminTab('ads')"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位</span>
+            <span class="tag" data-tab="logs" onclick="adminTab('logs')"><i data-lucide="scroll" class="icon icon-sm"></i> 操作日志</span>
         </div>
 
         <div id="adminContent"><div class="loading">加载中</div></div>
@@ -54,7 +54,7 @@ onUserReady(function() {
         document.getElementById('adminContent').innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="lock" class="icon icon-lg"></i></div><div class="text">需要管理员权限</div></div>';
         return;
     }
-    switchAdminTab(document.querySelector('#adminTabs .tag'), 'dashboard');
+    adminTab('dashboard');
 });
 
 function loadStatsChart(el, days) {
@@ -89,6 +89,8 @@ function loadStatsChart(el, days) {
         });
     }).catch(() => {});
 }
+
+function adminTab(name) { const el = document.querySelector("#adminTabs .tag[data-tab='" + name + "']"); if (el) switchAdminTab(el, name); }
 
 function switchAdminTab(el, tab) {
     document.querySelectorAll('#adminTabs .tag').forEach(t => t.classList.remove('active'));
@@ -362,13 +364,13 @@ function setUserField(uid, field, value) {
 function deleteStationAdmin(sid) {
     if (!confirm('确定删除该子站？')) return;
     if (!confirm('再次确认：子站及成员关系将永久删除。')) return;
-    api.delete('/api/stations/' + sid).then(() => { showToast('已删除', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'stations'); }).catch(e => showToast(e.message, 'error'));
+    api.delete('/api/stations/' + sid).then(() => { showToast('已删除', 'success'); adminTab('stations'); }).catch(e => showToast(e.message, 'error'));
 }
 
 function handleReportAdmin(rid, status) {
     const label = status === 'approved' ? '确认违规' : '驳回';
     if (!confirm('确定' + label + '该举报？')) return;
-    api.put('/api/reports/' + rid, { status }).then(() => { showToast('已处理', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'reports'); }).catch(e => showToast(e.message, 'error'));
+    api.put('/api/reports/' + rid, { status }).then(() => { showToast('已处理', 'success'); adminTab('reports'); }).catch(e => showToast(e.message, 'error'));
 }
 
 function reviewPost(pid, action) {
@@ -377,7 +379,7 @@ function reviewPost(pid, action) {
         note = prompt('驳回原因（可选，将通知作者）：') || '';
     } else if (!confirm('确认通过该帖子？')) return;
     api.post('/api/admin/review', { post_id: pid, action, note })
-        .then(d => { showToast(d.message || '已处理', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'review'); })
+        .then(d => { showToast(d.message || '已处理', 'success'); adminTab('review'); })
         .catch(e => showToast(e.message, 'error'));
 }
 
@@ -403,21 +405,21 @@ function openCreateAnnouncement() {
 function createAnnouncement(e, form) {
     e.preventDefault();
     api.post('/api/admin/announcements', { title: form.title.value.trim(), content: form.content.value.trim() })
-        .then(() => { showToast('公告已发布', 'success'); const m = form.closest('.modal-overlay'); if (m) m.remove(); switchAdminTab(document.querySelector('#adminTabs .tag'), 'announcements'); })
+        .then(() => { showToast('公告已发布', 'success'); const m = form.closest('.modal-overlay'); if (m) m.remove(); adminTab('announcements'); })
         .catch(err => showToast(err.message || '发布失败', 'error'));
     return false;
 }
 
 function toggleAnnouncement(aid, active) {
     api.post('/api/admin/announcements/' + aid + '/toggle', { active: active === 1 })
-        .then(() => { showToast('已更新', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'announcements'); })
+        .then(() => { showToast('已更新', 'success'); adminTab('announcements'); })
         .catch(e => showToast(e.message, 'error'));
 }
 
 function deleteAnnouncement(aid) {
     if (!confirm('确定删除该公告？')) return;
     api.delete('/api/admin/announcements/' + aid)
-        .then(() => { showToast('已删除', 'success'); switchAdminTab(document.querySelector('#adminTabs .tag'), 'announcements'); })
+        .then(() => { showToast('已删除', 'success'); adminTab('announcements'); })
         .catch(e => showToast(e.message, 'error'));
 }
 
@@ -481,7 +483,7 @@ function createShopItem(e, form) {
     }).then(() => {
         showToast('创建成功', 'success');
         const m = form.closest('.modal-overlay'); if (m) m.remove();
-        switchAdminTab(document.querySelector('#adminTabs .tag'), 'shop');
+        adminTab('shop');
     }).catch(e => showToast(e.message || '创建失败', 'error'));
     return false;
 }

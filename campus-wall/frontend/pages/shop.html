@@ -74,7 +74,7 @@ function loadTransactions() {
             const color = amt >= 0 ? 'var(--mint)' : 'var(--pink-4)';
             return `
             <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
-                <i data-lucide="${amt >= 0 ? 'trending-up' : 'trending-down'}" class="icon" style="color:${color};"></i>
+                <i data-lucide="${escHtml(amt >= 0 ? 'trending-up' : 'trending-down')}" class="icon" style="color:${color};"></i>
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:0.9rem;">${escHtml(t.description || typeLabel[t.type] || '金币变动')}</div>
                     <div style="font-size:0.75rem;color:var(--text-muted);">${formatTime(t.created_at)}${t.type ? ' · ' + escHtml(typeLabel[t.type] || t.type) : ''}</div>
@@ -148,7 +148,7 @@ function loadOrders() {
             const usable = o.status === 'completed' && usableTypes.includes(o.item_type);
             return `
             <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
-                <span style="font-size:1.3rem;"><i data-lucide="${o.item_icon || 'gift'}" class="icon"></i></span>
+                <span style="font-size:1.3rem;"><i data-lucide="${escHtml(o.item_icon || 'gift')}" class="icon"></i></span>
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:0.9rem;">${escHtml(o.item_name)}</div>
                     <div style="font-size:0.75rem;color:var(--text-muted);">${formatTime(o.created_at)}</div>

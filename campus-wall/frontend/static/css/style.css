@@ -198,9 +198,30 @@ a:hover { color: var(--pink-3); }
     }
     .nav-links.open { display: flex; }
     .nav-links a { padding: 10px 16px; border-radius: var(--radius-md, 8px); width: 100%; }
+    .nav-links { max-height: 70vh; overflow-y: auto; }
     .navbar { padding: 10px 16px; gap: 12px; }
     .station-grid { grid-template-columns: 1fr; }
     .hero-section h1 { font-size: 2.5rem; }
+}
+
+/* 窄桌面（769-1024px）：导航 10 项横向必然溢出，此区间同样走汉堡折叠 */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .nav-toggle { display: flex; align-items: center; justify-content: center; }
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        background: var(--bg-primary, white);
+        border-radius: 0 0 var(--radius-xl, 16px) var(--radius-xl, 16px);
+        box-shadow: var(--shadow-lg);
+        flex-direction: column;
+        padding: 12px;
+        gap: 4px;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    .nav-links.open { display: flex; }
+    .nav-links a { padding: 10px 16px; border-radius: var(--radius-md, 8px); width: 100%; }
 }
 
 /* 滚动后导航栏变实 */
@@ -1217,6 +1238,10 @@ main {
 }
 
 /* ── 广告位占位（预留）── */
+@media (max-width: 768px) {
+    #worldGraph { height: 400px; }
+    .ad-slot { font-size: 0.74rem; padding: 8px 10px; }
+}
 .ad-slot {
     display: flex;
     align-items: center;

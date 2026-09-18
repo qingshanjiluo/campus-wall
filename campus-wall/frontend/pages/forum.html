@@ -35,8 +35,14 @@
 
         <!-- 最新讨论 -->
         <div class="reveal">
-            <h3 class="chapter-title" style="font-size:1.4rem;margin-bottom:14px;"><i data-lucide="radio" class="icon"></i> 最新热议</h3>
+            <h3 class="chapter-title" style="font-size:1.4rem;margin-bottom:14px;"><i data-lucide="radio" class="icon"></i> 论坛热议
+                <span style="display:inline-flex;gap:6px;margin-left:14px;vertical-align:middle;">
+                    <span class="tag active" id="forumSortNew" onclick="sortForum(this,'newest')"><i data-lucide="sparkles" class="icon icon-sm"></i> 最新</span>
+                    <span class="tag" id="forumSortHot" onclick="sortForum(this,'popular')"><i data-lucide="flame" class="icon icon-sm"></i> 最热</span>
+                </span>
+            </h3>
             <div id="forumFeed"><div class="loading">加载中</div></div>
+            <div style="text-align:center;margin-top:12px;"><button class="btn" id="forumMore" onclick="loadMoreFeed()" style="display:none;"><i data-lucide="chevrons-down" class="icon icon-sm"></i> 加载更多</button></div>
         </div>
     </div>
 </div>
@@ -68,12 +74,29 @@ function loadBoards() {
     }).catch(() => grid.innerHTML = '<div style="color:var(--text-muted);">版块加载失败</div>');
 }
 
-function loadFeed() {
-    api.get('/api/posts?limit=30&sort=newest').then(d => {
+let forumSort = 'newest';
+let forumOffset = 0;
+const FORUM_LIMIT = 30;
+
+function sortForum(el, sort) {
+    document.querySelectorAll('#forumSortNew,#forumSortHot').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    forumSort = sort;
+    forumOffset = 0;
+    document.getElementById('forumFeed').innerHTML = '<div class="loading">加载中</div>';
+    document.getElementById('forumMore').style.display = 'none';
+    loadFeed();
+}
+
+function loadMoreFeed() { forumOffset += FORUM_LIMIT; loadFeed(true); }
+
+function loadFeed(append) {
+    if (!append) forumOffset = 0;
+    api.get(`/api/posts?limit=${FORUM_LIMIT}&offset=${forumOffset}&sort=${forumSort}`).then(d => {
         const posts = (d && d.posts) || [];
         const feed = document.getElementById('forumFeed');
-        if (!posts.length) { feed.innerHTML = '<div style="color:var(--text-muted);">还没有讨论</div>'; return; }
-        feed.innerHTML = posts.map(p => `
+        if (!posts.length && !append) { feed.innerHTML = '<div style="color:var(--text-muted);">还没有讨论</div>'; return; }
+        const html = posts.map(p => `
             <a href="/post/${p.id}" class="post-card reveal" style="display:block;text-decoration:none;color:inherit;padding:14px 18px;margin-bottom:12px;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <i data-lucide="${getStationIcon(p.station_icon || 'school')}" class="icon" style="flex-shrink:0;"></i>
@@ -89,8 +112,10 @@ function loadFeed() {
                     </div>
                 </div>
             </a>`).join('');
+        if (append) feed.insertAdjacentHTML('beforeend', html); else feed.innerHTML = html;
+        document.getElementById('forumMore').style.display = posts.length >= FORUM_LIMIT ? 'block' : 'none';
         if (window.lucide) lucide.createIcons();
-    }).catch(() => feed.innerHTML = '<div style="color:var(--text-muted);">讨论加载失败</div>');
+    }).catch(() => { if (!append) feed.innerHTML = '<div style="color:var(--text-muted);">讨论加载失败</div>'; });
 }
 </script>
 </body>

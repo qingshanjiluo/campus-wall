@@ -43,9 +43,12 @@
         </ul>
         <div class="nav-right" id="navRight"></div>
     </nav>
+  `;
 
-    <main id="page-main"></main>
-
+  // 页尾公共结构（footer/toast/modal容器/看板娘）——注入到页面内容之后，
+  // 此前与导航拼在一起 afterbegin 注入，导致 footer 渲染在所有页面内容之上，
+  // 且携带一个与页面自身重复的空 <main id="page-main">（重复 ID，footer 位置错乱）。
+  const TAIL_HTML = `
     <footer class="footer">
         <p>Made with <i data-lucide="heart" class="icon icon-sm" style="color:var(--pink-3);"></i> for every student · 校园墙 CampusWall</p>
         <div class="footer-links">
@@ -349,6 +352,7 @@
     const root = document.getElementById('app-root');
     if (!root) return;
     root.insertAdjacentHTML('afterbegin', NAV_HTML);
+    root.insertAdjacentHTML('beforeend', TAIL_HTML);
     document.getElementById('modalContainer').innerHTML = MODALS_HTML;
   }
 
