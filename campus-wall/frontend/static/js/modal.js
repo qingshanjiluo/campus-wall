@@ -165,29 +165,27 @@ window.selectReportReason = selectReportReason;
 window.handleReport = handleReport;
 window.previewAvatar = previewAvatar;
 
-// 点击遮罩关闭模态框
+// 点击遮罩关闭模态框（.show 与 app.js/style.css 统一；旧版写 .active 永不命中=死代码）
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
-        e.target.classList.remove('active');
+    if (e.target.classList.contains('modal-overlay') && e.target.classList.contains('show')) {
+        e.target.classList.remove('show');
         document.body.style.overflow = '';
     }
 });
 
+// 命名空间导出（懒引用，防 ReferenceError，同 auth.js 注释）。
+// openModal/closeModal/switchModal 的实现在 app.js（顶层 function 自动全局），
+// 此处只转发，不再用裸标识符简写引用。
 window.CampusModal = {
-    openModal,
-    closeModal,
-    switchModal,
+    openModal: (id) => window.openModal(id),
+    closeModal: (id) => window.closeModal(id),
+    switchModal: (from, to) => window.switchModal(from, to),
     openEditProfile,
     openChangePassword,
     handleEditProfile,
-    handleChangePassword
+    handleChangePassword,
+    previewAvatar,
+    openReportModal,
+    selectReportReason,
+    handleReport
 };
-
-// 兼容全局变量
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.switchModal = switchModal;
-window.openEditProfile = openEditProfile;
-window.openChangePassword = openChangePassword;
-window.handleEditProfile = handleEditProfile;
-window.handleChangePassword = handleChangePassword;

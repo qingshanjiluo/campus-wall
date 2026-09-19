@@ -187,30 +187,21 @@ async function updateNotifBadge() {
     } catch (e) {}
 }
 
+// 命名空间导出。注意：本文件按 script 标签顺序先于 app.js 执行，
+// 凡实现已移至 app.js 的函数（handleForgotPassword/openForgotPassword 等），
+// 一律用 window.xxx 懒引用（而非裸标识符简写），否则对象字面量求值即抛
+// ReferenceError 并中断本文件后续与命名空间导出（曾因此全站登录弹窗失效）。
 window.CampusAuth = {
     currentUser: () => currentUser,
-    onUserReady,
-    loadCurrentUser,
-    requireAuth,
-    handleLogin,
-    handleRegister,
-    handleForgotPassword,
-    handleLogout,
-    openForgotPassword,
-    updateNavRight,
-    toggleUserMenu,
-    updateNotifBadge
+    onUserReady: (...a) => onUserReady(...a),
+    loadCurrentUser: (...a) => loadCurrentUser(...a),
+    requireAuth: (...a) => requireAuth(...a),
+    handleLogin: (...a) => handleLogin(...a),
+    handleRegister: (...a) => handleRegister(...a),
+    handleForgotPassword: (...a) => window.handleForgotPassword(...a),
+    handleLogout: (...a) => handleLogout(...a),
+    openForgotPassword: (...a) => window.openForgotPassword(...a),
+    updateNavRight: (...a) => updateNavRight(...a),
+    toggleUserMenu: (...a) => toggleUserMenu(...a),
+    updateNotifBadge: (...a) => updateNotifBadge(...a)
 };
-
-// 兼容全局变量
-window.currentUser = currentUser;
-window.onUserReady = onUserReady;
-window.requireAuth = requireAuth;
-window.handleLogin = handleLogin;
-window.handleRegister = handleRegister;
-window.handleForgotPassword = handleForgotPassword;
-window.handleLogout = handleLogout;
-window.openForgotPassword = openForgotPassword;
-window.updateNavRight = updateNavRight;
-window.toggleUserMenu = toggleUserMenu;
-window.updateNotifBadge = updateNotifBadge;
