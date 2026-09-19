@@ -54,7 +54,7 @@ def create_app():
     from app.routes.extended import (
         identity_bp, checkin_bp, shop_bp, romance_bp, gossip_bp,
         trade_bp, kanban_bp, recommend_bp, admin_bp,
-        favorites_bp, reports_bp, announcements_bp, world_bp, site_bp
+        favorites_bp, reports_bp, announcements_bp, world_bp, site_bp, topics_bp
     )
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -76,6 +76,7 @@ def create_app():
     app.register_blueprint(announcements_bp, url_prefix='/api/announcements')
     app.register_blueprint(world_bp, url_prefix='/api/world')
     app.register_blueprint(site_bp, url_prefix='/api/site')
+    app.register_blueprint(topics_bp)
     app.register_blueprint(pages_bp)
 
     @app.errorhandler(404)

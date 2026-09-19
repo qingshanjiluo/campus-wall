@@ -161,6 +161,7 @@ function renderPostDetail(p) {
                 <i data-lucide="x-circle" class="icon icon-sm"></i> 未通过审核，可编辑后由管理员重新复核
             </div>
             <h1 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.5rem;margin-bottom:12px;line-height:1.4;">${escHtml(p.title)}</h1>
+            ${(p.topics && p.topics.length) ? '<div class="post-topics">' + p.topics.map(t => '<a class="topic-chip" href="/search?topic=' + encodeURIComponent(t) + '"># ' + escHtml(t) + '</a>').join('') + '</div>' : ''}
             <div class="post-content full" style="margin-bottom:16px;word-break:break-word;">${renderContent(p.content, true)}</div>
             ${renderPostGallery(p)}
             ${p.post_type === 'vote' && p.vote_options ? renderVoteSection(p) : ''}

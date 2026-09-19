@@ -278,6 +278,23 @@ def init_extended_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_char_rel_src ON character_relations(from_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_char_rel_dst ON character_relations(to_id)")
 
+    # ── 话题/标签 + 热搜（R8）──
+    c.execute('''CREATE TABLE IF NOT EXISTS topics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        created_by INTEGER REFERENCES users(id),
+        use_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS post_topics (
+        topic_id INTEGER NOT NULL REFERENCES topics(id),
+        post_id INTEGER NOT NULL REFERENCES posts(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (topic_id, post_id)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_post_topics_post ON post_topics(post_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_post_topics_topic ON post_topics(topic_id)")
+
     # ── 私信 ──
     init_dm_tables(c)
 
@@ -1170,3 +1187,105 @@ def create_character_relation(from_id, to_id, label, description='', reciprocal=
 
 def delete_character_relation(rel_id):
     execute_db('DELETE FROM character_relations WHERE id = ?', (rel_id,))
+
+
+# ══════════════════════════════════════════════
+# 话题/标签 + 热搜（R8）
+# ══════════════════════════════════════════════
+
+_MAX_TOPICS_PER_POST = 5
+_MAX_TOPIC_LEN = 20
+
+
+def normalize_topics(raw):
+    """清洗话题列表：去 # 前缀/去重/截断；返回 list[str]（≤5 个，每个 ≤20 字符）。"""
+    out, seen = [], set()
+    for t in (raw or []):
+        name = str(t).strip().lstrip('#').strip()
+        if not name or len(name) > _MAX_TOPIC_LEN:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(name)
+        if len(out) >= _MAX_TOPICS_PER_POST:
+            break
+    return out
+
+
+def attach_post_topics(post_id, raw_topics, user_id=None):
+    """幂等重挂：先清旧关联再写入（编辑话题=替换）。返回最终话题名列表。"""
+    execute_db('DELETE FROM post_topics WHERE post_id = ?', (post_id,))
+    names = normalize_topics(raw_topics)
+    for name in names:
+        row = query_db('SELECT id FROM topics WHERE name = ? COLLATE NOCASE', (name,), one=True)
+        if row:
+            tid = row['id']
+            execute_db('UPDATE topics SET use_count = use_count + 1 WHERE id = ?', (tid,))
+        else:
+            tid = execute_db('INSERT INTO topics (name, created_by, use_count) VALUES (?, ?, 1)', (name, user_id))
+        if tid:
+            execute_db('INSERT OR IGNORE INTO post_topics (topic_id, post_id) VALUES (?, ?)', (tid, post_id))
+    return names
+
+
+def get_topics_for_posts(post_ids):
+    """批量取话题 map：{post_id: [name, ...]}（供列表渲染，避免 N+1）。"""
+    if not post_ids:
+        return {}
+    ph = ','.join('?' for _ in post_ids)
+    rows = query_db(
+        f'SELECT pt.post_id, t.name FROM post_topics pt JOIN topics t ON t.id = pt.topic_id '
+        f'WHERE pt.post_id IN ({ph}) ORDER BY pt.rowid ASC', list(post_ids))
+    out = {}
+    for r in rows:
+        out.setdefault(r['post_id'], []).append(r['name'])
+    return out
+
+
+def get_post_topics(post_id):
+    rows = query_db(
+        'SELECT t.name FROM post_topics pt JOIN topics t ON t.id = pt.topic_id WHERE pt.post_id = ? ORDER BY pt.rowid ASC',
+        (post_id,))
+    return [r['name'] for r in rows]
+
+
+def get_trending_topics(limit=20):
+    """热搜榜：按近 7 天被引用热度排序（recent 计数联查），回退总 use_count。"""
+    return query_db('''
+        SELECT t.id, t.name,
+               COUNT(CASE WHEN pt.created_at >= datetime('now', '-7 days') THEN 1 END) AS recent,
+               COUNT(*) AS total
+        FROM topics t LEFT JOIN post_topics pt ON pt.topic_id = t.id
+        GROUP BY t.id
+        HAVING total > 0
+        ORDER BY recent DESC, total DESC, t.id DESC
+        LIMIT ?''', (limit,))
+
+
+def get_topic_posts(name, limit=20, offset=0):
+    """某话题下的已发布帖子（形状与 /api/posts 一致，脱敏交 handler）。"""
+    return query_db('''
+        SELECT p.*, u.username as author_name, u.avatar as author_avatar,
+               s.name as station_name, s.icon as station_icon
+        FROM posts p
+        JOIN users u ON p.author_id = u.id
+        JOIN stations s ON p.station_id = s.id
+        JOIN post_topics pt ON pt.post_id = p.id
+        JOIN topics t ON t.id = pt.topic_id
+        WHERE p.is_deleted = 0 AND p.status = 'approved' AND t.name = ? COLLATE NOCASE
+        ORDER BY p.is_pinned DESC, p.created_at DESC
+        LIMIT ? OFFSET ?''', (name, limit, offset))
+
+
+def get_all_topics_admin():
+    return query_db('''
+        SELECT t.id, t.name, t.use_count,
+               (SELECT COUNT(*) FROM post_topics pt WHERE pt.topic_id = t.id) AS live_posts
+        FROM topics t ORDER BY t.use_count DESC, t.id DESC''')
+
+
+def delete_topic(tid):
+    execute_db('DELETE FROM post_topics WHERE topic_id = ?', (tid,))
+    execute_db('DELETE FROM topics WHERE id = ?', (tid,))

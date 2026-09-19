@@ -28,6 +28,7 @@ from app.models_ext import (
     get_character_graph, create_character_node, update_character_node, delete_character_node,
     get_character_node, create_character_relation, delete_character_relation,
     get_site_config, set_site_config, get_ad_config,
+    get_trending_topics, get_topic_posts, get_all_topics_admin, delete_topic,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
 from app.models import shape_post, is_liked_batch
@@ -851,3 +852,54 @@ def admin_site_config():
         if k in data:
             set_site_config(k, data[k])
     return jsonify({'message': '已保存', **get_ad_config()})
+
+
+# ══════════════════════════════════════════════
+# 话题 / 热搜（R8）
+# ══════════════════════════════════════════════
+
+topics_bp = Blueprint('topics', __name__, url_prefix='/api/topics')
+
+
+@topics_bp.route('/trending', methods=['GET'])
+def trending_topics():
+    limit = min(request.args.get('limit', 20, type=int) or 20, 50)
+    rows = get_trending_topics(limit)
+    return jsonify([{'id': r['id'], 'name': r['name'], 'recent': r['recent'], 'total': r['total']} for r in rows])
+
+
+@topics_bp.route('/<path:name>/posts', methods=['GET'])
+@optional_auth
+def topic_posts(name):
+    name = (name or '').strip()[:40]
+    limit = min(request.args.get('limit', 20, type=int) or 20, 50)
+    offset = max(request.args.get('offset', 0, type=int) or 0, 0)
+    posts = get_topic_posts(name, limit, offset)
+    from app.models import shape_post, is_liked_batch
+    from app.models_ext import get_topics_for_posts
+    liked = is_liked_batch(g.current_user['id'], 'post', [p['id'] for p in posts]) if (g.current_user and posts) else set()
+    tmap = get_topics_for_posts([p['id'] for p in posts]) if posts else {}
+    for p in posts:
+        if g.current_user:
+            p['is_liked'] = p['id'] in liked
+        p['topics'] = tmap.get(p['id'], [])
+        shape_post(p, g.current_user)
+    return jsonify({'topic': name, 'posts': posts, 'total': len(posts)})
+
+
+@admin_bp.route('/topics', methods=['GET'])
+@token_required
+@admin_required
+def admin_topics():
+    return jsonify(get_all_topics_admin())
+
+
+@admin_bp.route('/topics/<int:tid>', methods=['DELETE'])
+@token_required
+@admin_required
+def admin_topic_delete(tid):
+    if not query_db('SELECT 1 FROM topics WHERE id = ?', (tid,), one=True):
+        return jsonify({'error': '话题不存在'}), 404
+    delete_topic(tid)
+    admin_log(g.current_user['id'], 'delete_topic', 'topic', tid)
+    return jsonify({'message': '已删除'})

@@ -3,7 +3,7 @@ import uuid
 from flask import Blueprint, request, jsonify, g, current_app
 from app.models import (
     create_post, get_post_by_id, get_posts, get_post_count,
-    query_db,
+    query_db, execute_db,
     update_post, delete_post, increment_views, get_liked_posts,
     record_post_version, get_post_versions,
     create_comment, get_comments, delete_comment,
@@ -14,6 +14,7 @@ from app.utils.auth import token_required, optional_auth
 from app.utils.limiter import limiter
 from app.utils.media import finalize_upload
 from app.utils.sensitive import scan_text
+from app.models_ext import attach_post_topics, get_topics_for_posts, get_post_topics, normalize_topics
 
 posts_bp = Blueprint('posts', __name__)
 
@@ -43,15 +44,18 @@ def list_posts():
     sort = request.args.get('sort', 'newest')
     station_id = request.args.get('station_id', type=int)
     author_id = request.args.get('author_id', type=int)
-    post_type = request.args.get('type')
+    # 参数名兼容：type 为契约正名；post_type 为历史别名（/expose 页曾用它导致筛选失效）
+    post_type = request.args.get('type') or request.args.get('post_type')
 
     posts = get_posts(station_id=station_id, author_id=author_id, limit=limit, offset=offset, sort=sort, post_type=post_type)
     total = get_post_count(station_id=station_id, author_id=author_id, post_type=post_type)
 
     liked = is_liked_batch(g.current_user['id'], 'post', [p['id'] for p in posts]) if (g.current_user and posts) else set()
+    tmap = get_topics_for_posts([p['id'] for p in posts]) if posts else {}
     for p in posts:
         if g.current_user:
             p['is_liked'] = p['id'] in liked
+        p['topics'] = tmap.get(p['id'], [])
         shape_post(p, g.current_user)
     return jsonify({'posts': posts, 'total': total})
 
@@ -85,6 +89,7 @@ def get_post(pid):
         post['is_liked'] = is_liked(g.current_user['id'], 'post', pid)
     else:
         post['is_liked'] = False
+    post['topics'] = get_post_topics(pid)
     _anonymize_post(post, g.current_user)
     return jsonify(post)
 
@@ -161,10 +166,21 @@ def create():
     if not pid:
         return jsonify({'error': '发帖失败'}), 500
 
+    # 话题：清洗→敏感词 block 拒→挂载（上限 5 个，编辑即替换）
+    topics = normalize_topics(data.get('topics') if isinstance(data.get('topics'), list) else [])
+    if topics:
+        for t in topics:
+            if scan_text(t) == 'block':
+                delete_post(pid)
+                return jsonify({'error': f'话题「{t}」包含违规信息'}), 400
+        attach_post_topics(pid, topics, g.current_user['id'])
+
     if status == 'pending':
         return jsonify({'message': '已提交，内容正在审核，通过后自动展示', 'post_id': pid, 'status': 'pending'}), 202
 
     post = get_post_by_id(pid)
+    if topics:
+        post['topics'] = topics
     _anonymize_post(post, g.current_user)
     return jsonify({'message': '发帖成功', 'post': post}), 201
 
@@ -197,6 +213,16 @@ def update(pid):
         if g.current_user['role'] != 'admin':
             return jsonify({'error': '无权置顶帖子'}), 403
         update_fields['is_pinned'] = data['is_pinned']
+    # 话题编辑＝整体替换（传了 topics 字段才动；否则保留原关联）。
+    # 注意需在「无可更新字段」判定之前处理：只传 topics 的编辑也是合法更新。
+    if isinstance(data.get('topics'), list):
+        topics = normalize_topics(data['topics'])
+        for t in topics:
+            if scan_text(t) == 'block':
+                return jsonify({'error': f'话题「{t}」包含违规信息'}), 400
+        attach_post_topics(pid, topics, g.current_user['id'])
+        if not update_fields:
+            return jsonify({'message': '更新成功'})
     if not update_fields:
         return jsonify({'error': '没有可更新的字段'}), 400
     # 防"先发干净帖再编辑塞违规内容"绕过：内容编辑一律复扫；
@@ -227,6 +253,7 @@ def delete(pid):
     if post['author_id'] != g.current_user['id'] and g.current_user['role'] != 'admin':
         return jsonify({'error': '无权删除'}), 403
     delete_post(pid)
+    execute_db('DELETE FROM post_topics WHERE post_id = ?', (pid,))
     return jsonify({'message': '已删除'})
 
 

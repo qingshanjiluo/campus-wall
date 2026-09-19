@@ -25,6 +25,20 @@ function BadCode($e) {
   if ($msg -match '\((\d{3})\)') { return [int]$Matches[1] }
   0
 }
+# curl honors NO_PROXY (localhost bypass); Invoke-WebRequest on PS5.1 does a ~20s
+# WPAD auto-detect even for localhost. Reachability/status checks use curl.
+# Cross-platform: `curl` is an IWR alias on PS5.1/Windows (use curl.exe there), and
+# the null device differs (NUL vs /dev/null).
+$script:NullDev = if ($env:OS -eq 'Windows_NT') { 'NUL' } else { '/dev/null' }
+function Invoke-CurlRaw($curlArgs) {
+  if ($env:OS -eq 'Windows_NT') { & curl.exe @curlArgs 2>&1 } else { & curl @curlArgs 2>&1 }
+}
+function HttpCode($url) {
+  Invoke-CurlRaw @('-s', '-o', $script:NullDev, '-w', '%{http_code}', '--max-time', '25', $url)
+}
+function HttpCodeSize($url) {
+  Invoke-CurlRaw @('-s', '-o', $script:NullDev, '-w', '%{http_code} %{size_download}', '--max-time', '25', $url)
+}
 function Api($method, $path, $body = $null, $token = $null) {
   $hdr = @{}
   if ($token) { $hdr["Authorization"] = "Bearer $token" }
@@ -220,9 +234,10 @@ Step "upload post image" {
   $script:imgurl = $txt.url }
 Step "serve uploaded image" {
   Assert($imgurl) "no image url from upload"
-  $resp = Invoke-WebRequest -Uri "$BaseUrl$imgurl" -TimeoutSec 30 -Method GET -UseBasicParsing
-  Assert($resp.StatusCode -eq 200) "img http=$($resp.StatusCode)"
-  Assert($resp.RawContentLength -gt 0) "empty image body" }
+  $out = HttpCodeSize "$BaseUrl$imgurl"
+  $parts = "$out".Trim() -split '\s+'
+  Assert($parts[0] -eq '200') "img http=$($parts[0])"
+  Assert([int]$parts[1] -gt 0) "empty image body" }
 
 Step "coin ledger (shop transactions)" {
   Assert($tk) "no auth token (earlier steps failed)"
@@ -252,13 +267,11 @@ Step "frontend pages reachable" {
           '/privacy', '/reset-password', '/admin', '/profile/1')
   $bad = @()
   foreach ($pg in $ok) {
-    $r = Invoke-WebRequest -Uri "$BaseUrl$pg" -TimeoutSec 20 -UseBasicParsing
-    if ($r.StatusCode -ne 200) { $bad += "$pg=$($r.StatusCode)" }
+    $code = HttpCode "$BaseUrl$pg"
+    if ("$code" -ne '200') { $bad += "$pg=$code" }
   }
-  # ps5.1 Invoke-WebRequest throws on non-2xx, so wrap the /404 assertion
-  $r404code = 0
-  try { Invoke-WebRequest -Uri "$BaseUrl/404" -TimeoutSec 20 -UseBasicParsing -ErrorAction Stop | Out-Null } catch { $r404code = (BadCode $_) }
-  if ($r404code -ne 404) { $bad += "/404=$r404code" }
+  $code404 = HttpCode "$BaseUrl/404"
+  if ("$code404" -ne '404') { $bad += "/404=$code404" }
   Assert($bad.Count -eq 0) ("page status wrong: " + ($bad -join ',')) }
 Step "world graph api" {
   $g = Api GET "/api/world/graph"
@@ -294,6 +307,34 @@ Step "world relation flow" {
   Assert(-not (@($g2.relations | Where-Object { $_.id -eq $rel.id }).Count)) "relation not removed"
   Api DELETE "/api/world/nodes/$($a.id)" $null $tk | Out-Null
   Api DELETE "/api/world/nodes/$($b.id)" $null $tk | Out-Null }
+Step "topics trending + filter" {
+  Assert($tk) "no token (earlier steps failed)"
+  $topic = 'e2etp' + $Suffix
+  $tp = Api POST "/api/posts" @{station_id=1; title="e2e tp $Suffix"; content="body"; topics=@($topic, "#$topic", '', ('x'*30))} $tk
+  $tpid = $tp.post_id; if (-not $tpid) { $tpid = $tp.post.id }
+  Assert($tpid) "topic post create failed"
+  # normalize: dedup #form, drop empty, drop over-length -> exactly 1 valid topic
+  $det = Api GET "/api/posts/$tpid"
+  Assert(@($det.topics).Count -eq 1 -and $det.topics[0] -eq $topic) ("topics not normalized: " + ($det.topics -join '|'))
+  # trending list includes the topic
+  $tr = Api GET "/api/topics/trending?limit=50"
+  Assert((@($tr | Where-Object { $_.name -eq $topic }).Count) -eq 1) "topic missing from trending"
+  # topic filter returns the post
+  $tf = Api GET ("/api/topics/" + [uri]::EscapeDataString($topic) + "/posts?limit=10")
+  Assert((@($tf.posts | Where-Object { $_.id -eq $tpid }).Count) -eq 1) "topic filter did not return the post"
+  # post_type alias equals type (expose filtering depends on it)
+  $byAlias = Api GET "/api/posts?post_type=vote&limit=50"
+  $byType  = Api GET "/api/posts?type=vote&limit=50"
+  Assert(@($byAlias.posts).Count -eq @($byType.posts).Count) "post_type alias != type"
+  # editing with only topics must succeed (was wrongly rejected as nothing-to-update)
+  $t2 = 'e2etp2' + $Suffix
+  Api PUT "/api/posts/$tpid" @{topics=@($t2)} $tk | Out-Null
+  $det2 = Api GET "/api/posts/$tpid"
+  Assert(@($det2.topics).Count -eq 1 -and $det2.topics[0] -eq $t2) "topics edit-replace failed"
+  Api DELETE "/api/posts/$tpid" $null $tk | Out-Null
+  # after post delete, topic filter must be empty
+  $tf2 = Api GET ("/api/topics/" + [uri]::EscapeDataString($t2) + "/posts?limit=10")
+  Assert(@($tf2.posts).Count -eq 0) "topics not cleaned on post delete" }
 Step "expose create + review + anon" {
   Assert($tk) "no token (earlier steps failed)"
   $ep = Api POST "/api/posts" @{title="e2e_ex$Suffix"; content="expose body"; post_type="expose"} $tk
@@ -337,11 +378,13 @@ Step "site config + ad toggle" {
   Assert($cfg2.ad_enabled -ne $true) "ad toggle off not honored"
   Api PUT "/api/admin/site/config" @{ad_enabled="1"} $atk | Out-Null }
 Step "vendored lucide served" {
-  $r = Invoke-WebRequest -Uri "$BaseUrl/static/vendor/lucide.min.js" -TimeoutSec 30 -UseBasicParsing
-  Assert($r.StatusCode -eq 200) "lucide http=$($r.StatusCode)"
-  Assert($r.RawContentLength -gt 100000) "lucide bundle too small: $($r.RawContentLength)"
-  Assert($r.Content -like "*createIcons*") "bundle missing createIcons"
-  Assert($r.Content -like "*1.46.0*") "bundle version not pinned" }
+  $out = HttpCodeSize "$BaseUrl/static/vendor/lucide.min.js"
+  $parts = "$out".Trim() -split '\s+'
+  Assert($parts[0] -eq '200') "lucide http=$($parts[0])"
+  Assert([int]$parts[1] -gt 100000) "lucide bundle too small: $($parts[1])"
+  $body = (Invoke-CurlRaw @('-s', '--max-time', '30', "$BaseUrl/static/vendor/lucide.min.js")) -join ''
+  Assert($body -like "*createIcons*") "bundle missing createIcons"
+  Assert($body -like "*1.46.0*") "bundle version not pinned" }
 
 Write-Host ""
 Write-Host ("== live E2E: pass={0} fail={1} ==" -f $pass, $fail) -ForegroundColor $(if($fail){'Red'}else{'Green'})

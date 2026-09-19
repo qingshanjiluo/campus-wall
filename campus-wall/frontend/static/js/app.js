@@ -504,6 +504,7 @@ function renderPostCard(p) {
             ${p.status === 'pending' ? '<div style="display:inline-flex;align-items:center;gap:4px;margin-bottom:8px;padding:3px 10px;border-radius:10px;font-size:0.72rem;font-weight:600;background:#fef3c7;color:#b45309;"><i data-lucide="clock" class="icon" style="width:12px;height:12px;"></i> 审核中 · 通过后自动展示</div>' : ''}
             ${p.status === 'rejected' ? '<div style="display:inline-flex;align-items:center;gap:4px;margin-bottom:8px;padding:3px 10px;border-radius:10px;font-size:0.72rem;font-weight:600;background:rgba(248,113,113,0.12);color:var(--danger);"><i data-lucide="x-circle" class="icon" style="width:12px;height:12px;"></i> 未通过审核</div>' : ''}
             <div class="post-title">${CampusUtils.escHtml(p.title)}</div>
+            ${(p.topics && p.topics.length) ? '<div class="post-topics">' + p.topics.map(t => '<a class="topic-chip" href="/search?topic=' + encodeURIComponent(t) + '" onclick="event.stopPropagation()"># ' + CampusUtils.escHtml(t) + '</a>').join('') + '</div>' : ''}
             ${coverImg ? '<img class="post-image" src="'+CampusUtils.escHtml(coverImg)+'" alt="" loading="lazy" style="max-height:260px;width:100%;object-fit:cover;border-radius:14px;margin:8px 0;">' : ''}
             <div class="post-content">${renderContent(p.content, false)}</div>
             <div class="post-actions">

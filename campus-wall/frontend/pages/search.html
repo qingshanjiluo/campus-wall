@@ -38,6 +38,11 @@
             </div>
             <div id="searchHistoryList" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
         </div>
+        <!-- 热搜话题榜 -->
+        <div id="trendingSection" style="margin-bottom:24px;">
+            <h3 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1rem;margin:0 0 10px;"><i data-lucide="flame" class="icon icon-sm icon-danger"></i> 热搜话题</h3>
+            <div id="trendingList" class="trending-list"></div>
+        </div>
         <div id="searchResults"></div>
     </div>
 </div>
@@ -49,6 +54,9 @@ const SEARCH_HISTORY_MAX = 10;
 
 document.addEventListener('DOMContentLoaded', function() {
     renderSearchHistory();
+    loadTrending();
+    const topicParam = new URLSearchParams(window.location.search).get('topic');
+    if (topicParam) { renderTopicView(topicParam); return; }
     const searchInput = document.getElementById('globalSearch');
     searchInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && this.value.trim()) {
@@ -57,6 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     debouncedSearch('globalSearch', function(q) {
+        setTrendingVisible(!q);
         if (q && q.trim()) {
             addSearchHistory(q.trim());
             renderSearchHistory();
@@ -174,6 +183,44 @@ function useSearchHistory(q) {
     input.value = q;
     input.dispatchEvent(new Event('input'));
     renderSearchHistory();
+}
+
+function setTrendingVisible(v) {
+    const s = document.getElementById('trendingSection');
+    if (s) s.style.display = v ? '' : 'none';
+}
+
+function loadTrending() {
+    api.get('/api/topics/trending?limit=10').then(list => {
+        const box = document.getElementById('trendingList');
+        if (!box) return;
+        if (!list.length) { document.getElementById('trendingSection').style.display = 'none'; return; }
+        box.innerHTML = list.map((t, i) => `
+            <a class="trending-item" href="/search?topic=${encodeURIComponent(t.name)}">
+                <span class="trending-rank ${i<3?'top':''}">${i+1}</span>
+                <span class="trending-name"># ${escHtml(t.name)}</span>
+                <span class="trending-count">${t.total} 帖</span>
+            </a>`).join('');
+    }).catch(() => {});
+}
+
+function renderTopicView(topic) {
+    setTrendingVisible(false);
+    const results = document.getElementById('searchResults');
+    document.getElementById('globalSearch').value = '';
+    results.innerHTML = '<div class="loading">加载中</div>';
+    api.get('/api/topics/' + encodeURIComponent(topic) + '/posts?limit=30').then(data => {
+        const posts = (data && data.posts) || [];
+        if (!posts.length) {
+            results.innerHTML = '<div class="empty-state"><i data-lucide="hash" class="icon empty-icon"></i><div class="text">话题「' + escHtml(topic) + '」下暂无内容</div></div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+        results.innerHTML = '<h3 style="font-family:\'ZCOOL KuaiLe\',cursive;margin:0 0 14px;"><span class="topic-chip" style="font-size:1rem;padding:4px 14px;"># ' + escHtml(topic) + '</span> <span style="font-size:0.8rem;color:var(--text-muted);font-family:inherit;">共 ' + posts.length + ' 帖</span></h3>'
+            + posts.map(renderPostCard).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        initReveal();
+    }).catch(() => { results.innerHTML = '<div class="empty-state">加载失败</div>'; });
 }
 </script>
 </body>

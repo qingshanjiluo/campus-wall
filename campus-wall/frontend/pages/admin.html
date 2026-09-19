@@ -40,6 +40,7 @@
             <span class="tag" data-tab="reports" onclick="adminTab('reports')"><i data-lucide="flag" class="icon icon-sm"></i> 举报中心</span>
             <span class="tag" data-tab="announcements" onclick="adminTab('announcements')"><i data-lucide="megaphone" class="icon icon-sm"></i> 公告管理</span>
             <span class="tag" data-tab="ads" onclick="adminTab('ads')"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位</span>
+            <span class="tag" data-tab="topics" onclick="adminTab('topics')"><i data-lucide="hash" class="icon icon-sm"></i> 话题</span>
             <span class="tag" data-tab="logs" onclick="adminTab('logs')"><i data-lucide="scroll" class="icon icon-sm"></i> 操作日志</span>
         </div>
 
@@ -322,6 +323,24 @@ function switchAdminTab(el, tab) {
                 </div>
             `).join('');
         });
+    } else if (tab === 'topics') {
+        api.get('/api/admin/topics').then(list => {
+            if (!list.length) { content.innerHTML = '<div class="empty-state">暂无话题</div>'; return; }
+            content.innerHTML = `
+                <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                    <tr style="background:var(--pink-1);"><th style="padding:8px;text-align:left;">ID</th><th style="text-align:left;">话题</th><th style="text-align:left;">累计使用</th><th style="text-align:left;">当前关联帖</th><th style="text-align:left;">操作</th></tr>
+                    ${list.map(t => `
+                        <tr style="border-bottom:1px solid var(--border-primary);">
+                            <td style="padding:8px;">${t.id}</td>
+                            <td><a class="topic-chip" href="/search?topic=${encodeURIComponent(t.name)}" target="_blank"># ${escHtml(t.name)}</a></td>
+                            <td>${t.use_count}</td>
+                            <td>${t.live_posts}</td>
+                            <td><button class="btn btn-sm" style="color:var(--danger);padding:3px 10px;font-size:0.72rem;" onclick="adminDeleteTopic(${t.id},'${escHtml(t.name)}')"><i data-lucide="trash-2" class="icon icon-sm"></i> 删除</button></td>
+                        </tr>`).join('')}
+                </table></div>`;
+            if (window.lucide) lucide.createIcons();
+        });
     } else if (tab === 'ads') {
         api.get('/api/site/config').then(cfg => {
             const checked = cfg.ad_enabled ? 'checked' : '';
@@ -343,6 +362,12 @@ function switchAdminTab(el, tab) {
             if (window.lucide) lucide.createIcons();
         });
     }
+}
+
+function adminDeleteTopic(tid, name) {
+    if (!confirm('删除话题「' + name + '」？将解除其与所有帖子的关联。')) return;
+    api.delete('/api/admin/topics/' + tid).then(() => { showToast('已删除', 'success'); adminTab('topics'); })
+        .catch(err => showToast(err.message || '删除失败', 'error'));
 }
 
 function saveAdConfig() {
