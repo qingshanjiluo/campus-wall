@@ -228,7 +228,7 @@
                 <div class="form-group">
                     <label class="form-label">封面图</label>
                     <div class="cover-upload" id="coverUpload">
-                        <img id="coverPreview" src="" style="display:none;width:100%;height:120px;object-fit:cover;border-radius:12px;">
+                        <img id="coverPreview" alt="" style="display:none;width:100%;height:120px;object-fit:cover;border-radius:12px;">
                         <label class="cover-upload-btn">
                             <i data-lucide="image" class="icon icon-md"></i>
                             <span>上传封面</span>
