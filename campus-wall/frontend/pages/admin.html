@@ -41,6 +41,7 @@
             <span class="tag" data-tab="announcements" onclick="adminTab('announcements')"><i data-lucide="megaphone" class="icon icon-sm"></i> 公告管理</span>
             <span class="tag" data-tab="ads" onclick="adminTab('ads')"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位</span>
             <span class="tag" data-tab="topics" onclick="adminTab('topics')"><i data-lucide="hash" class="icon icon-sm"></i> 话题</span>
+            <span class="tag" data-tab="tasks" onclick="adminTab('tasks')"><i data-lucide="target" class="icon icon-sm"></i> 任务</span>
             <span class="tag" data-tab="logs" onclick="adminTab('logs')"><i data-lucide="scroll" class="icon icon-sm"></i> 操作日志</span>
         </div>
 
@@ -341,6 +342,48 @@ function switchAdminTab(el, tab) {
                 </table></div>`;
             if (window.lucide) lucide.createIcons();
         });
+    } else if (tab === 'tasks') {
+        Promise.all([
+            api.get('/api/admin/tasks'),
+            api.get('/api/admin/tasks/claims')
+        ]).then(([tasks, claims]) => {
+            const claimsHtml = claims.length ? `
+                <h4 style="margin:18px 0 8px;color:var(--pink-4);"><i data-lucide="inbox" class="icon icon-sm"></i> 待审核提交 (${claims.length})</h4>
+                ${claims.map(c => `
+                    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border-primary);border-radius:10px;margin-bottom:8px;font-size:0.85rem;">
+                        <span style="flex:1;"><b>${escHtml(c.username)}</b> → ${escHtml(c.title)}
+                            ${c.proof ? '<div style="font-size:0.74rem;color:var(--text-muted);margin-top:2px;">说明：' + escHtml(c.proof) + '</div>' : ''}</span>
+                        <span style="font-size:0.72rem;color:var(--text-muted);">+${c.reward_coins}币 +${c.reward_points}分</span>
+                        <button class="btn btn-primary btn-sm" onclick="reviewTaskClaim(${c.id},'approve')">通过</button>
+                        <button class="btn btn-sm" onclick="reviewTaskClaim(${c.id},'reject')">驳回</button>
+                    </div>`).join('')}` : '';
+            content.innerHTML = `
+                <div class="speech-bubble" style="margin-bottom:16px;">
+                    <h4 style="margin:0 0 10px;color:var(--pink-4);"><i data-lucide="target" class="icon icon-sm"></i> 发布官方任务</h4>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                        <div style="flex:2;min-width:180px;"><label class="form-label">标题</label>
+                            <input class="input" id="adminTaskTitle" maxlength="60" placeholder="任务标题"></div>
+                        <div style="flex:3;min-width:220px;"><label class="form-label">说明</label>
+                            <input class="input" id="adminTaskDesc" maxlength="300"></div>
+                        <div style="width:100px;"><label class="form-label">奖励金币</label>
+                            <input class="input" type="number" id="adminTaskCoins" value="10" min="0"></div>
+                        <div style="width:100px;"><label class="form-label">奖励积分</label>
+                            <input class="input" type="number" id="adminTaskPoints" value="5" min="0"></div>
+                        <button class="btn btn-primary btn-sm" onclick="createAdminTask()"><i data-lucide="check" class="icon icon-sm"></i> 发布</button>
+                    </div>
+                </div>
+                ${claimsHtml}
+                <h4 style="margin:18px 0 8px;"><i data-lucide="list" class="icon icon-sm"></i> 全部任务 (${tasks.length})</h4>
+                ${tasks.map(t => `
+                    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border-primary);font-size:0.85rem;">
+                        <span style="font-size:0.7rem;color:var(--text-muted);">[${t.kind}]</span>
+                        <span style="flex:1;">${escHtml(t.title)}</span>
+                        <span style="font-size:0.72rem;color:var(--text-muted);">${t.claim_count} 领取 · +${t.reward_coins}币 +${t.reward_points}分</span>
+                        <span style="font-size:0.72rem;${t.status === 'active' ? 'color:var(--mint,#1c7c54);' : 'color:var(--text-muted);'}">${t.status === 'active' ? '进行中' : '已关闭'}</span>
+                        ${t.status === 'active' ? `<button class="btn btn-sm" style="padding:2px 10px;font-size:0.7rem;" onclick="adminCloseTask(${t.id})">关闭</button>` : ''}
+                    </div>`).join('')}`;
+            if (window.lucide) lucide.createIcons();
+        });
     } else if (tab === 'ads') {
         api.get('/api/site/config').then(cfg => {
             const checked = cfg.ad_enabled ? 'checked' : '';
@@ -368,6 +411,30 @@ function adminDeleteTopic(tid, name) {
     if (!confirm('删除话题「' + name + '」？将解除其与所有帖子的关联。')) return;
     api.delete('/api/admin/topics/' + tid).then(() => { showToast('已删除', 'success'); adminTab('topics'); })
         .catch(err => showToast(err.message || '删除失败', 'error'));
+}
+
+function createAdminTask() {
+    const title = document.getElementById('adminTaskTitle').value.trim();
+    if (!title) return showToast('请填写任务标题', 'error');
+    api.post('/api/tasks', {
+        kind: 'admin', title,
+        description: document.getElementById('adminTaskDesc').value.trim(),
+        reward_coins: parseInt(document.getElementById('adminTaskCoins').value, 10) || 0,
+        reward_points: parseInt(document.getElementById('adminTaskPoints').value, 10) || 0
+    }).then(() => { showToast('任务已发布', 'success'); adminTab('tasks'); })
+        .catch(err => showToast(err.message || '发布失败', 'error'));
+}
+
+function adminCloseTask(tid) {
+    if (!confirm('关闭该任务？已领取者仍可提交。')) return;
+    api.post('/api/admin/tasks/' + tid + '/close', {}).then(() => { showToast('已关闭', 'success'); adminTab('tasks'); })
+        .catch(err => showToast(err.message || '操作失败', 'error'));
+}
+
+function reviewTaskClaim(cid, action) {
+    api.post('/api/tasks/claims/' + cid + '/review', { action }).then(res => {
+        showToast(res.message || '已处理', 'success'); adminTab('tasks');
+    }).catch(err => showToast(err.message || '操作失败', 'error'));
 }
 
 function saveAdConfig() {

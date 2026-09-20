@@ -315,6 +315,16 @@ def seed():
         c.execute('INSERT INTO character_relations (from_id, to_id, label, description, reciprocal) VALUES (?,?,?,?,?)',
                   (f, t, label, desc, rp))
 
+    # ── Extended: 任务系统系统任务 ──
+    sys_tasks = [
+        ('system', '完善个人资料', '设置头像并填写一句话简介', 20, 10),
+        ('system', '发布第一篇帖子', '在任意子站发布你的第一篇帖子', 30, 15),
+        ('system', '初来乍到', '给 3 个帖子点赞，认识校园墙', 15, 5),
+    ]
+    for kind, title, desc, coins, points in sys_tasks:
+        c.execute('INSERT INTO tasks (kind, title, description, reward_coins, reward_points) VALUES (?,?,?,?,?)',
+                  (kind, title, desc, coins, points))
+
     conn.commit()
     conn.close()
     print(f'Seeded: {len(USERS)} users, {len(STATIONS)} stations, {len(POSTS)} posts, {len(COMMENTS)} comments + extended data')

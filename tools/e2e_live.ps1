@@ -335,6 +335,44 @@ Step "topics trending + filter" {
   # after post delete, topic filter must be empty
   $tf2 = Api GET ("/api/topics/" + [uri]::EscapeDataString($t2) + "/posts?limit=10")
   Assert(@($tf2.posts).Count -eq 0) "topics not cleaned on post delete" }
+Step "tasks bounty + review payout" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  # bounty: publisher (admin) prepays points, user completes, publisher approves
+  $pts0 = (Api GET "/api/shop/coins" $null $atk).points
+  $bt = Api POST "/api/tasks" @{kind="bounty"; title="e2e bounty $Suffix"; description="d"; reward_points=10} $atk
+  Assert($bt.id) "bounty create failed"
+  $pts1 = (Api GET "/api/shop/coins" $null $atk).points
+  Assert($pts0 - $pts1 -eq 10) "bounty prepay did not deduct 10 points"
+  Api POST "/api/tasks/$($bt.id)/claim" @{} $tk | Out-Null
+  $dupRejected = $false
+  try { Api POST "/api/tasks/$($bt.id)/claim" @{} $tk } catch { $dupRejected = ((BadCode $_) -eq 400) }
+  Assert($dupRejected) "duplicate claim not rejected"
+  $up0 = (Api GET "/api/shop/coins" $null $tk).points
+  $sub = Api POST "/api/tasks/$($bt.id)/complete" @{proof="e2e done"} $tk
+  Assert($sub.status -eq "submitted") "submit did not queue for review"
+  $claims = Api GET "/api/admin/tasks/claims" $null $atk
+  $cid = (@($claims | Where-Object { $_.task_id -eq $bt.id })[0]).id
+  Api POST "/api/tasks/claims/$cid/review" @{action="approve"} $atk | Out-Null
+  $up1 = (Api GET "/api/shop/coins" $null $tk).points
+  Assert($up1 - $up0 -eq 10) "bounty payout did not grant 10 points"
+  # validations: non-admin cannot publish official task; over-afford bounty rejected
+  $naRejected = $false
+  try { Api POST "/api/tasks" @{kind="admin"; title="x"} $tk } catch { $naRejected = ((BadCode $_) -eq 403) }
+  Assert($naRejected) "non-admin official task not rejected"
+  $poorRejected = $false
+  try { Api POST "/api/tasks" @{kind="bounty"; title="y"; reward_points=99999} $tk } catch { $poorRejected = ((BadCode $_) -eq 400) }
+  Assert($poorRejected) "over-afford bounty not rejected" }
+Step "tasks system auto-reward" {
+  Assert($tk) "no token (earlier steps failed)"
+  $sys = Api GET "/api/tasks?kind=system"
+  $t = (@($sys | Where-Object { -not $_.my_status }) | Select-Object -First 1)
+  if (-not $t) { Write-Host "    (system tasks all claimed - skip)"; return }
+  Api POST "/api/tasks/$($t.id)/claim" @{} $tk | Out-Null
+  $c0 = (Api GET "/api/shop/coins" $null $tk).coins
+  $done = Api POST "/api/tasks/$($t.id)/complete" @{proof="e2e"} $tk
+  Assert($done.status -eq "completed") "system task not auto-completed"
+  $c1 = (Api GET "/api/shop/coins" $null $tk).coins
+  Assert($c1 - $c0 -eq $t.reward_coins) "system task reward mismatch" }
 Step "expose create + review + anon" {
   Assert($tk) "no token (earlier steps failed)"
   $ep = Api POST "/api/posts" @{title="e2e_ex$Suffix"; content="expose body"; post_type="expose"} $tk

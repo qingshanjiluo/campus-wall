@@ -295,6 +295,33 @@ def init_extended_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_post_topics_post ON post_topics(post_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_post_topics_topic ON post_topics(topic_id)")
 
+    # ── 任务系统（R8）：系统任务 / 管理员任务 / 积分悬赏 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL DEFAULT 'system',
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        reward_coins INTEGER DEFAULT 0,
+        reward_points INTEGER DEFAULT 0,
+        cost INTEGER DEFAULT 0,
+        max_claims INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS task_claims (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL REFERENCES tasks(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        status TEXT DEFAULT 'in_progress',
+        proof TEXT DEFAULT '',
+        claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP,
+        UNIQUE(task_id, user_id)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_task_claims_user ON task_claims(user_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_task_claims_task ON task_claims(task_id)")
+
     # ── 私信 ──
     init_dm_tables(c)
 
@@ -1289,3 +1316,184 @@ def get_all_topics_admin():
 def delete_topic(tid):
     execute_db('DELETE FROM post_topics WHERE topic_id = ?', (tid,))
     execute_db('DELETE FROM topics WHERE id = ?', (tid,))
+
+
+# ══════════════════════════════════════════════
+# 任务系统（R8）：系统任务 / 管理员任务 / 积分悬赏
+# ══════════════════════════════════════════════
+
+TASK_KINDS = ('system', 'admin', 'bounty')
+
+
+def grant_points(user_id, amount, description='', ref_type='', ref_id=0):
+    user = query_db('SELECT points FROM users WHERE id = ?', (user_id,), one=True)
+    new_points = (user['points'] or 0) + amount
+    execute_db('UPDATE users SET points = ? WHERE id = ?', (new_points, user_id))
+    return new_points
+
+
+def spend_points(user_id, amount, description='', ref_type='', ref_id=0):
+    """积分扣减（悬赏发布）。余额不足返回 False。"""
+    user = query_db('SELECT points FROM users WHERE id = ?', (user_id,), one=True)
+    if (user['points'] or 0) < amount:
+        return False
+    return grant_points(user_id, -amount, description, ref_type, ref_id) is not None
+
+
+def create_task(kind, title, description='', reward_coins=0, reward_points=0,
+                cost=0, max_claims=0, created_by=None):
+    if kind not in TASK_KINDS:
+        return None
+    title = (title or '').strip()
+    if not title or len(title) > 60:
+        return None
+    return execute_db(
+        'INSERT INTO tasks (kind, title, description, reward_coins, reward_points, cost, max_claims, created_by) '
+        'VALUES (?,?,?,?,?,?,?,?)',
+        (kind, title, (description or '').strip()[:300], int(reward_coins or 0), int(reward_points or 0),
+         int(cost or 0), int(max_claims or 0), created_by))
+
+
+def close_task(task_id, user_id=None, is_admin=False):
+    t = query_db('SELECT * FROM tasks WHERE id = ?', (task_id,), one=True)
+    if not t or t['status'] != 'active':
+        return False
+    if not is_admin and t['created_by'] != user_id:
+        return False
+    execute_db("UPDATE tasks SET status = 'closed' WHERE id = ?", (task_id,))
+    return True
+
+
+def list_tasks(kind=None, user_id=None, limit=50):
+    """active 任务 + 领取数 + 我的领取状态。"""
+    where = "t.status = 'active'"
+    args = []
+    if kind in TASK_KINDS:
+        where += ' AND t.kind = ?'
+        args.append(kind)
+    my_sel = ''
+    if user_id:
+        my_sel = ''',
+               (SELECT status FROM task_claims mc WHERE mc.task_id = t.id AND mc.user_id = ?) AS my_status'''
+        args_my = [user_id]
+    else:
+        args_my = []
+        my_sel = ''',
+               NULL AS my_status'''
+    sql = f'''SELECT t.*,
+               (SELECT COUNT(*) FROM task_claims tc WHERE tc.task_id = t.id) AS claim_count{my_sel}
+            FROM tasks t WHERE {where} ORDER BY t.created_at DESC LIMIT ?'''
+    # 占位符顺序：SELECT 里的 my_status 子查询 ? 在 WHERE 参数之前
+    rows = query_db(sql, args_my + args + [limit])
+    return rows
+
+
+def get_task_by_id(task_id):
+    return query_db('SELECT * FROM tasks WHERE id = ?', (task_id,), one=True)
+
+
+def claim_task(task_id, user_id):
+    t = get_task_by_id(task_id)
+    if not t or t['status'] != 'active':
+        return None, '任务不存在或已关闭'
+    if t['max_claims'] and t['max_claims'] <= (query_db(
+            'SELECT COUNT(*) AS n FROM task_claims WHERE task_id = ?', (task_id,), one=True)['n']):
+        return None, '领取名额已满'
+    if query_db('SELECT 1 FROM task_claims WHERE task_id = ? AND user_id = ?', (task_id, user_id), one=True):
+        return None, '你已领取过该任务'
+    execute_db('INSERT INTO task_claims (task_id, user_id) VALUES (?,?)', (task_id, user_id))
+    return query_db('SELECT * FROM task_claims WHERE task_id = ? AND user_id = ?', (task_id, user_id), one=True), None
+
+
+def grant_task_reward(task, user_id):
+    msg = []
+    if task['reward_coins']:
+        add_coin_transaction(user_id, task['reward_coins'], 'task', f"任务奖励：{task['title']}", 'task', task['id'])
+        msg.append(f"+{task['reward_coins']} 金币")
+    if task['reward_points']:
+        grant_points(user_id, task['reward_points'], ref_type='task', ref_id=task['id'])
+        msg.append(f"+{task['reward_points']} 积分")
+    return '，'.join(msg) or '完成'
+
+
+def submit_task(task_id, user_id, proof=''):
+    """交任务：system 类自动发奖；admin/bounty 进入 submitted 待审核。"""
+    t = get_task_by_id(task_id)
+    c = query_db('SELECT * FROM task_claims WHERE task_id = ? AND user_id = ?', (task_id, user_id), one=True)
+    if not t or not c:
+        return None, '请先领取任务'
+    if c['status'] != 'in_progress':
+        return None, '当前状态不可提交'
+    if t['kind'] == 'system':
+        execute_db("UPDATE task_claims SET status = 'completed', proof = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                   (proof[:300], c['id']))
+        reward = grant_task_reward(t, user_id)
+        return {'status': 'completed', 'reward': reward}, None
+    execute_db("UPDATE task_claims SET status = 'submitted', proof = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+               (proof[:300], c['id']))
+    return {'status': 'submitted'}, None
+
+
+def get_claim_by_id(claim_id):
+    return query_db('SELECT * FROM task_claims WHERE id = ?', (claim_id,), one=True)
+
+
+def review_task_claim(claim_id, action, reviewer):
+    """bounty/管理员任务的完成审核：发布者本人或管理员。"""
+    c = get_claim_by_id(claim_id)
+    if not c:
+        return None, '记录不存在'
+    t = get_task_by_id(c['task_id'])
+    is_admin = reviewer['role'] == 'admin'
+    is_publisher = t['created_by'] == reviewer['id']
+    if not (is_admin or is_publisher):
+        return None, '无权审核该任务'
+    if c['status'] != 'submitted':
+        return None, '该提交不在待审核状态'
+    if action == 'approve':
+        execute_db("UPDATE task_claims SET status = 'completed' WHERE id = ?", (claim_id,))
+        reward = grant_task_reward(t, c['user_id'])
+        create_task_notification(c['user_id'], f"任务「{t['title']}」审核通过，获得 {reward}")
+        return {'status': 'completed', 'reward': reward}, None
+    if action == 'reject':
+        # 驳回后允许重新提交（回到 in_progress）
+        execute_db("UPDATE task_claims SET status = 'in_progress', completed_at = NULL WHERE id = ?", (claim_id,))
+        create_task_notification(c['user_id'], f"任务「{t['title']}」提交被驳回，可修改后重新提交")
+        return {'status': 'in_progress'}, None
+    return None, '无效操作'
+
+
+def create_task_notification(user_id, text):
+    try:
+        from app.models import create_notification
+        create_notification(user_id, None, 'system', text, '/tasks')
+    except Exception:
+        pass
+
+
+def get_my_claims(user_id, limit=50):
+    return query_db('''
+        SELECT tc.*, t.title, t.kind, t.reward_coins, t.reward_points, t.status AS task_status
+        FROM task_claims tc JOIN tasks t ON t.id = tc.task_id
+        WHERE tc.user_id = ? ORDER BY tc.claimed_at DESC LIMIT ?''', (user_id, limit))
+
+
+def get_task_claims(task_id):
+    return query_db('''
+        SELECT tc.*, u.username, u.avatar
+        FROM task_claims tc JOIN users u ON u.id = tc.user_id
+        WHERE tc.task_id = ? ORDER BY tc.claimed_at DESC''', (task_id,))
+
+
+def get_submitted_claims(limit=50):
+    return query_db('''
+        SELECT tc.*, t.title, t.kind, t.reward_coins, t.reward_points, t.created_by AS publisher_id,
+               u.username
+        FROM task_claims tc JOIN tasks t ON t.id = tc.task_id JOIN users u ON u.id = tc.user_id
+        WHERE tc.status = 'submitted' ORDER BY tc.completed_at ASC LIMIT ?''', (limit,))
+
+
+def get_all_tasks_admin(limit=100):
+    return query_db('''
+        SELECT t.*, (SELECT COUNT(*) FROM task_claims tc WHERE tc.task_id = t.id) AS claim_count
+        FROM tasks t ORDER BY t.created_at DESC LIMIT ?''', (limit,))

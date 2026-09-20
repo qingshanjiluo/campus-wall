@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务中心 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:860px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title"><i data-lucide="target" class="icon"></i> 任务中心</h2>
+            <p class="chapter-sub">做任务赚金币积分 · 也可发布悬赏请同学帮忙</p>
+        </div>
+
+        <!-- 类型筛选 -->
+        <div class="tag-bar reveal" id="taskTabs">
+            <span class="tag active" onclick="filterTasks(this,'')">全部</span>
+            <span class="tag" onclick="filterTasks(this,'system')">系统任务</span>
+            <span class="tag" onclick="filterTasks(this,'admin')">官方任务</span>
+            <span class="tag" onclick="filterTasks(this,'bounty')">积分悬赏</span>
+            <span class="tag" style="margin-left:auto;" onclick="toggleBountyForm()"><i data-lucide="hand-coins" class="icon icon-sm"></i> 发布悬赏</span>
+        </div>
+
+        <!-- 发布悬赏 -->
+        <div id="bountyForm" class="speech-bubble reveal" style="display:none;margin:16px 0;">
+            <h4 style="margin:0 0 10px;color:var(--pink-4);"><i data-lucide="hand-coins" class="icon icon-sm"></i> 发布积分悬赏</h4>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px;">发布即从你的积分预扣酬劳；同学提交后由你确认放款。</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <div style="flex:2;min-width:200px;"><label class="form-label">标题 *</label>
+                    <input class="input" id="bountyTitle" maxlength="60" placeholder="如：求推荐 campus 东门的自习室"></div>
+                <div style="flex:3;min-width:240px;"><label class="form-label">要求说明</label>
+                    <input class="input" id="bountyDesc" maxlength="300" placeholder="具体要求 / 交付物"></div>
+                <div style="width:110px;"><label class="form-label">悬赏积分 *</label>
+                    <input class="input" type="number" id="bountyPoints" min="1" value="20"></div>
+                <div style="width:110px;"><label class="form-label">名额（0=不限）</label>
+                    <input class="input" type="number" id="bountyMax" min="0" value="0"></div>
+                <button class="btn btn-primary btn-sm" onclick="createBounty()"><i data-lucide="check" class="icon icon-sm"></i> 发布</button>
+            </div>
+        </div>
+
+        <!-- 任务列表 -->
+        <div id="taskList"><div class="loading">加载中</div></div>
+
+        <!-- 我的任务 -->
+        <div class="reveal" style="margin-top:32px;">
+            <h3 class="chapter-title" style="font-size:1.4rem;"><i data-lucide="clipboard-list" class="icon"></i> 我的任务</h3>
+            <div id="myClaims" style="margin-top:14px;"><div class="loading">加载中</div></div>
+        </div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+let taskKind = '';
+const KIND_BADGE = {
+    system: '<span style="font-size:0.7rem;background:var(--mint);color:#1c7c54;padding:2px 8px;border-radius:8px;">系统</span>',
+    admin: '<span style="font-size:0.7rem;background:var(--pink-1);color:var(--pink-4);padding:2px 8px;border-radius:8px;">官方</span>',
+    bounty: '<span style="font-size:0.7rem;background:rgba(255,214,165,0.35);color:#a16a12;padding:2px 8px;border-radius:8px;">悬赏</span>'
+};
+
+onUserReady(function () { loadTasks(); loadMyClaims(); });
+
+function filterTasks(el, kind) {
+    document.querySelectorAll('#taskTabs .tag').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    taskKind = kind;
+    loadTasks();
+}
+
+function loadTasks() {
+    const q = taskKind ? '?kind=' + taskKind : '';
+    api.get('/api/tasks' + q).then(list => {
+        const box = document.getElementById('taskList');
+        if (!list.length) { box.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="target" class="icon icon-lg"></i></div><div class="text">暂无任务</div></div>'; return; }
+        box.innerHTML = list.map(t => {
+            const reward = [];
+            if (t.reward_coins) reward.push('+' + t.reward_coins + ' <i data-lucide="coins" class="icon icon-sm"></i>');
+            if (t.reward_points) reward.push('+' + t.reward_points + ' <i data-lucide="star" class="icon icon-sm"></i>');
+            const quota = t.max_claims ? (t.claim_count + '/' + t.max_claims) : (t.claim_count + ' 人已领');
+            let btn = '';
+            if (!currentUser) btn = '<button class="btn btn-sm" onclick="requireAuth()">登录后参与</button>';
+            else if (t.my_status === 'in_progress') btn = '<button class="btn btn-primary btn-sm" onclick="completeTask(' + t.id + ')">提交完成</button>';
+            else if (t.my_status === 'submitted') btn = '<span style="font-size:0.78rem;color:var(--text-muted);"><i data-lucide="clock" class="icon icon-sm"></i> 审核中</span>';
+            else if (t.my_status === 'completed') btn = '<span style="font-size:0.78rem;color:var(--mint,#1c7c54);"><i data-lucide="check-circle" class="icon icon-sm"></i> 已完成</span>';
+            else if (t.max_claims && t.claim_count >= t.max_claims) btn = '<span style="font-size:0.78rem;color:var(--text-muted);">名额已满</span>';
+            else btn = '<button class="btn btn-primary btn-sm" onclick="claimTask(' + t.id + ')">领取任务</button>';
+            return `
+            <div class="post-card reveal" style="padding:16px 20px;margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    ${KIND_BADGE[t.kind] || ''}
+                    <span style="font-weight:700;font-size:1rem;flex:1;">${escHtml(t.title)}</span>
+                    <span style="font-size:0.8rem;color:var(--pink-4);font-weight:600;white-space:nowrap;">${reward.join(' ') || '荣誉奖励'}</span>
+                </div>
+                ${t.description ? '<div style="font-size:0.86rem;color:var(--text-secondary);margin-top:6px;line-height:1.6;">' + escHtml(t.description) + '</div>' : ''}
+                <div style="display:flex;align-items:center;gap:14px;margin-top:10px;font-size:0.75rem;color:var(--text-muted);">
+                    <span><i data-lucide="users" class="icon icon-sm"></i> ${quota}</span>
+                    <span style="flex:1;"></span>
+                    ${btn}
+                </div>
+            </div>`;
+        }).join('');
+        if (window.lucide) lucide.createIcons();
+    });
+}
+
+function loadMyClaims() {
+    if (!currentUser) { document.getElementById('myClaims').innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;">登录后可领取任务</div>'; return; }
+    api.get('/api/tasks/mine').then(list => {
+        const box = document.getElementById('myClaims');
+        if (!list.length) { box.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;">还没有领取过任务</div>'; return; }
+        box.innerHTML = list.map(c => `
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border-primary);font-size:0.88rem;">
+                <i data-lucide="${c.status === 'completed' ? 'check-circle-2' : c.status === 'submitted' ? 'clock' : 'circle'}" class="icon icon-sm"></i>
+                <span style="flex:1;">${escHtml(c.title)}</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">${{ in_progress: '进行中', submitted: '审核中', completed: '已完成', rejected: '已驳回' }[c.status] || c.status}</span>
+            </div>`).join('');
+        if (window.lucide) lucide.createIcons();
+    });
+}
+
+function claimTask(id) {
+    if (!requireAuth()) return;
+    api.post('/api/tasks/' + id + '/claim', {}).then(() => { showToast('已领取，完成后来提交', 'success'); loadTasks(); loadMyClaims(); })
+        .catch(err => showToast(err.message || '领取失败', 'error'));
+}
+
+function completeTask(id) {
+    if (!requireAuth()) return;
+    const proof = prompt('填写完成说明（可选，悬赏任务会展示给发布者）：') || '';
+    api.post('/api/tasks/' + id + '/complete', { proof }).then(res => {
+        showToast(res.message || '已提交', 'success');
+        loadTasks(); loadMyClaims();
+    }).catch(err => showToast(err.message || '提交失败', 'error'));
+}
+
+function toggleBountyForm() {
+    const f = document.getElementById('bountyForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+function createBounty() {
+    if (!requireAuth()) return;
+    const points = parseInt(document.getElementById('bountyPoints').value, 10);
+    if (!points || points <= 0) return showToast('请填写悬赏积分', 'error');
+    api.post('/api/tasks', {
+        kind: 'bounty',
+        title: document.getElementById('bountyTitle').value.trim(),
+        description: document.getElementById('bountyDesc').value.trim(),
+        reward_points: points,
+        max_claims: parseInt(document.getElementById('bountyMax').value, 10) || 0
+    }).then(() => {
+        showToast('悬赏已发布（积分已预扣）', 'success');
+        document.getElementById('bountyTitle').value = '';
+        document.getElementById('bountyDesc').value = '';
+        document.getElementById('bountyForm').style.display = 'none';
+        loadTasks();
+    }).catch(err => showToast(err.message || '发布失败', 'error'));
+}
+</script>
+</body>
+</html>

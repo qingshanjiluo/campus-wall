@@ -29,6 +29,9 @@ from app.models_ext import (
     get_character_node, create_character_relation, delete_character_relation,
     get_site_config, set_site_config, get_ad_config,
     get_trending_topics, get_topic_posts, get_all_topics_admin, delete_topic,
+    TASK_KINDS, create_task, close_task, list_tasks, get_task_by_id, claim_task,
+    submit_task, get_claim_by_id, review_task_claim, get_my_claims, get_task_claims,
+    get_submitted_claims, get_all_tasks_admin, spend_points,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
 from app.models import shape_post, is_liked_batch
@@ -236,7 +239,7 @@ def my_links():
 
 @romance_bp.route('/task', methods=['POST'])
 @token_required
-def create_task():
+def romance_create_task():
     data = request.get_json(silent=True) or {}
     title = (data.get('title') or '').strip()
     if not title:
@@ -249,7 +252,7 @@ def create_task():
     return jsonify({'message': '任务发布成功', 'id': tid}), 201
 
 @romance_bp.route('/tasks', methods=['GET'])
-def list_tasks():
+def romance_list_tasks():
     status = request.args.get('status', 'open')
     return jsonify(get_romance_tasks(status))
 
@@ -903,3 +906,118 @@ def admin_topic_delete(tid):
     delete_topic(tid)
     admin_log(g.current_user['id'], 'delete_topic', 'topic', tid)
     return jsonify({'message': '已删除'})
+
+
+# ══════════════════════════════════════════════
+# 任务系统（R8）：系统 / 管理员 / 积分悬赏
+# ══════════════════════════════════════════════
+
+tasks_bp = Blueprint('tasks', __name__, url_prefix='/api/tasks')
+
+
+@tasks_bp.route('', methods=['GET'])
+@optional_auth
+def tasks_list():
+    kind = request.args.get('kind') or None
+    uid = g.current_user['id'] if g.current_user else None
+    return jsonify(list_tasks(kind=kind, user_id=uid))
+
+
+@tasks_bp.route('', methods=['POST'])
+@token_required
+def tasks_create():
+    data = request.get_json(silent=True) or {}
+    kind = data.get('kind', 'bounty')
+    if kind not in TASK_KINDS:
+        return jsonify({'error': '无效任务类型'}), 400
+    if kind in ('system', 'admin') and g.current_user['role'] != 'admin':
+        return jsonify({'error': '该类型任务仅管理员可发布'}), 403
+    cost = int(data.get('cost') or 0)
+    reward_coins = int(data.get('reward_coins') or 0)
+    reward_points = int(data.get('reward_points') or 0)
+    # 悬赏：发布即扣积分（发布者预付酬劳），且奖赏只能是积分（发布者预付多少发多少）
+    if kind == 'bounty':
+        reward_coins = 0
+        cost = max(cost, reward_points)
+        if cost > 0 and spend_points(g.current_user['id'], cost, ref_type='task') is False:
+            return jsonify({'error': '积分不足，无法发布悬赏'}), 400
+    tid = create_task(
+        kind, data.get('title'), data.get('description', ''),
+        reward_coins=reward_coins, reward_points=reward_points,
+        cost=cost, max_claims=data.get('max_claims'), created_by=g.current_user['id'])
+    if not tid:
+        return jsonify({'error': '标题不能为空或过长（≤60字）'}), 400
+    admin_log(g.current_user['id'], 'create_task', 'task', tid, kind)
+    return jsonify({'id': tid, 'message': '任务已发布'})
+
+
+@tasks_bp.route('/mine', methods=['GET'])
+@token_required
+def tasks_mine():
+    return jsonify(get_my_claims(g.current_user['id']))
+
+
+@tasks_bp.route('/<int:tid>/claim', methods=['POST'])
+@token_required
+def tasks_claim(tid):
+    claim, err = claim_task(tid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '已领取', 'claim_id': claim['id']})
+
+
+@tasks_bp.route('/<int:tid>/complete', methods=['POST'])
+@token_required
+def tasks_complete(tid):
+    data = request.get_json(silent=True) or {}
+    res, err = submit_task(tid, g.current_user['id'], data.get('proof') or '')
+    if err:
+        return jsonify({'error': err}), 400
+    if res['status'] == 'completed':
+        return jsonify({'message': f"任务完成，获得 {res['reward']}", 'status': 'completed', 'reward': res['reward']})
+    return jsonify({'message': '已提交，等待审核', 'status': 'submitted'})
+
+
+@tasks_bp.route('/<int:tid>/claims', methods=['GET'])
+@token_required
+def tasks_claims(tid):
+    t = get_task_by_id(tid)
+    if not t:
+        return jsonify({'error': '任务不存在'}), 404
+    if t['created_by'] != g.current_user['id'] and g.current_user['role'] != 'admin':
+        return jsonify({'error': '无权查看'}), 403
+    return jsonify(get_task_claims(tid))
+
+
+@tasks_bp.route('/claims/<int:cid>/review', methods=['POST'])
+@token_required
+def tasks_review(cid):
+    data = request.get_json(silent=True) or {}
+    res, err = review_task_claim(cid, data.get('action', ''), g.current_user)
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '已通过' if data.get('action') == 'approve' else '已驳回', **res})
+
+
+@admin_bp.route('/tasks', methods=['GET'])
+@token_required
+@admin_required
+def admin_tasks():
+    return jsonify(get_all_tasks_admin())
+
+
+@admin_bp.route('/tasks/<int:tid>/close', methods=['POST'])
+@token_required
+@admin_required
+def admin_task_close(tid):
+    if not close_task(tid, is_admin=True):
+        return jsonify({'error': '任务不存在或已关闭'}), 400
+    admin_log(g.current_user['id'], 'close_task', 'task', tid)
+    return jsonify({'message': '已关闭'})
+
+
+@admin_bp.route('/tasks/claims', methods=['GET'])
+@token_required
+@admin_required
+def admin_task_claims():
+    return jsonify(get_submitted_claims())
