@@ -234,6 +234,19 @@ def reset_password():
     return jsonify({'message': '密码已重置，请使用新密码登录'})
 
 
+@auth_bp.route('/export', methods=['GET'])
+@token_required
+def export_my_data():
+    """个人数据导出（JSON 附件下载）。R8 数据导出。"""
+    import json as _json
+    from app.models_ext import get_user_export
+    data = get_user_export(g.current_user['id'])
+    payload = _json.dumps(data, ensure_ascii=False, indent=1, default=str)
+    resp = current_app.response_class(payload, mimetype='application/json')
+    resp.headers['Content-Disposition'] = f"attachment; filename=campuswall_export_{g.current_user['id']}.json"
+    return resp
+
+
 def _user_dict(user):
     return {
         'id': user['id'],

@@ -2,7 +2,7 @@
 扩展 API 路由 — 身份组、签到、积分商城、恋爱情报、爆料、交易、看板娘、搜索、推流、管理后台
 """
 import json
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 from app.utils.auth import token_required, optional_auth
 from app.utils.limiter import limiter
 from app.utils.sensitive import scan_text
@@ -22,7 +22,7 @@ from app.models_ext import (
     smart_search,
     get_admin_stats, get_admin_stats_series, get_all_users_admin, update_user_admin, admin_log, get_admin_logs,
     toggle_favorite, is_favorited, get_favorites,
-    create_report, get_reports, handle_report,
+    create_report, get_reports, handle_report, REPORT_CATEGORIES,
     get_user_settings, save_user_settings,
     get_announcements, create_announcement, update_announcement, toggle_announcement, delete_announcement,
     get_character_graph, create_character_node, update_character_node, delete_character_node,
@@ -697,6 +697,7 @@ def report():
     target_id = data.get('target_id')
     reason = (data.get('reason') or '').strip()
     detail = (data.get('detail') or '').strip()
+    evidence = data.get('evidence') if isinstance(data.get('evidence'), list) else []
 
     if target_type not in ('post', 'comment', 'user', 'gossip', 'trade'):
         return jsonify({'error': '不支持的举报类型'}), 400
@@ -704,8 +705,13 @@ def report():
         return jsonify({'error': '缺少举报目标'}), 400
     if not reason:
         return jsonify({'error': '请选择举报原因'}), 400
+    if reason not in REPORT_CATEGORIES:
+        return jsonify({'error': '无效的举报分类'}), 400
+    # 证据图：仅接受本站上传目录内的 url，最多 4 张
+    evidence = [u for u in evidence
+                if isinstance(u, str) and u.startswith('/static/uploads/')][:4]
 
-    rid = create_report(g.current_user['id'], target_type, int(target_id), reason, detail)
+    rid = create_report(g.current_user['id'], target_type, int(target_id), reason, detail, evidence)
     if not rid:
         return jsonify({'error': '该内容已举报，等待处理'}), 409
     return jsonify({'message': '举报成功，感谢反馈', 'id': rid}), 201
@@ -716,7 +722,8 @@ def report():
 @admin_required
 def list_reports():
     status = request.args.get('status', 'pending')
-    return jsonify(get_reports(status))
+    category = (request.args.get('category') or '').strip()
+    return jsonify(get_reports(status, category))
 
 
 @reports_bp.route('/<int:rid>', methods=['PUT'])
@@ -1021,3 +1028,49 @@ def admin_task_close(tid):
 @admin_required
 def admin_task_claims():
     return jsonify(get_submitted_claims())
+
+
+# ══════════════════════════════════════════════
+# 数据导出（R8）：管理员 CSV
+# ══════════════════════════════════════════════
+
+def _csv_response(rows, columns, filename):
+    import csv as _csv
+    import io as _io
+    buf = _io.StringIO()
+    writer = _csv.writer(buf)
+    writer.writerow(columns)
+    for r in rows:
+        writer.writerow(['' if r.get(c) is None else r.get(c) for c in columns])
+    resp = current_app.response_class('\ufeff' + buf.getvalue(), mimetype='text/csv')
+    resp.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    return resp
+
+
+@admin_bp.route('/export/users.csv', methods=['GET'])
+@token_required
+@admin_required
+def admin_export_users():
+    rows = query_db(
+        'SELECT id, username, email, role, coins, points, level, identity_group, title, created_at '
+        'FROM users ORDER BY id')
+    admin_log(g.current_user['id'], 'export_users', 'site', 0)
+    return _csv_response(rows, ['id', 'username', 'email', 'role', 'coins', 'points', 'level',
+                                'identity_group', 'title', 'created_at'], 'campuswall_users.csv')
+
+
+@admin_bp.route('/export/posts.csv', methods=['GET'])
+@token_required
+@admin_required
+def admin_export_posts():
+    rows = query_db(
+        '''SELECT p.id, p.title, p.post_type, p.status, u.username AS author, s.name AS station,
+                  p.likes_count, p.comments_count, p.views, p.is_anonymous, p.created_at
+           FROM posts p
+           JOIN users u ON u.id = p.author_id
+           JOIN stations s ON s.id = p.station_id
+           WHERE p.is_deleted = 0 ORDER BY p.id''')
+    admin_log(g.current_user['id'], 'export_posts', 'site', 0)
+    return _csv_response(rows, ['id', 'title', 'post_type', 'status', 'author', 'station',
+                                'likes_count', 'comments_count', 'views', 'is_anonymous', 'created_at'],
+                         'campuswall_posts.csv')

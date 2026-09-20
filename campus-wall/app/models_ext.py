@@ -36,6 +36,12 @@ def init_extended_db():
     except sqlite3.OperationalError:
         pass
 
+    # ── 举报增强（R8）：证据图列 ──
+    try:
+        c.execute("ALTER TABLE reports ADD COLUMN evidence TEXT DEFAULT '[]'")
+    except sqlite3.OperationalError:
+        pass
+
     # ── 身份组 ──
     c.execute('''CREATE TABLE IF NOT EXISTS identity_groups (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -991,28 +997,78 @@ def get_favorites(user_id, target_type='post', limit=50, offset=0):
 # 举报
 # ══════════════════════════════════════════════
 
-def create_report(reporter_id, target_type, target_id, reason='', detail=''):
-    """提交举报，返回举报id（同一目标不可重复举报）"""
+# 举报分类（与前端举报弹窗标签一致；R8 举报增强）
+REPORT_CATEGORIES = ('广告', '色情低俗', '暴力', '诈骗', '辱骂', '侵权', '其他')
+
+
+# ══════════════════════════════════════════════
+# 数据导出（R8）：用户个人数据 JSON
+# ══════════════════════════════════════════════
+
+def get_user_export(user_id):
+    """个人数据导出：各类数据上限 500 条，按时间倒序。"""
+    posts = query_db(
+        'SELECT id, title, content, post_type, images, status, likes_count, comments_count, created_at '
+        'FROM posts WHERE author_id = ? AND is_deleted = 0 ORDER BY id DESC LIMIT 500', (user_id,))
+    comments = query_db(
+        'SELECT id, post_id, content, created_at FROM comments '
+        'WHERE author_id = ? AND is_deleted = 0 ORDER BY id DESC LIMIT 500', (user_id,))
+    likes = query_db(
+        'SELECT target_type, target_id, created_at FROM likes WHERE user_id = ? ORDER BY id DESC LIMIT 500', (user_id,))
+    favorites = query_db(
+        'SELECT target_type, target_id, created_at FROM favorites WHERE user_id = ? ORDER BY id DESC LIMIT 500', (user_id,))
+    dms = query_db(
+        'SELECT id, sender_id, receiver_id, content, created_at FROM dm_messages '
+        'WHERE sender_id = ? OR receiver_id = ? ORDER BY id DESC LIMIT 500', (user_id, user_id))
+    checkins = query_db(
+        'SELECT checkin_date, streak, coins_earned, points_earned FROM checkins '
+        'WHERE user_id = ? ORDER BY checkin_date DESC LIMIT 500', (user_id,))
+    profile = query_db(
+        'SELECT id, username, email, avatar, bio, role, coins, points, level, exp, '
+        'checkin_streak, identity_group, title, created_at FROM users WHERE id = ?', (user_id,), one=True)
+    return {
+        'exported_at': query_db("SELECT datetime('now') AS n", one=True)['n'],
+        'profile': profile,
+        'posts': posts,
+        'comments': comments,
+        'likes': likes,
+        'favorites': favorites,
+        'dm_messages': dms,
+        'checkins': checkins,
+    }
+
+
+def create_report(reporter_id, target_type, target_id, reason='', detail='', evidence=None):
+    """提交举报，返回举报id（同一目标不可重复举报）。evidence: 证据图 url 列表。"""
     existing = query_db(
         'SELECT id FROM reports WHERE reporter_id = ? AND target_type = ? AND target_id = ? AND status = ?',
         (reporter_id, target_type, target_id, 'pending'), one=True)
     if existing:
         return None
+    import json as _json
+    ev = _json.dumps([u for u in (evidence or []) if isinstance(u, str)][:4], ensure_ascii=False)
     return execute_db(
-        'INSERT INTO reports (reporter_id, target_type, target_id, reason, detail) VALUES (?,?,?,?,?)',
-        (reporter_id, target_type, target_id, reason, detail))
+        'INSERT INTO reports (reporter_id, target_type, target_id, reason, detail, evidence) VALUES (?,?,?,?,?,?)',
+        (reporter_id, target_type, target_id, reason, detail, ev))
 
 
-def get_reports(status='pending', limit=100):
-    """管理端举报列表"""
-    return query_db(
+def get_reports(status='pending', category='', limit=100):
+    """管理端举报列表（evidence 展开为数组）。category 可选过滤。"""
+    rows = query_db(
         '''SELECT r.*, u.username as reporter_name, t.username as handler_name
            FROM reports r
            LEFT JOIN users u ON r.reporter_id = u.id
            LEFT JOIN users t ON r.handler_id = t.id
-           WHERE ? = 'all' OR r.status = ?
+           WHERE (? = 'all' OR r.status = ?) AND (? = '' OR r.reason = ?)
            ORDER BY r.created_at DESC LIMIT ?''',
-        (status, status, limit))
+        (status, status, category, category, limit))
+    import json as _json
+    for r in rows:
+        try:
+            r['evidence'] = _json.loads(r.get('evidence') or '[]') if isinstance(r.get('evidence'), str) else []
+        except (ValueError, TypeError):
+            r['evidence'] = []
+    return rows
 
 
 def handle_report(report_id, handler_id, status, note=''):

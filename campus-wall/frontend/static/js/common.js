@@ -342,6 +342,14 @@
                     <label class="form-label">补充说明（可选）</label>
                     <textarea class="input" name="detail" placeholder="详细描述问题，方便管理员核实" rows="3" maxlength="500"></textarea>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">证据截图（可选，最多 4 张）</label>
+                    <input type="file" id="reportEvidence" accept="image/*" multiple style="display:none;" onchange="uploadReportEvidence(this)">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <button type="button" class="btn btn-sm" onclick="document.getElementById('reportEvidence').click()"><i data-lucide="image-plus" class="icon icon-sm"></i> 添加图片</button>
+                        <div id="reportEvidencePreview" class="image-preview-grid"></div>
+                    </div>
+                </div>
                 <button type="submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:8px;">
                     <i data-lucide="flag" class="icon icon-sm"></i> 提交举报
                 </button>

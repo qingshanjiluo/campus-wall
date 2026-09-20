@@ -112,10 +112,28 @@ function renderProfileCard(u) {
             <div class="stat-item"><div class="stat-num">${stats.followers||0}</div><div class="stat-label">粉丝</div></div>
             <div class="stat-item"><div class="stat-num">${stats.following||0}</div><div class="stat-label">关注</div></div>
         </div>
-        ${isMe ? '<button class="btn btn-sm" onclick="openEditProfile()" style="margin-top:12px;"><i data-lucide="pencil" class="icon icon-sm"></i> 编辑资料</button>' : ''}
+        ${isMe ? `<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+            <button class="btn btn-sm" onclick="openEditProfile()"><i data-lucide="pencil" class="icon icon-sm"></i> 编辑资料</button>
+            <button class="btn btn-sm" onclick="exportMyData()"><i data-lucide="download" class="icon icon-sm"></i> 导出我的数据</button>
+        </div>` : ''}
         ${followBtn}
     `;
     if (window.lucide) lucide.createIcons();
+}
+
+// 个人数据导出（R8）：带 token 拉取 JSON 附件
+function exportMyData() {
+    if (!requireAuth()) return;
+    fetch('/api/auth/export', { headers: { 'Authorization': 'Bearer ' + api.getToken() } })
+        .then(r => { if (!r.ok) throw new Error('导出失败'); return r.blob(); })
+        .then(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'campuswall_export_' + (currentUser ? currentUser.id : 'me') + '.json';
+            document.body.appendChild(a); a.click(); a.remove();
+            showToast('数据导出已开始下载', 'success');
+        })
+        .catch(err => showToast(err.message || '导出失败', 'error'));
 }
 
 function checkFollowing(uid) {

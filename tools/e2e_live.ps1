@@ -36,8 +36,10 @@ function Invoke-CurlRaw($curlArgs) {
 function HttpCode($url) {
   Invoke-CurlRaw @('-s', '-o', $script:NullDev, '-w', '%{http_code}', '--max-time', '25', $url)
 }
-function HttpCodeSize($url) {
-  Invoke-CurlRaw @('-s', '-o', $script:NullDev, '-w', '%{http_code} %{size_download}', '--max-time', '25', $url)
+function HttpCodeSize($url, $token = $null) {
+  $a = @('-s', '-o', $script:NullDev, '-w', '%{http_code} %{size_download}', '--max-time', '25', $url)
+  if ($token) { $a += @('-H', "Authorization: Bearer $token") }
+  Invoke-CurlRaw $a
 }
 function Api($method, $path, $body = $null, $token = $null) {
   $hdr = @{}
@@ -373,6 +375,35 @@ Step "tasks system auto-reward" {
   Assert($done.status -eq "completed") "system task not auto-completed"
   $c1 = (Api GET "/api/shop/coins" $null $tk).coins
   Assert($c1 - $c0 -eq $t.reward_coins) "system task reward mismatch" }
+Step "reports category + evidence" {
+  Assert($tk -and $atk -and $pid1) "missing token or post (earlier steps failed)"
+  # category label built from unicode escapes to keep this file ASCII (PS5.1 GBK hazard)
+  $catAd = [regex]::Unescape('\u5e7f\u544a')
+  $badCatRejected = $false
+  try { Api POST "/api/reports" @{target_type="post"; target_id=$pid1; reason="not-a-category"} $tk } catch { $badCatRejected = ((BadCode $_) -eq 400) }
+  Assert($badCatRejected) "invalid report category not rejected"
+  $ev = "/static/uploads/e2e_ev_$Suffix.webp"
+  $rp = Api POST "/api/reports" @{target_type="post"; target_id=$pid1; reason=$catAd; detail="e2e evidence"; evidence=@($ev, "http://evil.example/x.png")} $tk
+  Assert($rp.id) "report create failed"
+  $list = Api GET ("/api/reports?status=pending&category=" + [uri]::EscapeDataString($catAd)) $null $atk
+  $row = @($list | Where-Object { $_.target_id -eq $pid1 })[0]
+  Assert($row) "categorized report missing in admin queue"
+  Assert(@($row.evidence).Count -eq 1) "evidence not parsed/filtered"
+  Assert($row.evidence[0] -eq $ev) "evidence url mismatch" }
+Step "data export" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  $exp = Api GET "/api/auth/export" $null $tk
+  Assert($exp.profile) "export missing profile"
+  Assert($null -ne $exp.posts) "export missing posts"
+  $out = HttpCodeSize "$BaseUrl/api/admin/export/users.csv" $atk
+  $parts = "$out".Trim() -split '\s+'
+  Assert($parts[0] -eq '200') "users.csv http=$($parts[0])"
+  Assert([int]$parts[1] -gt 100) "users.csv too small"
+  $outp = HttpCodeSize "$BaseUrl/api/admin/export/posts.csv" $atk
+  $pp = "$outp".Trim() -split '\s+'
+  Assert($pp[0] -eq '200') "posts.csv http=$($pp[0])"
+  $forbidden = Invoke-CurlRaw @('-s','-o',$script:NullDev,'-w','%{http_code}','--max-time','25',"$BaseUrl/api/admin/export/users.csv",'-H',"Authorization: Bearer $tk")
+  Assert("$forbidden" -eq '403') "csv export not admin-gated" }
 Step "expose create + review + anon" {
   Assert($tk) "no token (earlier steps failed)"
   $ep = Api POST "/api/posts" @{title="e2e_ex$Suffix"; content="expose body"; post_type="expose"} $tk

@@ -113,6 +113,13 @@ document.addEventListener('keydown', function(e) {
 
 // 举报弹窗
 let reportTargetData = null;
+let reportEvidence = [];   // 证据图 url（R8 举报增强）
+
+function resetReportEvidence() {
+    reportEvidence = [];
+    const box = document.getElementById('reportEvidencePreview');
+    if (box) box.innerHTML = '';
+}
 
 function openReportModal(targetType, targetId) {
     if (!window.CampusAuth?.currentUser()) {
@@ -120,11 +127,47 @@ function openReportModal(targetType, targetId) {
         return;
     }
     reportTargetData = { target_type: targetType, target_id: targetId };
+    resetReportEvidence();
     const hint = document.getElementById('reportHint');
     if (hint) hint.textContent = '举报内容 ID：' + targetType + ' #' + targetId;
     const reasons = document.querySelectorAll('#reportReasons .tag');
     if (reasons.length) reasons[0].classList.add('active');
     openModal('reportModal');
+}
+
+async function uploadReportEvidence(input) {
+    const files = Array.from(input.files || []);
+    input.value = '';
+    for (const file of files) {
+        if (reportEvidence.length >= 4) { CampusUtils.showToast('证据图最多 4 张', 'error'); break; }
+        if (file.size > 5 * 1024 * 1024) { CampusUtils.showToast(file.name + ' 超过 5MB', 'error'); continue; }
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+            const res = await fetch('/api/posts/upload-image', {
+                method: 'POST',
+                headers: window.api.getToken() ? { 'Authorization': 'Bearer ' + window.api.getToken() } : {},
+                body: fd
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || '上传失败');
+            if (data.url) { reportEvidence.push(data.url); renderReportEvidence(); }
+        } catch (e) {
+            CampusUtils.showToast(e.message || '证据图上传失败', 'error');
+        }
+    }
+}
+
+function removeReportEvidence(i) { reportEvidence.splice(i, 1); renderReportEvidence(); }
+
+function renderReportEvidence() {
+    const box = document.getElementById('reportEvidencePreview');
+    if (!box) return;
+    box.innerHTML = reportEvidence.map((u, i) => `
+        <div class="image-preview-item">
+            <img src="${CampusUtils.safeUrl(u, '')}" alt="">
+            <button type="button" class="image-preview-remove" onclick="removeReportEvidence(${i})" aria-label="移除">&times;</button>
+        </div>`).join('');
 }
 
 function selectReportReason(el) {
@@ -148,11 +191,13 @@ async function handleReport(event) {
             target_type: reportTargetData.target_type,
             target_id: reportTargetData.target_id,
             reason: reason,
-            detail: detail
+            detail: detail,
+            evidence: reportEvidence.slice()
         });
         CampusUtils.showToast('举报成功，感谢反馈', 'success');
         closeModal('reportModal');
         form.reset();
+        resetReportEvidence();
     } catch (e) {
         CampusUtils.showToast(e.message || '举报失败', 'error');
     }

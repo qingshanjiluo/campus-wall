@@ -103,6 +103,10 @@ function switchAdminTab(el, tab) {
     if (tab === 'dashboard') {
         api.get('/api/admin/stats').then(s => {
             content.innerHTML = `
+                <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                    <button class="btn btn-sm" onclick="adminExportCsv('users')"><i data-lucide="download" class="icon icon-sm"></i> 导出用户 CSV</button>
+                    <button class="btn btn-sm" onclick="adminExportCsv('posts')"><i data-lucide="download" class="icon icon-sm"></i> 导出帖子 CSV</button>
+                </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;" class="reveal">
                     ${[
                         'users|users|用户|'+s.users,
@@ -261,10 +265,17 @@ function switchAdminTab(el, tab) {
             if (window.lucide) lucide.createIcons();
         });
     } else if (tab === 'reports') {
-        api.get('/api/reports?status=pending').then(reports => {
-            if (!reports.length) { content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="flag" class="icon icon-lg"></i></div><div class="text">暂无待处理举报</div></div>'; return; }
+        const cat = window._reportCat || '';
+        const catQuery = cat ? '&category=' + encodeURIComponent(cat) : '';
+        api.get('/api/reports?status=pending' + catQuery).then(reports => {
+            const cats = ['广告', '色情低俗', '暴力', '诈骗', '辱骂', '侵权', '其他'];
+            const catBar = `<div class="tag-bar" style="margin-bottom:14px;">
+                <span class="tag ${!cat ? 'active' : ''}" onclick="window._reportCat='';adminTab('reports')">全部</span>
+                ${cats.map(c => `<span class="tag ${cat === c ? 'active' : ''}" onclick="window._reportCat='${c}';adminTab('reports')">${c}</span>`).join('')}
+            </div>`;
+            if (!reports.length) { content.innerHTML = catBar + '<div class="empty-state"><div class="icon"><i data-lucide="flag" class="icon icon-lg"></i></div><div class="text">暂无待处理举报</div></div>'; if (window.lucide) lucide.createIcons(); return; }
             const typeMap = { post: '帖子', comment: '评论', user: '用户', gossip: '树洞', trade: '交易' };
-            content.innerHTML = reports.map(r => `
+            content.innerHTML = catBar + reports.map(r => `
                 <div class="station-card" style="padding:16px;cursor:default;margin-bottom:12px;">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                         <span style="font-size:1.1rem;"><i data-lucide="flag" class="icon icon-sm icon-danger"></i></span>
@@ -274,6 +285,7 @@ function switchAdminTab(el, tab) {
                         <span style="font-size:0.7rem;color:var(--text-muted);margin-left:auto;">${formatTime(r.created_at)}</span>
                     </div>
                     ${r.detail ? '<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:6px;">'+escHtml(r.detail)+'</div>' : ''}
+                    ${(r.evidence && r.evidence.length) ? `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">${r.evidence.map(u => `<a href="${escHtml(u)}" target="_blank"><img src="${escHtml(u)}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--border-primary);"></a>`).join('')}</div>` : ''}
                     <div style="display:flex;gap:8px;margin-top:10px;">
                         <a href="/post/${r.target_type==='post'?r.target_id:''}" class="btn btn-ghost btn-sm" style="padding:3px 12px;font-size:0.75rem;" onclick="${r.target_type!=='post'?'event.preventDefault();showToast(\'仅帖子可跳转查看\');':''}">查看</a>
                         <button class="btn btn-ghost btn-sm" style="padding:3px 12px;font-size:0.75rem;color:var(--danger);" onclick="handleReportAdmin(${r.id},'approved')">确认违规</button>
@@ -411,6 +423,19 @@ function adminDeleteTopic(tid, name) {
     if (!confirm('删除话题「' + name + '」？将解除其与所有帖子的关联。')) return;
     api.delete('/api/admin/topics/' + tid).then(() => { showToast('已删除', 'success'); adminTab('topics'); })
         .catch(err => showToast(err.message || '删除失败', 'error'));
+}
+
+function adminExportCsv(kind) {
+    fetch('/api/admin/export/' + kind + '.csv', { headers: { 'Authorization': 'Bearer ' + api.getToken() } })
+        .then(r => { if (!r.ok) throw new Error('导出失败'); return r.blob(); })
+        .then(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'campuswall_' + kind + '.csv';
+            document.body.appendChild(a); a.click(); a.remove();
+            showToast('导出已开始下载', 'success');
+        })
+        .catch(err => showToast(err.message || '导出失败', 'error'));
 }
 
 function createAdminTask() {
