@@ -257,9 +257,9 @@ CI：.github/workflows/backend-ci.yml（干净 ubuntu 冷启生产 → 68 步 E2
 
 ## 8. 当前状态
 
-- 质量门：live E2E **83 步全绿**；`js_gate`（外链+内联 `node --check` + PS ASCII + 壳层结构守卫 + 跨脚本引用中毒扫描）全绿。
+- 质量门：live E2E **84 步全绿**；`js_gate`（外链+内联 `node --check` + PS ASCII + 壳层结构守卫 + 跨脚本引用中毒扫描）全绿。
 - 已修高危：R5-B 引入的**全站登录失效**（跨脚本裸引用 ReferenceError）已修并加门禁（`ee6befe`）。
-- 剩余（外部人工，非代码）：买服务器/域名 → `docker compose up` → 对线上域名跑 83 步 E2E → 改演示 `admin/admin123` 密码 → 浏览器双主题走查。
+- 剩余（外部人工，非代码）：买服务器/域名 → `docker compose up` → 对线上域名跑 84 步 E2E → 改演示 `admin/admin123` 密码 → 浏览器双主题走查。
 - 演示账号：`admin/admin123`（管理员）、`xiaohua/123456`（用户）；口令哈希漂移已按 seed 修复。
 
 ---
