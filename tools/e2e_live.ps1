@@ -506,6 +506,38 @@ Step "site custom injection + plugins" {
   $notifsArr = if ($null -ne $notifs.notifications) { @($notifs.notifications) } else { @($notifs) }
   $welcome = @($notifsArr | Where-Object { $_.type -eq "system" })
   Assert($welcome.Count -ge 1) "welcome notification missing" }
+Step "qna bounty ask accept" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  $myId = (Api GET "/api/auth/me" $null $tk).id
+  Api PUT "/api/admin/users/$myId" @{points=500} $atk | Out-Null
+  $up0 = (Api GET "/api/shop/coins" $null $tk).points
+  $q = Api POST "/api/qna/questions" @{title="e2e qna $Suffix"; content="how?"; bounty=15} $tk
+  Assert($q.id) "question create failed"
+  $up1 = (Api GET "/api/shop/coins" $null $tk).points
+  Assert($up0 - $up1 -eq 15) "bounty prepay failed"
+  # admin answers
+  Api POST "/api/qna/questions/$($q.id)/answers" @{content="the answer is 42"} $atk | Out-Null
+  $det = Api GET "/api/qna/questions/$($q.id)" $null $tk
+  Assert(@($det.answers).Count -eq 1) "answer missing"
+  # asker accepts -> answerer (admin) +15
+  $aid = $det.answers[0].id
+  Api POST "/api/qna/questions/$($q.id)/accept/$aid" $null $tk | Out-Null
+  $det2 = Api GET "/api/qna/questions/$($q.id)" $null $tk
+  Assert($det2.status -eq "answered" -and $det2.accepted_answer_id -eq $aid) "accept failed"
+  # close a second question -> refund 5
+  $q2 = Api POST "/api/qna/questions" @{title="e2e qna2 $Suffix"; bounty=5} $tk
+  $up2a = (Api GET "/api/shop/coins" $null $tk).points
+  Assert($up1 - $up2a -eq 5) "q2 prepay failed"
+  Api POST "/api/qna/questions/$($q2.id)/close" $null $tk | Out-Null
+  $up2 = (Api GET "/api/shop/coins" $null $tk).points
+  Assert($up2 - $up2a -eq 5) ("close refund mismatch: " + ($up2 - $up2a))
+  # non-asker accept rejected
+  $q3 = Api POST "/api/qna/questions" @{title="e2e qna3 $Suffix"} $tk
+  Api POST "/api/qna/questions/$($q3.id)/answers" @{content="ans"} $atk | Out-Null
+  $a3 = (Api GET "/api/qna/questions/$($q3.id)" $null $tk).answers[0].id
+  $otherAccept = $false
+  try { Api POST "/api/qna/questions/$($q3.id)/accept/$a3" $null $atk } catch { $otherAccept = ((BadCode $_) -eq 400) }
+  Assert($otherAccept) "non-asker accept not rejected" }
 Step "events register + checkin" {
   Assert($tk -and $atk) "tokens missing (earlier steps failed)"
   $today = (Get-Date).ToString('yyyy-MM-dd')

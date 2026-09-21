@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>悬赏问答 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:860px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title"><i data-lucide="circle-help" class="icon"></i> 悬赏问答</h2>
+            <p class="chapter-sub">悬赏积分提问 · 被采纳即得赏金</p>
+        </div>
+        <div class="reveal" style="margin-bottom:16px;text-align:right;">
+            <button class="btn btn-primary btn-sm" onclick="toggleQForm()"><i data-lucide="plus" class="icon icon-sm"></i> 提问</button>
+        </div>
+        <div id="qForm" class="speech-bubble reveal" style="display:none;margin-bottom:18px;">
+            <input class="input" id="qTitle" maxlength="80" placeholder="问题标题（≤80字）" style="margin-bottom:8px;">
+            <textarea class="input" id="qContent" rows="3" maxlength="2000" placeholder="问题详情…" style="margin-bottom:8px;"></textarea>
+            <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <label style="font-size:0.8rem;color:var(--text-muted);">悬赏积分</label>
+                    <input class="input" type="number" id="qBounty" value="0" min="0" style="width:90px;">
+                    <span style="font-size:0.72rem;color:var(--text-muted);">0 = 无悬赏；发布即预扣</span>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="createQuestion()"><i data-lucide="check" class="icon icon-sm"></i> 发布</button>
+            </div>
+        </div>
+        <div id="qList"><div class="loading">加载中</div></div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+function escT(t) { return CampusUtils.escHtml(t); }
+function stBadge(q) {
+    if (q.status === 'open') return '<span style="color:var(--mint,#1c7c54);font-weight:700;font-size:0.8rem;">开放中</span>';
+    if (q.status === 'answered') return '<span style="color:var(--pink-4);font-weight:700;font-size:0.8rem;">已采纳</span>';
+    return '<span style="color:var(--text-muted);font-size:0.8rem;">已关闭</span>';
+}
+onUserReady(function () { loadQuestions(); });
+function toggleQForm() { if (!requireAuth()) return; const f = document.getElementById('qForm'); f.style.display = f.style.display === 'none' ? 'block' : 'none'; }
+function loadQuestions() {
+    api.get('/api/qna/questions').then(list => {
+        const box = document.getElementById('qList');
+        if (!list.length) { box.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="circle-help" class="icon icon-lg"></i></div><div class="text">还没有提问</div></div>'; return; }
+        box.innerHTML = list.map(q => `
+            <div class="post-card reveal" style="padding:16px 20px;margin-bottom:12px;cursor:pointer;" onclick="openQ(${q.id})">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <span style="font-weight:700;font-size:1rem;flex:1;">${escT(q.title)}</span>
+                    ${q.bounty ? '<span style="font-size:0.8rem;color:#a16a12;font-weight:700;background:rgba(255,214,165,0.35);padding:2px 10px;border-radius:8px;">悬赏 ' + q.bounty + ' 积分</span>' : ''}
+                    ${stBadge(q)}
+                </div>
+                ${q.content ? '<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:6px;line-height:1.6;">' + escT(q.content) + '</div>' : ''}
+                <div style="font-size:0.74rem;color:var(--text-muted);margin-top:8px;"><i data-lucide="user" class="icon icon-sm"></i> ${escT(q.asker_name)} · <i data-lucide="message-circle" class="icon icon-sm"></i> ${q.answer_count} 回答</div>
+            </div>`).join('');
+        if (window.lucide) lucide.createIcons();
+    });
+}
+function openQ(id) {
+    api.get('/api/qna/questions/' + id).then(q => {
+        const box = document.getElementById('qList');
+        const mine = currentUser && q.user_id === currentUser.id;
+        const answers = (q.answers || []).map(a => `
+            <div style="display:flex;gap:8px;align-items:flex-start;${a.is_accepted ? 'flex-direction:row-reverse;' : ''}">
+                <img src="${CampusUtils.safeUrl(a.answerer_avatar, '/static/images/default-avatar.svg')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;" onerror="this.src='/static/images/default-avatar.svg'">
+                <div style="max-width:85%;">
+                    <div style="font-size:0.68rem;color:var(--text-muted);">${escT(a.answerer_name)} · ${formatTime(a.created_at)} ${a.is_accepted ? '✅ 已采纳' : ''}</div>
+                    <div style="background:var(--bg-tertiary,#f0f0f0);border-radius:12px;padding:8px 12px;font-size:0.9rem;display:inline-block;">${escT(a.content)}</div>
+                </div>
+            </div>`).join('');
+        box.innerHTML = `
+            <button class="btn btn-sm" onclick="loadQuestions()" style="margin-bottom:12px;"><i data-lucide="arrow-left" class="icon icon-sm"></i> 返回列表</button>
+            <div class="post-card reveal" style="padding:20px;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <span style="font-weight:800;font-size:1.15rem;flex:1;">${escT(q.title)}</span>
+                    ${q.bounty ? '<span style="color:#a16a12;font-weight:700;">悬赏 ' + q.bounty + ' 积分</span>' : ''}
+                    ${stBadge(q)}
+                </div>
+                ${q.content ? '<div style="font-size:0.9rem;color:var(--text-secondary);margin-top:8px;line-height:1.7;">' + escT(q.content) + '</div>' : ''}
+                <div style="font-size:0.74rem;color:var(--text-muted);margin-top:8px;">${escT(q.asker_name)} 提问 · ${formatTime(q.created_at)}${mine && q.status === 'open' ? ' · <a style="cursor:pointer;color:var(--danger);" onclick="closeQ(' + q.id + ')">关闭并退回悬赏</a>' : ''}</div>
+            </div>
+            <h4 style="margin:14px 0 10px;"><i data-lucide="message-circle" class="icon icon-sm"></i> 回答 (${(q.answers || []).length})</h4>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">${answers || '<div style="color:var(--text-muted);font-size:0.85rem;">暂无回答</div>'}</div>
+            ${currentUser && !mine && q.status === 'open' ? `<div class="speech-bubble" style="padding:12px;">
+                <textarea class="input" id="answerInput" rows="3" maxlength="2000" placeholder="写下你的回答…"></textarea>
+                <div style="text-align:right;margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="submitAnswer(${q.id})"><i data-lucide="send" class="icon icon-sm"></i> 提交回答</button></div>
+            </div>` : ''}
+            ${mine && q.status === 'open' && (q.answers || []).length ? `<div style="text-align:right;font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">点击回答旁的 ✅ 可采纳放款：${(q.answers || []).map(a => `<a style="cursor:pointer;margin-left:8px;" onclick="acceptAnswer(${q.id},${a.id})">采纳 #${a.id}</a>`).join('')}</div>` : ''}`;
+        if (window.lucide) lucide.createIcons();
+    });
+}
+function createQuestion() {
+    if (!requireAuth()) return;
+    api.post('/api/qna/questions', {
+        title: document.getElementById('qTitle').value.trim(),
+        content: document.getElementById('qContent').value.trim(),
+        bounty: parseInt(document.getElementById('qBounty').value, 10) || 0
+    }).then(() => { showToast('提问已发布', 'success'); document.getElementById('qForm').style.display = 'none'; loadQuestions(); })
+        .catch(e => showToast(e.message || '发布失败', 'error'));
+}
+function submitAnswer(qid) {
+    const content = document.getElementById('answerInput').value.trim();
+    if (!content) return showToast('请填写回答', 'error');
+    api.post('/api/qna/questions/' + qid + '/answers', { content }).then(() => { showToast('回答已提交', 'success'); openQ(qid); })
+        .catch(e => showToast(e.message || '提交失败', 'error'));
+}
+function acceptAnswer(qid, aid) {
+    if (!confirm('采纳该回答并放款悬赏积分？')) return;
+    api.post('/api/qna/questions/' + qid + '/accept/' + aid, {}).then(() => { showToast('已采纳', 'success'); openQ(qid); })
+        .catch(e => showToast(e.message || '操作失败', 'error'));
+}
+function closeQ(qid) {
+    if (!confirm('关闭问题并退回悬赏积分？')) return;
+    api.post('/api/qna/questions/' + qid + '/close', {}).then(() => { showToast('已关闭', 'success'); loadQuestions(); })
+        .catch(e => showToast(e.message || '操作失败', 'error'));
+}
+</script>
+</body>
+</html>

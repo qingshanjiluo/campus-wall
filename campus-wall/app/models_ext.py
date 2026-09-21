@@ -364,6 +364,29 @@ def init_extended_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_chat_msgs_room ON chat_messages(room_id, id)")
 
+    # ── 悬赏问答（R11 暗阁）：提问预扣积分，采纳放款 ──
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS bounty_questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            title TEXT NOT NULL,
+            content TEXT DEFAULT '',
+            bounty INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'open',
+            accepted_answer_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS bounty_answers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question_id INTEGER NOT NULL REFERENCES bounty_questions(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            content TEXT NOT NULL,
+            is_accepted INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_bqa_q ON bounty_answers(question_id)")
+
     # ── 活动系统（R11）：发布 / 报名 / 打卡 ──
     c.execute('''CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2100,3 +2123,103 @@ def ai_bot_interact():
         post['author_id'], bot['id'], 'comment',
         f"AI 小智 评论了你的帖子「{post['title']}」", f'/post/{post["id"]}')
     return {'post_id': post['id'], 'liked': bool(liked), 'comment_id': comment_id}
+
+# ══════════════════════════════════════════════
+# 悬赏问答（R11 暗阁）：提问预扣积分，采纳放款
+# ══════════════════════════════════════════════
+
+def create_bounty_question(user_id, title, content='', bounty=0):
+    title = (title or '').strip()
+    if not title or len(title) > 80:
+        return None
+    bounty = max(int(bounty or 0), 0)
+    if bounty > 0 and spend_points(user_id, bounty, ref_type='qna') is False:
+        return 'insufficient'
+    return execute_db(
+        'INSERT INTO bounty_questions (user_id, title, content, bounty) VALUES (?,?,?,?)',
+        (user_id, title, (content or '').strip()[:2000], bounty))
+
+
+def list_bounty_questions(user_id=None, limit=50):
+    my_sel = ''',
+               (SELECT 1 FROM bounty_answers ba WHERE ba.question_id = q.id AND ba.user_id = ?) AS my_answered'''
+    args = [user_id, user_id] if user_id else []
+    if not user_id:
+        my_sel = ''',
+               0 AS my_answered'''
+    sql = f"""SELECT q.*, u.username AS asker_name,
+               (SELECT COUNT(*) FROM bounty_answers ba WHERE ba.question_id = q.id) AS answer_count{my_sel}
+        FROM bounty_questions q JOIN users u ON u.id = q.user_id
+        ORDER BY CASE q.status WHEN 'open' THEN 0 ELSE 1 END, q.created_at DESC LIMIT ?"""
+    return query_db(sql, args + [limit])
+
+
+def get_bounty_question(qid):
+    q = query_db('''
+        SELECT q.*, u.username AS asker_name FROM bounty_questions q
+        JOIN users u ON u.id = q.user_id WHERE q.id = ?''', (qid,), one=True)
+    if not q:
+        return None
+    q['answers'] = query_db('''
+        SELECT a.*, u.username AS answerer_name, u.avatar AS answerer_avatar
+        FROM bounty_answers a JOIN users u ON u.id = a.user_id
+        WHERE a.question_id = ? ORDER BY a.is_accepted DESC, a.id ASC''', (qid,))
+    return q
+
+
+def create_bounty_answer(qid, user_id, content):
+    content = (content or '').strip()
+    if not content:
+        return None, '回答不能为空'
+    if len(content) > 2000:
+        return None, '回答过长（≤2000字）'
+    q = query_db("SELECT * FROM bounty_questions WHERE id = ? AND status = 'open'", (qid,), one=True)
+    if not q:
+        return None, '问题不存在或已关闭'
+    if q['user_id'] == user_id:
+        return None, '不能回答自己的提问'
+    aid = execute_db(
+        'INSERT INTO bounty_answers (question_id, user_id, content) VALUES (?,?,?)',
+        (qid, user_id, content))
+    return aid, None
+
+
+def accept_bounty_answer(qid, answer_id, user_id):
+    q = query_db('SELECT * FROM bounty_questions WHERE id = ?', (qid,), one=True)
+    if not q:
+        return None, '问题不存在'
+    if q['user_id'] != user_id:
+        return None, '仅提问者可采纳回答'
+    if q['status'] != 'open':
+        return None, '该问题已采纳/关闭'
+    a = query_db('SELECT * FROM bounty_answers WHERE id = ? AND question_id = ?', (answer_id, qid), one=True)
+    if not a:
+        return None, '回答不存在'
+    execute_db('UPDATE bounty_answers SET is_accepted = 1 WHERE id = ?', (answer_id,))
+    execute_db("UPDATE bounty_questions SET status = 'answered', accepted_answer_id = ? WHERE id = ?",
+               (answer_id, qid))
+    reward = ''
+    if q['bounty']:
+        grant_points(a['user_id'], q['bounty'], ref_type='qna', ref_id=qid)
+        reward = '+' + str(q['bounty']) + ' 积分'
+        try:
+            from app.models import create_notification
+            create_notification(a['user_id'], user_id, 'system',
+                                '你的回答被采纳，获得 ' + reward, '/qna')
+        except Exception:
+            pass
+    return {'reward': reward or '已采纳'}, None
+
+
+def close_bounty_question(qid, user_id):
+    q = query_db('SELECT * FROM bounty_questions WHERE id = ?', (qid,), one=True)
+    if not q:
+        return None, '问题不存在'
+    if q['user_id'] != user_id:
+        return None, '仅提问者可关闭'
+    if q['status'] != 'open':
+        return None, '该问题已关闭'
+    execute_db("UPDATE bounty_questions SET status = 'closed' WHERE id = ?", (qid,))
+    if q['bounty']:
+        grant_points(user_id, q['bounty'], ref_type='qna', ref_id=qid)
+    return {'refunded': q['bounty']}, None

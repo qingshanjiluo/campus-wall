@@ -38,6 +38,8 @@ from app.models_ext import (
     delete_chat_message, is_room_member,
     create_event, list_events, get_event, register_event, cancel_event_registration,
     checkin_event, close_event,
+    create_bounty_question, list_bounty_questions, get_bounty_question,
+    create_bounty_answer, accept_bounty_answer, close_bounty_question,
     get_level_rules, upsert_level_rule, ai_moderate, ai_bot_interact,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
@@ -1454,3 +1456,75 @@ def admin_plugins_toggle(plugin_name):
     data = request.get_json(silent=True) or {}
     set_plugin_enabled(plugin_name, bool(data.get('enabled', True)))
     return jsonify({'message': '已更新', 'plugins': list_plugins()})
+
+# ══════════════════════════════════════════════
+# 悬赏问答（R11 暗阁）：提问预扣积分，采纳放款
+# ══════════════════════════════════════════════
+
+qna_bp = Blueprint('qna', __name__, url_prefix='/api/qna')
+
+
+@qna_bp.route('/questions', methods=['GET'])
+@optional_auth
+def qna_list():
+    gate = _visitor_gate_401()
+    if gate:
+        return gate
+    uid = g.current_user['id'] if g.current_user else None
+    return jsonify(list_bounty_questions(uid))
+
+
+@qna_bp.route('/questions', methods=['POST'])
+@token_required
+def qna_create():
+    data = request.get_json(silent=True) or {}
+    qid = create_bounty_question(
+        g.current_user['id'], data.get('title'), data.get('content', ''),
+        data.get('bounty', 0))
+    if qid == 'insufficient':
+        return jsonify({'error': '积分不足，无法设置悬赏'}), 400
+    if not qid:
+        return jsonify({'error': '标题必填（≤80字）'}), 400
+    return jsonify({'id': qid, 'message': '提问已发布'})
+
+
+@qna_bp.route('/questions/<int:qid>', methods=['GET'])
+@optional_auth
+def qna_detail(qid):
+    gate = _visitor_gate_401()
+    if gate:
+        return gate
+    q = get_bounty_question(qid)
+    if not q:
+        return jsonify({'error': '问题不存在'}), 404
+    return jsonify(q)
+
+
+@qna_bp.route('/questions/<int:qid>/answers', methods=['POST'])
+@token_required
+def qna_answer(qid):
+    data = request.get_json(silent=True) or {}
+    aid, err = create_bounty_answer(qid, g.current_user['id'], data.get('content', ''))
+    if err:
+        return jsonify({'error': err}), 400
+    if scan_text(data.get('content', '')) == 'block':
+        return jsonify({'error': '回答包含违规信息'}), 400
+    return jsonify({'id': aid, 'message': '回答已提交'})
+
+
+@qna_bp.route('/questions/<int:qid>/accept/<int:aid>', methods=['POST'])
+@token_required
+def qna_accept(qid, aid):
+    res, err = accept_bounty_answer(qid, aid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '已采纳 ' + str(res.get('reward', '')), **res})
+
+
+@qna_bp.route('/questions/<int:qid>/close', methods=['POST'])
+@token_required
+def qna_close(qid):
+    res, err = close_bounty_question(qid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '已关闭，退回 ' + str(res['refunded']) + ' 积分'})

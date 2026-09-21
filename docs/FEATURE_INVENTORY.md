@@ -276,6 +276,7 @@ CI：.github/workflows/backend-ci.yml（干净 ubuntu 冷启生产 → 68 步 E2
 | R9-2 | **访客模式**：closed 时匿名访问内容流一律 401，admin 可配 | `site_config.visitor_mode`、`PUT /api/admin/site/config` | `site_config` |
 | R10 | **聊天室**：多房间（公开/私有）/成员/@提及解析+通知/本人撤回软删/`after_id` 增量轮询 | `/chat` ｜ `/api/chat/*` | `chat_rooms` `chat_members` `chat_messages` |
 | R11 | **活动系统**：发布（日期/名额/打卡金币）/报名（容量闸）/取消/到场打卡发奖 | `/events` ｜ `/api/events/*` + admin close | `events` `event_registrations` |
+| R11 | **暗阁·悬赏问答**：提问预扣积分 → 他人回答 → 提问者采纳放款（或关闭退回）；被采纳者收通知 | `/qna` ｜ `/api/qna/*`（questions/answers/accept/close） | `bounty_questions` `bounty_answers` |
 | R11 | **暗阁·付费可见**：pay_points 0-999，未购者全通道 30 字摘要；解锁买家扣分、作者实时收款 | `POST /api/posts/<id>/unlock` ｜ shape_post 统一锁 | `content_unlocks` `posts(+pay_points)` |
 | R11 | **暗阁·积分推流**：作者 10 积分/天（1-7 天）推荐流置前（boosted 优先于热度） | `POST /api/posts/<id>/boost` | `posts(+boosted_until)` |
 | R12 | **等级自动升级**：发帖+10/评论+3/被赞+2/签到+5 经验；规则 admin 可配；升级发金币 + 身份组自动授予 | `GET/PUT /api/admin/level-rules` | `level_rules` `identity_groups(+auto_assign,is_public)` |
