@@ -41,6 +41,7 @@
             <span class="tag" data-tab="announcements" onclick="adminTab('announcements')"><i data-lucide="megaphone" class="icon icon-sm"></i> 公告管理</span>
             <span class="tag" data-tab="ads" onclick="adminTab('ads')"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位</span>
             <span class="tag" data-tab="topics" onclick="adminTab('topics')"><i data-lucide="hash" class="icon icon-sm"></i> 话题</span>
+            <span class="tag" data-tab="ai" onclick="adminTab('ai')"><i data-lucide="bot" class="icon icon-sm"></i> AI</span>
             <span class="tag" data-tab="tasks" onclick="adminTab('tasks')"><i data-lucide="target" class="icon icon-sm"></i> 任务</span>
             <span class="tag" data-tab="logs" onclick="adminTab('logs')"><i data-lucide="scroll" class="icon icon-sm"></i> 操作日志</span>
         </div>
@@ -396,6 +397,31 @@ function switchAdminTab(el, tab) {
                     </div>`).join('')}`;
             if (window.lucide) lucide.createIcons();
         });
+    } else if (tab === 'ai') {
+        Promise.all([
+            api.get('/api/admin/ai/review-suggestions'),
+            api.get('/api/site/config')
+        ]).then(([sug, cfg]) => {
+            const aiOn = cfg.ai_moderation === '1' || cfg.ai_moderation === true ? 'checked' : '';
+            content.innerHTML = `
+                <div class="speech-bubble" style="margin-bottom:16px;">
+                    <h4 style="margin:0 0 10px;color:var(--pink-4);"><i data-lucide="bot" class="icon icon-sm"></i> AI 管理员（R12）</h4>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;margin-bottom:12px;cursor:pointer;">
+                        <input type="checkbox" id="aiModToggle" ${aiOn}> AI 自动审核（新帖进入待审时由规则引擎即时判定）
+                    </label>
+                    <button class="btn btn-primary btn-sm" onclick="saveAiMod()"><i data-lucide="save" class="icon icon-sm"></i> 保存设置</button>
+                    <button class="btn btn-sm" onclick="aiInteract()" style="margin-left:8px;"><i data-lucide="sparkles" class="icon icon-sm"></i> AI 用户互动一轮</button>
+                </div>
+                <h4 style="margin:0 0 8px;"><i data-lucide="clipboard-check" class="icon icon-sm"></i> 待审建议 (${sug.suggestions.length})</h4>
+                ${sug.suggestions.length ? sug.suggestions.map(x => `
+                    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border-primary);font-size:0.85rem;">
+                        <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:8px;${x.action === 'approve' ? 'color:var(--mint,#1c7c54);' : x.action === 'reject' ? 'color:var(--danger);' : 'color:var(--warning);'}">${x.action.toUpperCase()}</span>
+                        <a href="/post/${x.post_id}" style="flex:1;">${escHtml(x.title)}</a>
+                        <span style="font-size:0.72rem;color:var(--text-muted);">${escHtml(x.reason || '')}</span>
+                        <button class="btn btn-sm" onclick="applyAi(${x.post_id},'${x.action}')">应用</button>
+                    </div>`).join('') : '<div style="color:var(--text-muted);font-size:0.85rem;">队列为空</div>'}`;
+            if (window.lucide) lucide.createIcons();
+        });
     } else if (tab === 'ads') {
         api.get('/api/site/config').then(cfg => {
             const checked = cfg.ad_enabled ? 'checked' : '';
@@ -427,6 +453,22 @@ function switchAdminTab(el, tab) {
             if (window.lucide) lucide.createIcons();
         });
     }
+}
+
+function saveAiMod() {
+    const on = document.getElementById('aiModToggle') ? document.getElementById('aiModToggle').checked : false;
+    api.put('/api/admin/site/config', { ai_moderation: on ? '1' : '0' })
+        .then(() => showToast('已保存', 'success')).catch(err => showToast(err.message || '保存失败', 'error'));
+}
+
+function aiInteract() {
+    api.post('/api/admin/ai/interact', {}).then(res => showToast(res.message || '已完成一轮互动', 'success'))
+        .catch(err => showToast(err.message || '失败', 'error'));
+}
+
+function applyAi(pid, action) {
+    api.post('/api/admin/ai/apply', { post_id: pid, action }).then(() => { showToast('已应用 AI 建议', 'success'); adminTab('ai'); })
+        .catch(err => showToast(err.message || '应用失败', 'error'));
 }
 
 function adminDeleteTopic(tid, name) {

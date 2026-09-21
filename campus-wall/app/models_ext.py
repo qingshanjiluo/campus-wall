@@ -406,6 +406,28 @@ def init_extended_db():
         except sqlite3.OperationalError:
             pass
 
+    # ── 等级规则 + AI（R12）──
+    c.execute('''CREATE TABLE IF NOT EXISTS level_rules (
+        level INTEGER PRIMARY KEY,
+        exp_required INTEGER NOT NULL,
+        reward_coins INTEGER DEFAULT 0
+    )''')
+    for lvl, exp, coins in ((2, 50, 20), (3, 120, 30), (4, 250, 50), (5, 500, 80)):
+        c.execute('INSERT OR IGNORE INTO level_rules (level, exp_required, reward_coins) VALUES (?,?,?)',
+                  (lvl, exp, coins))
+    try:
+        c.execute("ALTER TABLE identity_groups ADD COLUMN auto_assign INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE identity_groups ADD COLUMN is_public INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE user_settings ADD COLUMN ai_reply INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
     # ── 私信 ──
     init_dm_tables(c)
 
@@ -474,6 +496,9 @@ def do_checkin(user_id):
 
     # 记录流水
     add_coin_transaction(user_id, total_coins, 'checkin', f'每日签到 (连签{streak}天)', 'checkin', cid)
+
+    # 签到经验（R12）：+5
+    award_exp(user_id, 5)
 
     return {
         'streak': streak, 'coins_earned': total_coins,
@@ -969,12 +994,18 @@ _SITE_CONFIG_DEFAULTS = {
     'ad_header': '校园墙 · 商业合作 / 品牌橱窗 招商中（预留广告位）',
     'ad_footer': '广告位招租 · 联系站务合作（预留）',
     'visitor_mode': 'open',
+    'ai_moderation': '0',
 }
 
 
 def visitor_mode_open():
     """访客模式（R9）：closed 时未登录用户不能浏览内容流。"""
     return get_site_config().get('visitor_mode', 'open') != 'closed'
+
+
+def ai_moderation_enabled():
+    """AI 审核自动模式（R12）开关。"""
+    return get_site_config().get('ai_moderation', '0') == '1'
 
 
 def get_site_config():
@@ -1399,7 +1430,7 @@ USER_SETTINGS_SKINS = ('glass', 'galgame', 'minimal', 'cyberpunk')
 
 
 def save_user_settings(user_id, **kwargs):
-    allowed = ('notify_comment', 'notify_like', 'notify_follow', 'notify_system', 'theme')
+    allowed = ('notify_comment', 'notify_like', 'notify_follow', 'notify_system', 'theme', 'ai_reply')
     fields = {k: int(v) for k, v in kwargs.items() if k in allowed and k != 'theme'}
     if 'theme' in kwargs:
         fields['theme'] = str(kwargs['theme'])
@@ -1937,3 +1968,132 @@ def boost_post(post_id, user_id, days):
     execute_db("UPDATE posts SET boosted_until = datetime('now', ?) WHERE id = ?",
                (f'+{days} days', post_id))
     return {'days': days, 'cost': cost}, None
+
+
+# ══════════════════════════════════════════════
+# 等级自动升级（R12）：经验奖励 + 规则引擎 + 身份组自动授予
+# ══════════════════════════════════════════════
+
+def get_level_rules():
+    return query_db('SELECT level, exp_required, reward_coins FROM level_rules ORDER BY level ASC')
+
+
+def upsert_level_rule(level, exp_required, reward_coins=0):
+    if not level or level < 2 or level > 50:
+        return False
+    execute_db('''INSERT INTO level_rules (level, exp_required, reward_coins) VALUES (?,?,?)
+                  ON CONFLICT(level) DO UPDATE SET exp_required = excluded.exp_required,
+                  reward_coins = excluded.reward_coins''',
+               (level, max(int(exp_required or 0), 0), max(int(reward_coins or 0), 0)))
+    return True
+
+
+def award_exp(user_id, amount):
+    """加经验并按规则自动升级；升级发奖励金币 + 自动授予可达身份组。返回新等级或 None。"""
+    user = query_db('SELECT level, exp FROM users WHERE id = ?', (user_id,), one=True)
+    if not user:
+        return None
+    exp = (user['exp'] or 0) + max(int(amount or 0), 0)
+    level = user['level'] or 1
+    leveled_to = None
+    while True:
+        rule = query_db('SELECT exp_required, reward_coins FROM level_rules WHERE level = ?', (level + 1,), one=True)
+        if not rule or exp < rule['exp_required']:
+            break
+        level += 1
+        leveled_to = level
+        if rule['reward_coins']:
+            add_coin_transaction(user_id, rule['reward_coins'], 'task', f'升级 Lv{level} 奖励', 'level', level)
+    execute_db('UPDATE users SET exp = ?, level = ? WHERE id = ?', (exp, level, user_id))
+    if leveled_to:
+        _auto_assign_groups(user_id, level)
+    return leveled_to
+
+
+def _auto_assign_groups(user_id, level):
+    """升级后自动授予：auto_assign=1 且 min_level<=level 的最高身份组。"""
+    grp = query_db('''
+        SELECT name FROM identity_groups
+        WHERE auto_assign = 1 AND min_level <= ? AND is_public = 1
+        ORDER BY min_level DESC LIMIT 1''', (level,), one=True)
+    if grp:
+        execute_db('UPDATE users SET identity_group = ? WHERE id = ?', (grp['name'], user_id))
+
+
+# ══════════════════════════════════════════════
+# AI 生态 v1（R12）：可插拔 provider + 规则引擎实现
+# ══════════════════════════════════════════════
+
+AI_BOT_USERNAME = 'xiaozhi'
+
+
+def _ai_bot_user():
+    """AI 机器人账号（不存在则自动创建）。"""
+    row = query_db('SELECT id, username FROM users WHERE username = ?', (AI_BOT_USERNAME,), one=True)
+    if row:
+        return row
+    import bcrypt as _bcrypt
+    pw_hash = _bcrypt.hashpw('ai-bot-no-login-9f2e'.encode(), _bcrypt.gensalt()).decode()
+    uid = execute_db(
+        'INSERT INTO users (username, email, password_hash, bio, role) VALUES (?,?,?,?,?)',
+        (AI_BOT_USERNAME, 'xiaozhi@campuswall.local', pw_hash,
+         '我是 AI 助手小智，由校园墙规则引擎驱动', 'user'))
+    return query_db('SELECT id, username FROM users WHERE id = ?', (uid,), one=True)
+
+
+def ai_moderate(title, content):
+    """规则引擎式审核建议：返回 {action: approve|reject, reason}。"""
+    text = f'{title}\n{content}'
+    import re as _re
+    contact = _re.findall(r'(1[3-9]\d{9}|微信\s*[:：]?\s*\w{4,}|QQ\s*[:：]?\s*\d{5,}|加我好友)', text)
+    if contact:
+        return {'action': 'reject', 'reason': '疑似留联系方式引流：' + '、'.join(contact[:2])}
+    if len(content) < 10:
+        return {'action': 'reject', 'reason': '内容过短（<10字）'}
+    links = _re.findall(r'https?://\S+', content)
+    if len(links) >= 3:
+        return {'action': 'reject', 'reason': f'包含 {len(links)} 个外链，疑似广告'}
+    if len(content) > 2000:
+        return {'action': 'review', 'reason': '内容超长，建议人工复核'}
+    return {'action': 'approve', 'reason': '规则引擎未命中风险模式'}
+
+
+def ai_reply_text(text):
+    """规则引擎式回复：关键词命中模板池，兜底通用回复。"""
+    t = text or ''
+    pool = [
+        '收到！这就去帮你看看～',
+        '好问题！建议去「表白墙」或对应子站再问问，说不定有同学知道。',
+        '哈哈，这个话题有意思，支持一下！',
+        '如果是二手交易相关，记得走平台流程更安全哦。',
+        '听起来不错，祝顺利！',
+    ]
+    if any(k in t for k in ('?', '？', '怎么', '如何', '求助')):
+        return pool[1]
+    if any(k in t for k in ('卖', '出', '转让')):
+        return pool[3]
+    if any(k in t for k in ('谢谢', '感谢')):
+        return '不客气～有问题随时找我！'
+    return pool[2]
+
+
+def ai_bot_interact():
+    """AI 用户模拟互动：随机挑最近一篇帖点赞 + 发一条模板评论。"""
+    import random as _random
+    bot = _ai_bot_user()
+    posts = query_db(
+        "SELECT id, author_id, title, content FROM posts WHERE is_deleted = 0 AND status = 'approved' "
+        'ORDER BY id DESC LIMIT 20')
+    if not posts:
+        return None
+    post = _random.choice(posts)
+    from app.models import toggle_like, create_comment, create_notification
+    liked = toggle_like(bot['id'], 'post', post['id'])
+    comment_id = execute_db(
+        "INSERT INTO comments (post_id, author_id, content) VALUES (?,?,?)",
+        (post['id'], bot['id'], ai_reply_text(post['content'] or post['title'])))
+    execute_db('UPDATE posts SET comments_count = comments_count + 1 WHERE id = ?', (post['id'],))
+    create_notification(
+        post['author_id'], bot['id'], 'comment',
+        f"AI 小智 评论了你的帖子「{post['title']}」", f'/post/{post["id"]}')
+    return {'post_id': post['id'], 'liked': bool(liked), 'comment_id': comment_id}

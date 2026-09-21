@@ -38,6 +38,7 @@ from app.models_ext import (
     delete_chat_message, is_room_member,
     create_event, list_events, get_event, register_event, cancel_event_registration,
     checkin_event, close_event,
+    get_level_rules, upsert_level_rule, ai_moderate, ai_bot_interact,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
 from app.models import shape_post, is_liked_batch
@@ -1118,8 +1119,76 @@ def user_settings_get():
 @token_required
 def user_settings_put():
     data = request.get_json(silent=True) or {}
+    # AI 接管（R12）：首次开启一次性消耗 50 积分
+    if 'ai_reply' in data and int(data.get('ai_reply') or 0) == 1:
+        cur = get_user_settings(g.current_user['id'])
+        if not cur.get('ai_reply'):
+            from app.models_ext import spend_points
+            if spend_points(g.current_user['id'], 50, ref_type='ai_reply') is False:
+                return jsonify({'error': '积分不足（开启 AI 接管需 50 积分）'}), 400
     save_user_settings(g.current_user['id'], **data)
     return jsonify({'message': '已保存', **get_user_settings(g.current_user['id'])})
+
+
+# ══════════════════════════════════════════════
+# 等级规则 + AI 生态（R12）
+# ══════════════════════════════════════════════
+
+@admin_bp.route('/level-rules', methods=['GET'])
+@token_required
+@admin_required
+def admin_level_rules_get():
+    return jsonify(get_level_rules())
+
+
+@admin_bp.route('/level-rules', methods=['PUT'])
+@token_required
+@admin_required
+def admin_level_rules_put():
+    data = request.get_json(silent=True) or {}
+    ok = upsert_level_rule(data.get('level'), data.get('exp_required'), data.get('reward_coins', 0))
+    if not ok:
+        return jsonify({'error': '等级需在 2-50 之间'}), 400
+    admin_log(g.current_user['id'], 'update_level_rule', 'level_rule', data.get('level'))
+    return jsonify({'message': '已保存', 'rules': get_level_rules()})
+
+
+@admin_bp.route('/ai/review-suggestions', methods=['GET'])
+@token_required
+@admin_required
+def admin_ai_suggestions():
+    """AI 管理员：对待审核队列逐条给出机器判定建议。"""
+    pending = query_db("SELECT id, title, content FROM posts WHERE status = 'pending' AND is_deleted = 0 ORDER BY id DESC LIMIT 50")
+    out = [{'post_id': p['id'], 'title': p['title'], **ai_moderate(p['title'], p['content'])} for p in pending]
+    return jsonify({'suggestions': out})
+
+
+@admin_bp.route('/ai/apply', methods=['POST'])
+@token_required
+@admin_required
+def admin_ai_apply():
+    """一键应用 AI 建议。"""
+    data = request.get_json(silent=True) or {}
+    pid = data.get('post_id')
+    action = data.get('action')
+    if action not in ('approve', 'reject'):
+        return jsonify({'error': '无效操作'}), 400
+    if not query_db("SELECT 1 FROM posts WHERE id = ? AND status = 'pending'", (pid,), one=True):
+        return jsonify({'error': '帖子不存在或不在待审状态'}), 404
+    update_post_status(pid, 'approved' if action == 'approve' else 'rejected')
+    admin_log(g.current_user['id'], f'ai_{action}', 'post', pid)
+    return jsonify({'message': '已应用 AI 建议'})
+
+
+@admin_bp.route('/ai/interact', methods=['POST'])
+@token_required
+@admin_required
+def admin_ai_interact():
+    """AI 用户：机器人对最近帖子点赞 + 模板评论。"""
+    res = ai_bot_interact()
+    if not res:
+        return jsonify({'error': '暂无可互动的帖子'}), 400
+    return jsonify({'message': 'AI 用户已完成一轮互动', **res})
 
 
 # ══════════════════════════════════════════════

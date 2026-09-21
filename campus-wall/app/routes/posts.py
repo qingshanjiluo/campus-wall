@@ -195,8 +195,25 @@ def create():
                 return jsonify({'error': f'话题「{t}」包含违规信息'}), 400
         attach_post_topics(pid, topics, g.current_user['id'])
 
+    # 发帖经验（R12 等级规则引擎）
+    from app.models_ext import award_exp
+    award_exp(g.current_user['id'], 10)
+
     if status == 'pending':
-        return jsonify({'message': '已提交，内容正在审核，通过后自动展示', 'post_id': pid, 'status': 'pending'}), 202
+        # AI 审核自动模式（R12）：开启时对进入待审的帖子即时给出机器判定
+        from app.models_ext import ai_moderation_enabled, ai_moderate
+        from app.models import update_post_status as _ups_model
+        if ai_moderation_enabled():
+            verdict = ai_moderate(title, content)
+            if verdict['action'] == 'approve':
+                _ups_model(pid, 'approved')
+                status = 'approved'
+            elif verdict['action'] == 'reject':
+                _ups_model(pid, 'rejected')
+                return jsonify({'message': 'AI 审核判定内容违规', 'status': 'rejected',
+                                'reason': verdict['reason'], 'post_id': pid}), 202
+        if status == 'pending':
+            return jsonify({'message': '已提交，内容正在审核，通过后自动展示', 'post_id': pid, 'status': 'pending'}), 202
 
     post = get_post_by_id(pid)
     if topics:
@@ -323,6 +340,9 @@ def like_post(pid):
             f'{g.current_user["username"]} 赞了你的帖子「{post["title"]}」',
             f'/post/{pid}'
         )
+        # 被赞经验（R12）：作者 +2
+        from app.models_ext import award_exp
+        award_exp(post['author_id'], 2)
     # 返回真实计数，前端不再靠解析按钮文本（P2-9）
     row = query_db('SELECT likes_count FROM posts WHERE id = ?', (pid,), one=True)
     return jsonify({'liked': liked, 'likes_count': (row or {}).get('likes_count', 0),
@@ -396,6 +416,10 @@ def add_comment(pid):
             f'{g.current_user["username"]} 评论了你的帖子「{post["title"]}」',
             f'/post/{pid}'
         )
+
+    # 评论经验（R12）：+3
+    from app.models_ext import award_exp
+    award_exp(g.current_user['id'], 3)
 
     return jsonify({'message': '评论成功', 'comment_id': cid}), 201
 

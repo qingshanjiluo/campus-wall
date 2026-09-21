@@ -55,6 +55,7 @@ let profileData = null;
 let currentProfileTab = 'posts';
 
 onUserReady(function() {
+    initAiReply();
     loadProfile();
     loadProfileTab('posts');
 });
@@ -115,10 +116,38 @@ function renderProfileCard(u) {
         ${isMe ? `<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
             <button class="btn btn-sm" onclick="openEditProfile()"><i data-lucide="pencil" class="icon icon-sm"></i> 编辑资料</button>
             <button class="btn btn-sm" onclick="exportMyData()"><i data-lucide="download" class="icon icon-sm"></i> 导出我的数据</button>
+            <button class="btn btn-sm" id="aiReplyBtn" onclick="toggleAiReply()"><i data-lucide="bot" class="icon icon-sm"></i> <span id="aiReplyLabel">开启 AI 接管</span></button>
         </div>` : ''}
         ${followBtn}
     `;
     if (window.lucide) lucide.createIcons();
+}
+
+// AI 接管（R12）：开启后私信由 AI 即时代回（开启消耗 50 积分）
+let myAiReply = false;
+function renderAiReplyBtn() {
+    const label = document.getElementById('aiReplyLabel');
+    const btn = document.getElementById('aiReplyBtn');
+    if (!label || !btn) return;
+    label.textContent = myAiReply ? '关闭 AI 接管' : '开启 AI 接管';
+    btn.style.color = myAiReply ? 'var(--pink-4)' : '';
+}
+function initAiReply() {
+    if (!currentUser) return;
+    api.get('/api/user/settings').then(st => {
+        myAiReply = !!st.ai_reply;
+        renderAiReplyBtn();
+    }).catch(() => {});
+}
+async function toggleAiReply() {
+    if (!requireAuth()) return;
+    if (!myAiReply && !confirm('开启后 AI 将代你自动回复私信（本次开启消耗 50 积分）？')) return;
+    try {
+        const res = await api.put('/api/user/settings', { ai_reply: myAiReply ? 0 : 1 });
+        myAiReply = !!res.ai_reply;
+        renderAiReplyBtn();
+        showToast('已更新', 'success');
+    } catch (e) { showToast(e.message || '操作失败', 'error'); }
 }
 
 // 个人数据导出（R8）：带 token 拉取 JSON 附件

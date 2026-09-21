@@ -42,6 +42,17 @@ def send():
         f'{g.current_user["username"]} 给你发来一条私信',
         f'/messages?with={g.current_user["id"]}'
     )
+
+    # AI 接管（R12）：收件人开启 ai_reply 时，由 AI 适配器即时代回一条
+    try:
+        from app.models_ext import get_user_settings, ai_reply_text
+        peer_settings = get_user_settings(to_uid)
+        if peer_settings.get('ai_reply'):
+            reply_text = ai_reply_text(content)
+            send_dm(to_uid, g.current_user['id'], reply_text)
+    except Exception:
+        pass
+
     return jsonify({'message': '已发送', 'id': mid}), 201
 
 

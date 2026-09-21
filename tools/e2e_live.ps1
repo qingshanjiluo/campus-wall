@@ -454,6 +454,41 @@ Step "chat room flow" {
   $msgs2 = Api GET "/api/chat/rooms/$($room.id)/messages?after_id=0" $null $tk
   $rec = @($msgs2 | Where-Object { $_.id -eq $mid })[0]
   Assert($rec.is_deleted -eq 1) "recall not blanked" }
+Step "level rules auto-upgrade" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  Api PUT "/api/admin/level-rules" @{level=2; exp_required=10; reward_coins=5} $atk | Out-Null
+  # fresh e2e user: first post grants +10 exp -> level 2 auto
+  $me0 = Api GET "/api/auth/me" $null $tk
+  Assert([int]$me0.level -ge 2) ("level not upgraded: " + $me0.level)
+  $rules = Api GET "/api/admin/level-rules" $null $atk
+  $r2 = @($rules | Where-Object { $_.level -eq 2 })[0]
+  Assert([int]$r2.exp_required -eq 10) "level rule not persisted" }
+Step "ai moderation suggestions" {
+  Assert($atk -and $W_RV1) "missing admin token or review word"
+  $aiPost = Api POST "/api/posts" @{station_id=1; title="e2e ai $Suffix"; content=$W_RV1} $tk
+  $aiPid = $aiPost.post_id; if (-not $aiPid) { $aiPid = $aiPost.post.id }
+  Assert($aiPid) "ai pending post create failed"
+  $sug = Api GET "/api/admin/ai/review-suggestions" $null $atk
+  $row = @($sug.suggestions | Where-Object { $_.post_id -eq $aiPid })[0]
+  Assert($row) "ai suggestion missing for pending post"
+  Assert($row.action -in @('approve','reject','review')) "invalid ai verdict"
+  Api POST "/api/admin/ai/apply" @{post_id=$aiPid; action="approve"} $atk | Out-Null
+  $det = Api GET "/api/posts/$aiPid" $null $atk
+  Assert($det.status -eq "approved") "ai apply did not approve" }
+Step "ai bot and ai reply dm" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  $inter = Api POST "/api/admin/ai/interact" @{} $atk
+  Assert($inter.comment_id) "ai bot interact failed"
+  # enable ai_reply for admin (points topped up in tasks step)
+  Api PUT "/api/user/settings" @{ai_reply=1} $atk | Out-Null
+  $adminId = (Api GET "/api/auth/me" $null $atk).id
+  Api POST "/api/dm" @{to=$adminId; content="hello ai assistant"} $tk | Out-Null
+  Start-Sleep -Seconds 1
+  $thread = Api GET "/api/dm/$adminId" $null $tk
+  Assert(@($thread.messages).Count -ge 2) "ai auto reply missing"
+  $last = @($thread.messages)[-1]
+  Assert([int]$last.sender_id -eq [int]$adminId) "ai reply not from recipient"
+  Api PUT "/api/user/settings" @{ai_reply=0} $atk | Out-Null }
 Step "events register + checkin" {
   Assert($tk -and $atk) "tokens missing (earlier steps failed)"
   $today = (Get-Date).ToString('yyyy-MM-dd')
