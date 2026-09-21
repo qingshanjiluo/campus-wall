@@ -83,6 +83,10 @@ def create_app():
     app.register_blueprint(events_bp, url_prefix='/api/events')
     app.register_blueprint(pages_bp)
 
+    # 插件钩子（R13）：注册内置插件
+    from app.utils.plugins import register_builtin_plugins
+    register_builtin_plugins()
+
     @app.errorhandler(404)
     def not_found(e):
         if request.path.startswith('/api/'):

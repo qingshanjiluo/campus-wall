@@ -1312,6 +1312,9 @@ def chat_messages_send(rid):
     mid, merr = send_chat_message(rid, g.current_user['id'], content)
     if merr:
         return jsonify({'error': merr}), 400
+    # 插件钩子（R13）：chat_message_sent
+    from app.utils.plugins import run_hook
+    run_hook('chat_message_sent', room_id=rid, message_id=mid, sender_id=g.current_user['id'])
     msgs = get_chat_messages(rid, mid - 1, 1)
     msg = msgs[0] if msgs else None
     if msg:
@@ -1409,3 +1412,45 @@ def admin_event_close(eid):
     close_event(eid)
     admin_log(g.current_user['id'], 'close_event', 'event', eid)
     return jsonify({'message': '已关闭'})
+
+# ══════════════════════════════════════════════
+# 站点定制注入 + 插件管理（R13）
+# ══════════════════════════════════════════════
+
+@site_bp.route('/custom', methods=['GET'])
+def site_custom():
+    """公开读取管理员注入的 CSS/HTML/JS（管理端可信内容）。"""
+    cfg = get_site_config()
+    return jsonify({'custom_css': cfg.get('custom_css', ''),
+                    'custom_html': cfg.get('custom_html', ''),
+                    'custom_js': cfg.get('custom_js', '')})
+
+
+@admin_bp.route('/site/custom', methods=['PUT'])
+@token_required
+@admin_required
+def admin_site_custom():
+    data = request.get_json(silent=True) or {}
+    for k in ('custom_css', 'custom_html', 'custom_js'):
+        if k in data:
+            set_site_config(k, str(data[k])[:20000])
+    admin_log(g.current_user['id'], 'update_site_custom', 'site', 0)
+    return jsonify({'message': '已保存'})
+
+
+@admin_bp.route('/plugins', methods=['GET'])
+@token_required
+@admin_required
+def admin_plugins_list():
+    from app.utils.plugins import list_plugins
+    return jsonify(list_plugins())
+
+
+@admin_bp.route('/plugins/<path:plugin_name>/toggle', methods=['POST'])
+@token_required
+@admin_required
+def admin_plugins_toggle(plugin_name):
+    from app.utils.plugins import set_plugin_enabled, list_plugins
+    data = request.get_json(silent=True) or {}
+    set_plugin_enabled(plugin_name, bool(data.get('enabled', True)))
+    return jsonify({'message': '已更新', 'plugins': list_plugins()})

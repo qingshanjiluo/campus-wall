@@ -36,6 +36,9 @@ def register():
 
     token = generate_token(uid)
     user = get_user_by_id(uid)
+    # 插件钩子（R13）：user_registered
+    from app.utils.plugins import run_hook
+    run_hook('user_registered', user_id=uid, username=username)
     return jsonify({
         'message': '注册成功',
         'token': token,

@@ -391,6 +391,8 @@
     // 皮肤（R9）：应用 + 注入选择器
     initSkin();
     injectSkinPicker();
+    // 站点定制（R13）
+    initSiteCustom();
   }
 
   // ── 广告位占位（保留位）──
@@ -425,6 +427,33 @@
     // 静默降级：读配置失败也保留占位（默认文案）
     api.get('/api/site/config').then(apply).catch(() => apply({ ad_enabled: true, ad_header: '广告位 · 品牌合作 招商中（预留）', ad_footer: '广告位招租 · 联系站务（预留）' }));
   }
+  // ── 站点定制注入（R13）：管理员 CSS/HTML/JS ──
+  function initSiteCustom() {
+    api.get('/api/site/custom').then(cfg => {
+      try {
+        if (cfg.custom_css) {
+          const style = document.createElement('style');
+          style.id = 'siteCustomCss';
+          style.textContent = cfg.custom_css;
+          document.head.appendChild(style);
+        }
+        if (cfg.custom_html) {
+          const box = document.createElement('div');
+          box.id = 'siteCustomHtml';
+          box.style.display = 'contents';
+          box.innerHTML = cfg.custom_html;
+          document.body.appendChild(box);
+        }
+        if (cfg.custom_js) {
+          const script = document.createElement('script');
+          script.id = 'siteCustomJs';
+          script.textContent = cfg.custom_js;
+          document.body.appendChild(script);
+        }
+      } catch (e) { /* 定制内容错误不影响站点 */ }
+    }).catch(() => {});
+  }
+
 
   // ── 皮肤系统（R9）：glass(默认) / galgame / minimal / cyberpunk ──
   const SKINS = [

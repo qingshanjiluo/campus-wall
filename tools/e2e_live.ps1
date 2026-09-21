@@ -489,6 +489,23 @@ Step "ai bot and ai reply dm" {
   $last = @($thread.messages)[-1]
   Assert([int]$last.sender_id -eq [int]$adminId) "ai reply not from recipient"
   Api PUT "/api/user/settings" @{ai_reply=0} $atk | Out-Null }
+Step "site custom injection + plugins" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  Api PUT "/api/admin/site/custom" @{custom_css=".e2e{color:red}"; custom_html="<div id=e2eCustom></div>"; custom_js="console.log(1)"} $atk | Out-Null
+  $cust = Api GET "/api/site/custom"
+  Assert($cust.custom_css -eq ".e2e{color:red}") "custom css not persisted"
+  Assert($cust.custom_html -like "*e2eCustom*") "custom html not persisted"
+  Assert($cust.custom_js -eq "console.log(1)") "custom js not persisted"
+  # builtin plugin registry: welcome_plugin should be enabled
+  $plugs = Api GET "/api/admin/plugins" $null $atk
+  $wp = @($plugs | Where-Object { $_.plugin -eq "welcome_plugin" })[0]
+  Assert($wp) "welcome plugin not registered"
+  Assert($wp.enabled) "welcome plugin disabled"
+  # the e2e user registered this run should have a welcome notification (user_registered hook)
+  $notifs = Api GET "/api/social/notifications" $null $tk
+  $notifsArr = if ($null -ne $notifs.notifications) { @($notifs.notifications) } else { @($notifs) }
+  $welcome = @($notifsArr | Where-Object { $_.type -eq "system" })
+  Assert($welcome.Count -ge 1) "welcome notification missing" }
 Step "events register + checkin" {
   Assert($tk -and $atk) "tokens missing (earlier steps failed)"
   $today = (Get-Date).ToString('yyyy-MM-dd')

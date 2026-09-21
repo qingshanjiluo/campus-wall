@@ -199,6 +199,10 @@ def create():
     from app.models_ext import award_exp
     award_exp(g.current_user['id'], 10)
 
+    # 插件钩子（R13）：post_created
+    from app.utils.plugins import run_hook
+    run_hook('post_created', post_id=pid, author_id=g.current_user['id'], title=title)
+
     if status == 'pending':
         # AI 审核自动模式（R12）：开启时对进入待审的帖子即时给出机器判定
         from app.models_ext import ai_moderation_enabled, ai_moderate
@@ -420,6 +424,10 @@ def add_comment(pid):
     # 评论经验（R12）：+3
     from app.models_ext import award_exp
     award_exp(g.current_user['id'], 3)
+
+    # 插件钩子（R13）：comment_created
+    from app.utils.plugins import run_hook
+    run_hook('comment_created', comment_id=cid, post_id=pid, author_id=g.current_user['id'])
 
     return jsonify({'message': '评论成功', 'comment_id': cid}), 201
 

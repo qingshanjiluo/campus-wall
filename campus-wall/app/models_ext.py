@@ -995,6 +995,9 @@ _SITE_CONFIG_DEFAULTS = {
     'ad_footer': '广告位招租 · 联系站务合作（预留）',
     'visitor_mode': 'open',
     'ai_moderation': '0',
+    'custom_css': '',
+    'custom_html': '',
+    'custom_js': '',
 }
 
 

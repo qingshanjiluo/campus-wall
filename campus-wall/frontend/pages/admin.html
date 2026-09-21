@@ -426,6 +426,8 @@ function switchAdminTab(el, tab) {
         api.get('/api/site/config').then(cfg => {
             const checked = cfg.ad_enabled ? 'checked' : '';
             const vmOpen = (cfg.visitor_mode || 'open') === 'open';
+            api.get('/api/site/custom').then(cust => {
+            const custom = { css: cust.custom_css || '', html: cust.custom_html || '', js: cust.custom_js || '' };
             content.innerHTML = `
                 <div class="speech-bubble" style="max-width:560px;">
                     <h4 style="margin:0 0 12px;color:var(--pink-4);"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位配置</h4>
@@ -448,9 +450,17 @@ function switchAdminTab(el, tab) {
                             <option value="open" ${vmOpen ? 'selected' : ''}>开放（游客可浏览）</option>
                             <option value="closed" ${!vmOpen ? 'selected' : ''}>关闭（登录可见）</option>
                         </select></div>
-                    <button class="btn btn-primary" onclick="saveAdConfig()"><i data-lucide="save" class="icon icon-sm"></i> 保存</button>
+                    <h4 style="margin:18px 0 10px;color:var(--pink-4);"><i data-lucide="code" class="icon icon-sm"></i> 站点定制注入（R13，管理员可信内容）</h4>
+                    <div class="form-group"><label class="form-label">自定义 CSS（全站 &lt;style&gt;）</label>
+                        <textarea class="input" id="customCss" rows="3" placeholder="如：.post-card { border: 1px solid #eee; }">${escHtml(custom.css)}</textarea></div>
+                    <div class="form-group"><label class="form-label">自定义 HTML（页尾区块）</label>
+                        <textarea class="input" id="customHtml" rows="3" placeholder="页尾自定义区块 HTML">${escHtml(custom.html)}</textarea></div>
+                    <div class="form-group"><label class="form-label">自定义 JS（全站执行，慎用）</label>
+                        <textarea class="input" id="customJs" rows="3" placeholder="如：console.log('hello')">${escHtml(custom.js)}</textarea></div>
+                    <button class="btn btn-primary" onclick="saveAdConfig()"><i data-lucide="save" class="icon icon-sm"></i> 保存全部</button>
                 </div>`;
             if (window.lucide) lucide.createIcons();
+            });
         });
     }
 }
@@ -523,6 +533,12 @@ function saveAdConfig() {
     };
     const vm = document.getElementById('visitorMode');
     if (vm) body.visitor_mode = vm.value;
+    const cc = document.getElementById('customCss');
+    if (cc) {
+        body.custom_css = cc.value;
+        body.custom_html = document.getElementById('customHtml').value;
+        body.custom_js = document.getElementById('customJs').value;
+    }
     api.put('/api/admin/site/config', body)
         .then(() => showToast('已保存，刷新页面生效', 'success')).catch(err => showToast(err.message || '保存失败', 'error'));
 }
