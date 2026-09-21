@@ -257,7 +257,31 @@ CI：.github/workflows/backend-ci.yml（干净 ubuntu 冷启生产 → 68 步 E2
 
 ## 8. 当前状态
 
-- 质量门：live + 冷启动库 E2E **68/68 全绿**；`js_gate`（外链+内联 `node --check` + PS ASCII + 壳层结构守卫）全绿。
+- 质量门：live E2E **83 步全绿**；`js_gate`（外链+内联 `node --check` + PS ASCII + 壳层结构守卫 + 跨脚本引用中毒扫描）全绿。
 - 已修高危：R5-B 引入的**全站登录失效**（跨脚本裸引用 ReferenceError）已修并加门禁（`ee6befe`）。
-- 剩余（外部人工，非代码）：买服务器/域名 → `docker compose up` → 对线上域名跑 68 步 E2E → 改演示 `admin/admin123` 密码 → 浏览器 25 页双主题走查。
+- 剩余（外部人工，非代码）：买服务器/域名 → `docker compose up` → 对线上域名跑 83 步 E2E → 改演示 `admin/admin123` 密码 → 浏览器双主题走查。
 - 演示账号：`admin/admin123`（管理员）、`xiaohua/123456`（用户）；口令哈希漂移已按 seed 修复。
+
+---
+
+## 9. R8-R13 扩展模块（持续开发波次交付）
+
+| 波次 | 模块 | 入口/端点 | 关键表 |
+|---|---|---|---|
+| R8-1 | **话题/标签 + 热搜榜**（发帖显式+`#`内联识别，归一化≤5个；近7天热度榜；话题聚合过滤） | `/search?topic=` ｜ `GET /api/topics/trending`、`GET /api/topics/<名>/posts`、admin topics CRUD | `topics` `post_topics` |
+| R8-2 | **任务系统**：系统任务（自动发奖）/ 官方任务 / 积分悬赏（发布预扣-提交-审核-放款），名额与防重领 | `/tasks` ｜ `/api/tasks/*` + admin tasks/close/claims | `tasks` `task_claims` |
+| R8-3 | **举报增强**：七分类枚举 + 证据图（≤4 张仅本站 uploads）+ admin 分类筛选/缩略图 | `POST/GET /api/reports` | `reports(+evidence)` |
+| R8-4 | **数据导出**：用户 JSON 附件 + admin 用户/帖子 CSV（UTF-8 BOM） | `GET /api/auth/export`、`GET /api/admin/export/*.csv` | 只读聚合 |
+| R9-1 | **多主题皮肤**：glass/galgame/minimal/cyberpunk × 明暗；导航调色板选择器；localStorage + 服务端双持久化 | `GET/PUT /api/user/settings` | `user_settings(+skin)` |
+| R9-2 | **访客模式**：closed 时匿名访问内容流一律 401，admin 可配 | `site_config.visitor_mode`、`PUT /api/admin/site/config` | `site_config` |
+| R10 | **聊天室**：多房间（公开/私有）/成员/@提及解析+通知/本人撤回软删/`after_id` 增量轮询 | `/chat` ｜ `/api/chat/*` | `chat_rooms` `chat_members` `chat_messages` |
+| R11 | **活动系统**：发布（日期/名额/打卡金币）/报名（容量闸）/取消/到场打卡发奖 | `/events` ｜ `/api/events/*` + admin close | `events` `event_registrations` |
+| R11 | **暗阁·付费可见**：pay_points 0-999，未购者全通道 30 字摘要；解锁买家扣分、作者实时收款 | `POST /api/posts/<id>/unlock` ｜ shape_post 统一锁 | `content_unlocks` `posts(+pay_points)` |
+| R11 | **暗阁·积分推流**：作者 10 积分/天（1-7 天）推荐流置前（boosted 优先于热度） | `POST /api/posts/<id>/boost` | `posts(+boosted_until)` |
+| R12 | **等级自动升级**：发帖+10/评论+3/被赞+2/签到+5 经验；规则 admin 可配；升级发金币 + 身份组自动授予 | `GET/PUT /api/admin/level-rules` | `level_rules` `identity_groups(+auto_assign,is_public)` |
+| R12 | **AI 生态 v1**：可插拔适配器（规则引擎默认 + OpenAI 兼容可选）；AI 管理员（待审建议/一键应用/自动模式）；AI 用户机器人；AI 接管私信代回（50 积分/次开启） | `/api/admin/ai/*`、`PUT /api/user/settings{ai_reply}`、`app/utils/ai.py` | `level_rules` |
+| R13 | **站点定制注入**：管理员 CSS/HTML/JS 三键（各≤20KB），前端隔离注入 | `GET /api/site/custom`、`PUT /api/admin/site/custom` | `site_config` |
+| R13 | **插件钩子雏形**：注册表 + 4 挂载点（post_created/comment_created/user_registered/chat_message_sent），异常全隔离；内置 welcome_plugin；admin 启停 | `GET /api/admin/plugins`、`POST /api/admin/plugins/<名>/toggle` | `site_config.disabled_plugins` |
+
+多主题皮肤选择器在导航调色板按钮；admin「广告位」Tab 已扩展为 广告 + 访客模式 + 站点定制 三区。
+多站架构（独立域名/独立用户体系）按计划冻结，未实现。
