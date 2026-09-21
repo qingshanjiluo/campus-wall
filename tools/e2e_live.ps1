@@ -339,6 +339,9 @@ Step "topics trending + filter" {
   Assert(@($tf2.posts).Count -eq 0) "topics not cleaned on post delete" }
 Step "tasks bounty + review payout" {
   Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  # top up publisher points first (CI cold DB seeds 0; repeated local runs drain them)
+  $me = Api GET "/api/auth/me" $null $atk
+  Api PUT "/api/admin/users/$($me.id)" @{points=500} $atk | Out-Null
   # bounty: publisher (admin) prepays points, user completes, publisher approves
   $pts0 = (Api GET "/api/shop/coins" $null $atk).points
   $bt = Api POST "/api/tasks" @{kind="bounty"; title="e2e bounty $Suffix"; description="d"; reward_points=10} $atk
@@ -431,6 +434,26 @@ Step "visitor mode gate" {
   Api PUT "/api/admin/site/config" @{visitor_mode="open"} $atk | Out-Null
   $anonOk = Api GET "/api/posts?limit=5"
   Assert($null -ne $anonOk.posts) "visitor mode open did not restore anon access" }
+Step "chat room flow" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  $room = Api POST "/api/chat/rooms" @{name="e2e room $Suffix"; description="e2e chat"} $tk
+  Assert($room.id) "room create failed"
+  # non-member cannot post
+  $nonMember = $false
+  try { Api POST "/api/chat/rooms/$($room.id)/messages" @{content="hi"} $atk } catch { $nonMember = ((BadCode $_) -eq 400) }
+  Assert($nonMember) "non-member send not rejected"
+  Api POST "/api/chat/rooms/$($room.id)/join" @{} $atk | Out-Null
+  $sent = Api POST "/api/chat/rooms/$($room.id)/messages" @{content="hello @admin"} $tk
+  Assert($sent.msg) "message send failed"
+  Assert(@($sent.msg.mentions).Count -eq 1) "mention not parsed"
+  Assert([int]$sent.msg.mentions[0] -gt 0) "mention id invalid"
+  $msgs = Api GET "/api/chat/rooms/$($room.id)/messages?after_id=0" $null $atk
+  Assert(@($msgs).Count -ge 1) "messages read failed"
+  $mid = $sent.msg.id
+  Api DELETE "/api/chat/messages/$mid" $null $tk | Out-Null
+  $msgs2 = Api GET "/api/chat/rooms/$($room.id)/messages?after_id=0" $null $tk
+  $rec = @($msgs2 | Where-Object { $_.id -eq $mid })[0]
+  Assert($rec.is_deleted -eq 1) "recall not blanked" }
 Step "expose create + review + anon" {
   Assert($tk) "no token (earlier steps failed)"
   $ep = Api POST "/api/posts" @{title="e2e_ex$Suffix"; content="expose body"; post_type="expose"} $tk

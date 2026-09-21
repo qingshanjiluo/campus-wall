@@ -18,6 +18,7 @@ ROUTES = {
     '/expose': 'expose.html',
     '/forum': 'forum.html',
     '/tasks': 'tasks.html',
+    '/chat': 'chat.html',
     '/trade': 'trade.html',
     '/romance': 'romance.html',
     '/gossip': 'gossip.html',

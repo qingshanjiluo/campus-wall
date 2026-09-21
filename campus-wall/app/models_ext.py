@@ -3,6 +3,7 @@
 """
 import os
 import json
+import re
 import sqlite3
 import random
 from datetime import datetime, timedelta
@@ -333,6 +334,35 @@ def init_extended_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_task_claims_user ON task_claims(user_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_task_claims_task ON task_claims(task_id)")
+
+    # ── 聊天室（R10）：多主题房间 + 成员 + 消息（撤回软删、@提及存 JSON）──
+    c.execute('''CREATE TABLE IF NOT EXISTS chat_rooms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        icon TEXT DEFAULT 'message-square',
+        created_by INTEGER REFERENCES users(id),
+        is_public INTEGER DEFAULT 1,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS chat_members (
+        room_id INTEGER NOT NULL REFERENCES chat_rooms(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        role TEXT DEFAULT 'member',
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (room_id, user_id)
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        room_id INTEGER NOT NULL REFERENCES chat_rooms(id),
+        sender_id INTEGER NOT NULL REFERENCES users(id),
+        content TEXT NOT NULL,
+        mentions TEXT DEFAULT '[]',
+        is_deleted INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_chat_msgs_room ON chat_messages(room_id, id)")
 
     # ── 私信 ──
     init_dm_tables(c)
@@ -1048,6 +1078,157 @@ def get_user_export(user_id):
         'dm_messages': dms,
         'checkins': checkins,
     }
+
+
+# ══════════════════════════════════════════════
+# 聊天室（R10）：房间 / 成员 / 消息（@提及、撤回）
+# ══════════════════════════════════════════════
+
+def create_chat_room(name, description='', icon='message-square', is_public=1, created_by=None):
+    name = (name or '').strip()
+    if not name or len(name) > 40:
+        return None
+    rid = execute_db(
+        'INSERT INTO chat_rooms (name, description, icon, is_public, created_by) VALUES (?,?,?,?,?)',
+        (name, (description or '').strip()[:200], icon or 'message-square', 1 if is_public else 0, created_by))
+    if rid and created_by:
+        execute_db("INSERT OR IGNORE INTO chat_members (room_id, user_id, role) VALUES (?,?, 'owner')", (rid, created_by))
+    return rid
+
+
+def get_chat_room(room_id):
+    return query_db('''
+        SELECT cr.*, u.username AS creator_name,
+               (SELECT COUNT(*) FROM chat_members cm WHERE cm.room_id = cr.id) AS member_count,
+               (SELECT COUNT(*) FROM chat_messages cm2 WHERE cm2.room_id = cr.id AND cm2.is_deleted = 0) AS message_count
+        FROM chat_rooms cr LEFT JOIN users u ON u.id = cr.created_by
+        WHERE cr.id = ? AND cr.status = 'active' ''', (room_id,), one=True)
+
+
+def list_chat_rooms(user_id=None, limit=50):
+    """房间列表：成员数 + 最后一条消息预览 + 我是否成员。"""
+    my_sel = ''',
+               (SELECT 1 FROM chat_members mm WHERE mm.room_id = cr.id AND mm.user_id = ?) AS is_member'''
+    args = [user_id] if user_id else []
+    my_sel = my_sel if user_id else ''',
+               0 AS is_member'''
+    return query_db(f'''
+        SELECT cr.id, cr.name, cr.description, cr.icon, cr.is_public, cr.created_by, cr.created_at,
+               u.username AS creator_name,
+               (SELECT COUNT(*) FROM chat_members cm WHERE cm.room_id = cr.id) AS member_count,
+               (SELECT cm2.content FROM chat_messages cm2 WHERE cm2.room_id = cr.id AND cm2.is_deleted = 0
+                 ORDER BY cm2.id DESC LIMIT 1) AS last_message{my_sel}
+        FROM chat_rooms cr LEFT JOIN users u ON u.id = cr.created_by
+        WHERE cr.status = 'active'
+        ORDER BY cr.id DESC LIMIT ?''', args + [limit])
+
+
+def is_room_member(room_id, user_id):
+    return bool(query_db('SELECT 1 FROM chat_members WHERE room_id = ? AND user_id = ?', (room_id, user_id), one=True))
+
+
+def join_chat_room(room_id, user_id):
+    r = query_db('SELECT * FROM chat_rooms WHERE id = ? AND status = ?', (room_id, 'active'), one=True)
+    if not r:
+        return None, '房间不存在'
+    if not r['is_public']:
+        return None, '私有房间仅限受邀请成员'
+    execute_db('INSERT OR IGNORE INTO chat_members (room_id, user_id) VALUES (?,?)', (room_id, user_id))
+    return True, None
+
+
+def leave_chat_room(room_id, user_id):
+    r = query_db('SELECT created_by FROM chat_rooms WHERE id = ?', (room_id,), one=True)
+    if r and r['created_by'] == user_id:
+        return None, '房主不能退出，可转让或关闭房间'
+    execute_db('DELETE FROM chat_members WHERE room_id = ? AND user_id = ?', (room_id, user_id))
+    return True, None
+
+
+def chat_room_members(room_id):
+    return query_db('''
+        SELECT cm.user_id, cm.role, cm.joined_at, u.username, u.avatar
+        FROM chat_members cm JOIN users u ON u.id = cm.user_id
+        WHERE cm.room_id = ? ORDER BY cm.joined_at ASC''', (room_id,))
+
+
+def add_chat_member(room_id, user_id, operator):
+    """房主或管理员添加成员（私有房间唯一入房途径）。"""
+    r = query_db('SELECT created_by FROM chat_rooms WHERE id = ?', (room_id,), one=True)
+    if not r:
+        return None, '房间不存在'
+    if r['created_by'] != operator['id'] and operator['role'] != 'admin':
+        return None, '仅房主或管理员可添加成员'
+    execute_db('INSERT OR IGNORE INTO chat_members (room_id, user_id) VALUES (?,?)', (room_id, user_id))
+    return True, None
+
+
+def parse_mentions(content):
+    """从消息中解析 @用户名 → 已存在用户的 id 列表（去重，int）。"""
+    names = re.findall(r'@([\w\u4e00-\u9fa5]{1,20})', content or '')
+    ids = []
+    for n in names:
+        row = query_db('SELECT id FROM users WHERE username = ?', (n,), one=True)
+        if row:
+            uid = int(row['id'])
+            if uid not in ids:
+                ids.append(uid)
+    return ids
+
+
+def send_chat_message(room_id, sender_id, content):
+    content = (content or '').strip()
+    if not content:
+        return None, '消息不能为空'
+    if len(content) > 1000:
+        return None, '消息过长（≤1000字）'
+    if not is_room_member(room_id, sender_id):
+        return None, '请先加入房间'
+    import json as _json
+    mentions = parse_mentions(content)
+    mid = execute_db(
+        'INSERT INTO chat_messages (room_id, sender_id, content, mentions) VALUES (?,?,?,?)',
+        (room_id, sender_id, content, _json.dumps(mentions)))
+    # @提及通知
+    sender = query_db('SELECT username FROM users WHERE id = ?', (sender_id,), one=True)
+    room = query_db('SELECT name FROM chat_rooms WHERE id = ?', (room_id,), one=True)
+    for uid in mentions:
+        if uid != sender_id:
+            try:
+                from app.models import create_notification
+                create_notification(uid, sender_id, 'mention',
+                                    f"{sender['username']} 在聊天室「{room['name']}」提到了你", f'/chat?room={room_id}')
+            except Exception:
+                pass
+    return mid, None
+
+
+def get_chat_messages(room_id, after_id=0, limit=50):
+    """增量拉取：after_id>0 时取其后消息（轮询），否则取最新 limit 条（升序返回）。"""
+    if after_id:
+        return query_db('''
+            SELECT m.id, m.room_id, m.sender_id, m.content, m.mentions, m.is_deleted, m.created_at,
+                   u.username AS sender_name, u.avatar AS sender_avatar
+            FROM chat_messages m JOIN users u ON u.id = m.sender_id
+            WHERE m.room_id = ? AND m.id > ?
+            ORDER BY m.id ASC LIMIT ?''', (room_id, after_id, limit))
+    rows = query_db('''
+        SELECT m.id, m.room_id, m.sender_id, m.content, m.mentions, m.is_deleted, m.created_at,
+               u.username AS sender_name, u.avatar AS sender_avatar
+        FROM chat_messages m JOIN users u ON u.id = m.sender_id
+        WHERE m.room_id = ?
+        ORDER BY m.id DESC LIMIT ?''', (room_id, limit))
+    return list(reversed(rows))
+
+
+def delete_chat_message(msg_id, user_id, is_admin=False):
+    m = query_db('SELECT * FROM chat_messages WHERE id = ?', (msg_id,), one=True)
+    if not m:
+        return None, '消息不存在'
+    if m['sender_id'] != user_id and not is_admin:
+        return None, '只能撤回自己的消息'
+    execute_db('UPDATE chat_messages SET is_deleted = 1, content = ? WHERE id = ?', ('', msg_id))
+    return True, None
 
 
 def create_report(reporter_id, target_type, target_id, reason='', detail='', evidence=None):

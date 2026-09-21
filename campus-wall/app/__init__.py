@@ -54,7 +54,7 @@ def create_app():
     from app.routes.extended import (
         identity_bp, checkin_bp, shop_bp, romance_bp, gossip_bp,
         trade_bp, kanban_bp, recommend_bp, admin_bp,
-        favorites_bp, reports_bp, announcements_bp, world_bp, site_bp, topics_bp, tasks_bp, user_bp
+        favorites_bp, reports_bp, announcements_bp, world_bp, site_bp, topics_bp, tasks_bp, user_bp, chat_bp, chat_bp
     )
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -79,6 +79,7 @@ def create_app():
     app.register_blueprint(topics_bp)
     app.register_blueprint(tasks_bp)
     app.register_blueprint(user_bp, url_prefix='/api/user')
+    app.register_blueprint(chat_bp, url_prefix='/api/chat')
     app.register_blueprint(pages_bp)
 
     @app.errorhandler(404)

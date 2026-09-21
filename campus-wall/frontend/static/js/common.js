@@ -34,6 +34,7 @@
             <li><a href="/waterfall" id="navWaterfall"><i data-lucide="layout-grid" class="icon nav-icon"></i> 瀑布流</a></li>
             <li><a href="/forum" id="navForum"><i data-lucide="messages-square" class="icon nav-icon"></i> 论坛</a></li>
             <li><a href="/tasks" id="navTasks"><i data-lucide="target" class="icon nav-icon"></i> 任务</a></li>
+            <li><a href="/chat" id="navChat"><i data-lucide="message-square" class="icon nav-icon"></i> 聊天室</a></li>
             <li><a href="/world" id="navWorld"><i data-lucide="network" class="icon nav-icon"></i> 角色图</a></li>
             <li><a href="/expose" id="navExpose"><i data-lucide="megaphone" class="icon nav-icon"></i> 爆料</a></li>
             <li><a href="/trade" id="navTrade"><i data-lucide="shopping-bag" class="icon nav-icon"></i> 交易</a></li>
@@ -375,7 +376,7 @@
     const navMap = {
       '/': 'navHome', '/waterfall': 'navWaterfall', '/trade': 'navTrade',
       '/romance': 'navRomance', '/gossip': 'navGossip', '/shop': 'navShop', '/search': 'navSearch',
-      '/world': 'navWorld', '/forum': 'navForum', '/expose': 'navExpose', '/tasks': 'navTasks'
+      '/world': 'navWorld', '/forum': 'navForum', '/expose': 'navExpose', '/tasks': 'navTasks', '/chat': 'navChat'
     };
     const activeId = navMap[path];
     if (activeId) {

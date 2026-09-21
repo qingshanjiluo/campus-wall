@@ -33,6 +33,9 @@ from app.models_ext import (
     submit_task, get_claim_by_id, review_task_claim, get_my_claims, get_task_claims,
     get_submitted_claims, get_all_tasks_admin, spend_points,
     visitor_mode_open,
+    create_chat_room, get_chat_room, list_chat_rooms, join_chat_room, leave_chat_room,
+    chat_room_members, add_chat_member, send_chat_message, get_chat_messages,
+    delete_chat_message, is_room_member,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
 from app.models import shape_post, is_liked_batch
@@ -1115,3 +1118,144 @@ def user_settings_put():
     data = request.get_json(silent=True) or {}
     save_user_settings(g.current_user['id'], **data)
     return jsonify({'message': '已保存', **get_user_settings(g.current_user['id'])})
+
+
+# ══════════════════════════════════════════════
+# 聊天室（R10）：房间 / 成员 / 消息（@提及、撤回）
+# ══════════════════════════════════════════════
+
+chat_bp = Blueprint('chat', __name__, url_prefix='/api/chat')
+
+
+@chat_bp.route('/rooms', methods=['GET'])
+@optional_auth
+def chat_rooms_list():
+    uid = g.current_user['id'] if g.current_user else None
+    return jsonify(list_chat_rooms(uid))
+
+
+@chat_bp.route('/rooms', methods=['POST'])
+@token_required
+def chat_rooms_create():
+    data = request.get_json(silent=True) or {}
+    rid = create_chat_room(
+        data.get('name'), data.get('description', ''), data.get('icon', 'message-square'),
+        0 if data.get('is_private') else 1, g.current_user['id'])
+    if not rid:
+        return jsonify({'error': '房间名不能为空或过长（≤40字）'}), 400
+    return jsonify({'id': rid, 'message': '房间已创建'})
+
+
+def _chat_room_or_404(room_id):
+    room = get_chat_room(room_id)
+    if not room:
+        return None, (jsonify({'error': '房间不存在'}), 404)
+    return room, None
+
+
+@chat_bp.route('/rooms/<int:rid>', methods=['GET'])
+@optional_auth
+def chat_room_detail(rid):
+    room, err = _chat_room_or_404(rid)
+    if err:
+        return err
+    room['is_member'] = bool(g.current_user and is_room_member(rid, g.current_user['id']))
+    return jsonify(room)
+
+
+@chat_bp.route('/rooms/<int:rid>/join', methods=['POST'])
+@token_required
+def chat_room_join(rid):
+    ok, err = join_chat_room(rid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '已加入房间'})
+
+
+@chat_bp.route('/rooms/<int:rid>/leave', methods=['POST'])
+@token_required
+def chat_room_leave(rid):
+    ok, err = leave_chat_room(rid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '已退出'})
+
+
+@chat_bp.route('/rooms/<int:rid>/members', methods=['GET'])
+@optional_auth
+def chat_room_members_list(rid):
+    room, err = _chat_room_or_404(rid)
+    if err:
+        return err
+    return jsonify(chat_room_members(rid))
+
+
+@chat_bp.route('/rooms/<int:rid>/members', methods=['POST'])
+@token_required
+def chat_room_member_add(rid):
+    data = request.get_json(silent=True) or {}
+    uid = data.get('user_id')
+    if not uid:
+        return jsonify({'error': '缺少 user_id'}), 400
+    ok, err = add_chat_member(rid, int(uid), g.current_user)
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '已添加成员'})
+
+
+@chat_bp.route('/rooms/<int:rid>/messages', methods=['GET'])
+@optional_auth
+def chat_messages_get(rid):
+    gate = _visitor_gate_401()
+    if gate:
+        return gate
+    room, err = _chat_room_or_404(rid)
+    if err:
+        return err
+    if room['is_public'] == 0 and not (g.current_user and is_room_member(rid, g.current_user['id'])):
+        return jsonify({'error': '私有房间仅成员可读'}), 403
+    after_id = request.args.get('after_id', 0, type=int)
+    limit = min(request.args.get('limit', 50, type=int) or 50, 100)
+    msgs = get_chat_messages(rid, after_id, limit)
+    import json as _json
+    for m in msgs:
+        try:
+            m['mentions'] = _json.loads(m.get('mentions') or '[]')
+        except (ValueError, TypeError):
+            m['mentions'] = []
+    return jsonify(msgs)
+
+
+@chat_bp.route('/rooms/<int:rid>/messages', methods=['POST'])
+@token_required
+def chat_messages_send(rid):
+    room, err = _chat_room_or_404(rid)
+    if err:
+        return err
+    if room['is_public'] == 0 and not is_room_member(rid, g.current_user['id']):
+        return jsonify({'error': '私有房间仅成员可发言'}), 403
+    data = request.get_json(silent=True) or {}
+    content = data.get('content', '')
+    if scan_text(content) == 'block':
+        return jsonify({'error': '消息包含违规信息'}), 400
+    mid, merr = send_chat_message(rid, g.current_user['id'], content)
+    if merr:
+        return jsonify({'error': merr}), 400
+    msgs = get_chat_messages(rid, mid - 1, 1)
+    msg = msgs[0] if msgs else None
+    if msg:
+        import json as _json
+        try:
+            msg['mentions'] = _json.loads(msg.get('mentions') or '[]')
+        except (ValueError, TypeError):
+            msg['mentions'] = []
+    return jsonify({'message': '已发送', 'msg': msg}), 201
+
+
+@chat_bp.route('/messages/<int:mid>', methods=['DELETE'])
+@token_required
+def chat_message_delete(mid):
+    ok, err = delete_chat_message(mid, g.current_user['id'], g.current_user['role'] == 'admin')
+    if err:
+        return jsonify({'error': err}), 403 if '只能撤回' in err else 404
+    return jsonify({'message': '已撤回'})
