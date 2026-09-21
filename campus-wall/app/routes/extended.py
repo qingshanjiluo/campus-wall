@@ -36,6 +36,8 @@ from app.models_ext import (
     create_chat_room, get_chat_room, list_chat_rooms, join_chat_room, leave_chat_room,
     chat_room_members, add_chat_member, send_chat_message, get_chat_messages,
     delete_chat_message, is_room_member,
+    create_event, list_events, get_event, register_event, cancel_event_registration,
+    checkin_event, close_event,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
 from app.models import shape_post, is_liked_batch
@@ -1259,3 +1261,82 @@ def chat_message_delete(mid):
     if err:
         return jsonify({'error': err}), 403 if '只能撤回' in err else 404
     return jsonify({'message': '已撤回'})
+
+
+# ══════════════════════════════════════════════
+# 活动系统（R11）：发布 / 报名 / 打卡
+# ══════════════════════════════════════════════
+
+events_bp = Blueprint('events', __name__, url_prefix='/api/events')
+
+
+@events_bp.route('', methods=['GET'])
+@optional_auth
+def events_list():
+    gate = _visitor_gate_401()
+    if gate:
+        return gate
+    uid = g.current_user['id'] if g.current_user else None
+    return jsonify(list_events(uid))
+
+
+@events_bp.route('', methods=['POST'])
+@token_required
+def events_create():
+    data = request.get_json(silent=True) or {}
+    eid = create_event(
+        data.get('title'), data.get('description', ''), data.get('location', ''),
+        data.get('event_date', ''), data.get('capacity', 0), data.get('reward_coins', 0),
+        g.current_user['id'])
+    if not eid:
+        return jsonify({'error': '标题必填（≤80字）且活动日期格式为 YYYY-MM-DD'}), 400
+    return jsonify({'id': eid, 'message': '活动已发布'})
+
+
+@events_bp.route('/<int:eid>', methods=['GET'])
+@optional_auth
+def events_detail(eid):
+    e = get_event(eid)
+    if not e:
+        return jsonify({'error': '活动不存在'}), 404
+    if g.current_user:
+        reg = next((r for r in e['registrations'] if r['user_id'] == g.current_user['id']), None)
+        e['my_registered'] = bool(reg)
+        e['my_checked_in'] = bool(reg and reg['checked_in'])
+    return jsonify(e)
+
+
+@events_bp.route('/<int:eid>/register', methods=['POST'])
+@token_required
+def events_register(eid):
+    ok, err = register_event(eid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '报名成功'})
+
+
+@events_bp.route('/<int:eid>/cancel', methods=['POST'])
+@token_required
+def events_cancel(eid):
+    ok, err = cancel_event_registration(eid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': '已取消报名'})
+
+
+@events_bp.route('/<int:eid>/checkin', methods=['POST'])
+@token_required
+def events_checkin(eid):
+    res, err = checkin_event(eid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': f"打卡成功 {res['reward']}", 'reward': res['reward']})
+
+
+@admin_bp.route('/events/<int:eid>/close', methods=['POST'])
+@token_required
+@admin_required
+def admin_event_close(eid):
+    close_event(eid)
+    admin_log(g.current_user['id'], 'close_event', 'event', eid)
+    return jsonify({'message': '已关闭'})

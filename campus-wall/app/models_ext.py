@@ -364,6 +364,48 @@ def init_extended_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_chat_msgs_room ON chat_messages(room_id, id)")
 
+    # ── 活动系统（R11）：发布 / 报名 / 打卡 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        location TEXT DEFAULT '',
+        event_date TEXT NOT NULL,
+        capacity INTEGER DEFAULT 0,
+        reward_coins INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS event_registrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER NOT NULL REFERENCES events(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        checked_in INTEGER DEFAULT 0,
+        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        checked_in_at TIMESTAMP,
+        UNIQUE(event_id, user_id)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_event_reg_event ON event_registrations(event_id)")
+
+    # ── 暗阁完整版（R11）：付费内容 + 推流加权 ──
+    c.execute('''CREATE TABLE IF NOT EXISTS content_unlocks (
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        post_id INTEGER NOT NULL REFERENCES posts(id),
+        creator_id INTEGER NOT NULL,
+        points INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, post_id)
+    )''')
+    for col, coltype, default in [
+        ('pay_points', 'INTEGER', '0'),
+        ('boosted_until', "TEXT", "''"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE posts ADD COLUMN {col} {coltype} DEFAULT {default}")
+        except sqlite3.OperationalError:
+            pass
+
     # ── 私信 ──
     init_dm_tables(c)
 
@@ -802,6 +844,7 @@ def get_recommended_posts(user_id=None, limit=20, offset=0, station_id=None):
         JOIN stations s ON p.station_id = s.id
         WHERE {where}
         ORDER BY
+            CASE WHEN p.boosted_until >= datetime('now') THEN 1 ELSE 0 END DESC,
             p.is_pinned DESC,
             (p.likes_count * 3 + p.comments_count * 5 + p.views * 0.1) * 0.6
             + (JULIANDAY('now') - JULIANDAY(p.created_at)) * (-0.4)
@@ -1755,3 +1798,142 @@ def get_all_tasks_admin(limit=100):
     return query_db('''
         SELECT t.*, (SELECT COUNT(*) FROM task_claims tc WHERE tc.task_id = t.id) AS claim_count
         FROM tasks t ORDER BY t.created_at DESC LIMIT ?''', (limit,))
+
+
+# ══════════════════════════════════════════════
+# 活动系统（R11）：发布 / 报名 / 打卡
+# ══════════════════════════════════════════════
+
+def create_event(title, description='', location='', event_date='', capacity=0,
+                 reward_coins=0, created_by=None):
+    title = (title or '').strip()
+    if not title or len(title) > 80:
+        return None
+    import re as _re
+    if not _re.match(r'^\d{4}-\d{2}-\d{2}$', event_date or ''):
+        return None
+    return execute_db(
+        'INSERT INTO events (title, description, location, event_date, capacity, reward_coins, created_by) '
+        'VALUES (?,?,?,?,?,?,?)',
+        (title, (description or '').strip()[:500], (location or '').strip()[:120],
+         event_date, max(int(capacity or 0), 0), max(int(reward_coins or 0), 0), created_by))
+
+
+def list_events(user_id=None, limit=50):
+    my_sel = ''',
+               (SELECT 1 FROM event_registrations er WHERE er.event_id = e.id AND er.user_id = ?) AS my_registered,
+               (SELECT er.checked_in FROM event_registrations er2 WHERE er2.event_id = e.id AND er2.user_id = ?) AS my_checked_in'''
+    args = [user_id, user_id] if user_id else []
+    my_sel = my_sel if user_id else ''',
+               0 AS my_registered, 0 AS my_checked_in'''
+    return query_db(f'''
+        SELECT e.*, u.username AS creator_name,
+               (SELECT COUNT(*) FROM event_registrations er WHERE er.event_id = e.id) AS registered_count{my_sel}
+        FROM events e LEFT JOIN users u ON u.id = e.created_by
+        WHERE e.status = 'active'
+        ORDER BY e.event_date ASC LIMIT ?''', args + [limit])
+
+
+def get_event(event_id):
+    e = query_db('''
+        SELECT e.*, u.username AS creator_name,
+               (SELECT COUNT(*) FROM event_registrations er WHERE er.event_id = e.id) AS registered_count
+        FROM events e LEFT JOIN users u ON u.id = e.created_by
+        WHERE e.id = ?''', (event_id,), one=True)
+    if not e:
+        return None
+    e['registrations'] = query_db('''
+        SELECT er.user_id, er.checked_in, er.registered_at, u.username
+        FROM event_registrations er JOIN users u ON u.id = er.user_id
+        WHERE er.event_id = ? ORDER BY er.registered_at ASC''', (event_id,))
+    return e
+
+
+def register_event(event_id, user_id):
+    e = query_db("SELECT * FROM events WHERE id = ? AND status = 'active'", (event_id,), one=True)
+    if not e:
+        return None, '活动不存在或已结束'
+    if query_db('SELECT 1 FROM event_registrations WHERE event_id = ? AND user_id = ?', (event_id, user_id), one=True):
+        return None, '你已报名该活动'
+    if e['capacity']:
+        n = query_db('SELECT COUNT(*) AS n FROM event_registrations WHERE event_id = ?', (event_id,), one=True)['n']
+        if n >= e['capacity']:
+            return None, '报名名额已满'
+    execute_db('INSERT INTO event_registrations (event_id, user_id) VALUES (?,?)', (event_id, user_id))
+    return True, None
+
+
+def cancel_event_registration(event_id, user_id):
+    row = query_db('SELECT checked_in FROM event_registrations WHERE event_id = ? AND user_id = ?',
+                   (event_id, user_id), one=True)
+    if not row:
+        return None, '你尚未报名该活动'
+    if row['checked_in']:
+        return None, '已打卡，不可取消'
+    execute_db('DELETE FROM event_registrations WHERE event_id = ? AND user_id = ?', (event_id, user_id))
+    return True, None
+
+
+def checkin_event(event_id, user_id):
+    """活动打卡：需已报名、活动当天（或已过）、未重复打卡；发放奖励金币。"""
+    e = query_db('SELECT * FROM events WHERE id = ?', (event_id,), one=True)
+    row = query_db('SELECT * FROM event_registrations WHERE event_id = ? AND user_id = ?',
+                   (event_id, user_id), one=True)
+    if not e or not row:
+        return None, '请先报名该活动'
+    if row['checked_in']:
+        return None, '已打卡过，请勿重复操作'
+    import datetime as _dt
+    today = _dt.date.today().isoformat()
+    if e['event_date'] > today:
+        return None, '活动尚未开始，无法打卡'
+    execute_db('UPDATE event_registrations SET checked_in = 1, checked_in_at = CURRENT_TIMESTAMP '
+               'WHERE event_id = ? AND user_id = ?', (event_id, user_id))
+    reward = ''
+    if e['reward_coins']:
+        add_coin_transaction(user_id, e['reward_coins'], 'task', f"活动打卡：{e['title']}", 'event', event_id)
+        reward = f"+{e['reward_coins']} 金币"
+    return {'reward': reward or '打卡成功'}, None
+
+
+def close_event(event_id):
+    execute_db("UPDATE events SET status = 'closed' WHERE id = ?", (event_id,))
+    return True
+
+
+# ══════════════════════════════════════════════
+# 暗阁（R11）：付费内容解锁 + 积分推流
+# ══════════════════════════════════════════════
+
+def has_unlocked_post(user_id, post_id):
+    return bool(query_db('SELECT 1 FROM content_unlocks WHERE user_id = ? AND post_id = ?',
+                         (user_id, post_id), one=True))
+
+
+def unlock_post(user_id, post):
+    """购买解锁：买家付积分，作者收款。"""
+    pay = int(post.get('pay_points') or 0)
+    if pay <= 0:
+        return None, '该内容无需解锁'
+    buyer = query_db('SELECT points FROM users WHERE id = ?', (user_id,), one=True)
+    if (buyer['points'] or 0) < pay:
+        return None, '积分不足，无法解锁'
+    new_pts = (buyer['points'] or 0) - pay
+    execute_db('UPDATE users SET points = ? WHERE id = ?', (new_pts, user_id))
+    author = query_db('SELECT points FROM users WHERE id = ?', (post['author_id'],), one=True)
+    execute_db('UPDATE users SET points = ? WHERE id = ?',
+               ((author['points'] or 0) + pay, post['author_id']))
+    execute_db('INSERT OR IGNORE INTO content_unlocks (user_id, post_id, creator_id, points) VALUES (?,?,?,?)',
+               (user_id, post['id'], post['author_id'], pay))
+    return {'paid': pay}, None
+
+
+def boost_post(post_id, user_id, days):
+    """推流：作者花积分把帖子在推荐流置前 N 天。10 积分/天，1-7 天。"""
+    days = max(1, min(int(days or 0), 7))
+    cost = days * 10
+    if not spend_points(user_id, cost, ref_type='boost', ref_id=post_id):
+        return None, '积分不足（推流 10 积分/天）'
+    execute_db("UPDATE posts SET boosted_until = datetime('now', ?) WHERE id = ?",
+               (f'+{days} days', post_id))
+    return {'days': days, 'cost': cost}, None

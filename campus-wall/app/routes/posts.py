@@ -179,6 +179,13 @@ def create():
     if not pid:
         return jsonify({'error': '发帖失败'}), 500
 
+    # 付费内容（R11 暗阁）：0-999 积分，爆料帖不可付费
+    pay_points = data.get('pay_points')
+    if isinstance(pay_points, (int, float)) and not is_expose:
+        pay_points = max(0, min(int(pay_points), 999))
+        if pay_points > 0:
+            execute_db('UPDATE posts SET pay_points = ? WHERE id = ?', (pay_points, pid))
+
     # 话题：清洗→敏感词 block 拒→挂载（上限 5 个，编辑即替换）
     topics = normalize_topics(data.get('topics') if isinstance(data.get('topics'), list) else [])
     if topics:
@@ -268,6 +275,39 @@ def delete(pid):
     delete_post(pid)
     execute_db('DELETE FROM post_topics WHERE post_id = ?', (pid,))
     return jsonify({'message': '已删除'})
+
+
+@posts_bp.route('/<int:pid>/unlock', methods=['POST'])
+@token_required
+def unlock_post_route(pid):
+    """付费内容解锁（R11 暗阁）：买家付积分，作者收款。"""
+    from app.models_ext import unlock_post
+    post = get_post_by_id(pid)
+    if not post or post['is_deleted']:
+        return jsonify({'error': '帖子不存在'}), 404
+    if post['author_id'] == g.current_user['id']:
+        return jsonify({'error': '自己的帖子无需解锁'}), 400
+    res, err = unlock_post(g.current_user['id'], post)
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': f"已解锁，消耗 {res['paid']} 积分"})
+
+
+@posts_bp.route('/<int:pid>/boost', methods=['POST'])
+@token_required
+def boost_post_route(pid):
+    """积分推流（R11 暗阁）：作者花 10 积分/天置前推荐流 1-7 天。"""
+    from app.models_ext import boost_post
+    post = get_post_by_id(pid)
+    if not post or post['is_deleted']:
+        return jsonify({'error': '帖子不存在'}), 404
+    if post['author_id'] != g.current_user['id'] and g.current_user['role'] != 'admin':
+        return jsonify({'error': '仅作者可推流自己的帖子'}), 403
+    data = request.get_json(silent=True) or {}
+    res, err = boost_post(pid, g.current_user['id'], data.get('days', 1))
+    if err:
+        return jsonify({'error': err}), 400
+    return jsonify({'message': f"已推流 {res['days']} 天（消耗 {res['cost']} 积分）", **res})
 
 
 @posts_bp.route('/<int:pid>/like', methods=['POST'])

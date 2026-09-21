@@ -2,7 +2,7 @@
 # Usage: powershell -File tools/e2e_live.ps1 [-BaseUrl https://campus-wall-673.pages.dev]
 param(
   [string]$BaseUrl = "https://campus-wall-673.pages.dev",
-  [string]$Suffix  = (Get-Random -Maximum 99999)
+  [string]$Suffix  = (Get-Random -Maximum 9999999)
 )
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -454,6 +454,64 @@ Step "chat room flow" {
   $msgs2 = Api GET "/api/chat/rooms/$($room.id)/messages?after_id=0" $null $tk
   $rec = @($msgs2 | Where-Object { $_.id -eq $mid })[0]
   Assert($rec.is_deleted -eq 1) "recall not blanked" }
+Step "events register + checkin" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  $today = (Get-Date).ToString('yyyy-MM-dd')
+  $ev = Api POST "/api/events" @{title="e2e event $Suffix"; description="d"; location="hall"; event_date=$today; capacity=1; reward_coins=5} $tk
+  Assert($ev.id) "event create failed"
+  # capacity=1: user occupies the seat first, then admin is rejected
+  Api POST "/api/events/$($ev.id)/register" @{} $tk | Out-Null
+  $capBlocked = $false
+  try { Api POST "/api/events/$($ev.id)/register" @{} $atk } catch { $capBlocked = ((BadCode $_) -eq 400) }
+  Assert($capBlocked) "event capacity not enforced"
+  # user gives up the seat, re-registers for checkin flow
+  Api POST "/api/events/$($ev.id)/cancel" @{} $tk | Out-Null
+  Api POST "/api/events/$($ev.id)/register" @{} $tk | Out-Null
+  $c0 = (Api GET "/api/shop/coins" $null $tk).coins
+  $chk = Api POST "/api/events/$($ev.id)/checkin" @{} $tk
+  Assert("$($chk.reward)" -like "*5*") "checkin reward missing"
+  $c1 = (Api GET "/api/shop/coins" $null $tk).coins
+  Assert($c1 - $c0 -eq 5) "checkin coins mismatch"
+  $dupCheckin = $false
+  try { Api POST "/api/events/$($ev.id)/checkin" @{} $tk } catch { $dupCheckin = ((BadCode $_) -eq 400) }
+  Assert($dupCheckin) "double checkin not rejected" }
+Step "paid content unlock" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  $myId = (Api GET "/api/auth/me" $null $tk).id
+  Api PUT "/api/admin/users/$myId" @{points=500} $atk | Out-Null
+  $np = Api POST "/api/posts" @{station_id=1; title="e2e paid $Suffix"; content="SECRET-PAYWALLED-BODY"; pay_points=20} $tk
+  $npid = $np.post.id; if (-not $npid) { $npid = $np.post_id }
+  Assert($npid) "paid post create failed"
+  # third-party viewer sees teaser only (admin bypasses by design for moderation)
+  $vd = "viewer$Suffix"
+  Api POST "/api/auth/register" @{username=$vd; email="$vd@t.dev"; password="pass1234"} | Out-Null
+  $vtk = (Api POST "/api/auth/login" @{username=$vd; password="pass1234"}).token
+  $vid = (Api GET "/api/auth/me" $null $vtk).id
+  Api PUT "/api/admin/users/$vid" @{points=500} $atk | Out-Null
+  $view = Api GET "/api/posts/$npid" $null $vtk
+  Assert($view.locked -eq $true) "post not locked for other viewer"
+  Assert("$($view.content)".Length -le 35) "paid content leaked in teaser"
+  # unlock -> full content visible + creator got 20 points
+  Api POST "/api/posts/$npid/unlock" @{} $vtk | Out-Null
+  $view2 = Api GET "/api/posts/$npid" $null $vtk
+  Assert($view2.locked -eq $false) "post still locked after unlock"
+  Assert("$($view2.content)" -like "*SECRET-PAYWALLED-BODY*") "full content missing after unlock"
+  $pts = (Api GET "/api/shop/coins" $null $tk).points
+  Assert($pts -ge 20) "creator did not receive unlock points" }
+Step "boost recommend feed" {
+  Assert($tk) "no token (earlier steps failed)"
+  $np2 = Api POST "/api/posts" @{station_id=1; title="e2e boost $Suffix"; content="boost me"} $tk
+  $npid2 = $np2.post.id; if (-not $npid2) { $npid2 = $np2.post_id }
+  Assert($npid2) "boost post create failed"
+  Api POST "/api/posts/$npid2/boost" @{days=1} $tk | Out-Null
+  $feed = @(Api GET "/api/recommend/posts?limit=50")
+  $pos = -1; $nonpinnedBefore = 0
+  for ($i = 0; $i -lt $feed.Count; $i++) {
+    if ($feed[$i].id -eq $npid2) { $pos = $i; break }
+    if (-not $feed[$i].is_pinned) { $nonpinnedBefore++ }
+  }
+  Assert($pos -ge 0) "boosted post missing from recommend feed"
+  Assert($nonpinnedBefore -eq 0) "boosted post not at front of non-pinned feed" }
 Step "expose create + review + anon" {
   Assert($tk) "no token (earlier steps failed)"
   $ep = Api POST "/api/posts" @{title="e2e_ex$Suffix"; content="expose body"; post_type="expose"} $tk

@@ -74,6 +74,26 @@ function loadPost() {
     });
 }
 
+// 付费内容解锁（R11 暗阁）
+function unlockPost(pid) {
+    if (!requireAuth()) return;
+    if (!confirm('确认支付积分解锁全文？')) return;
+    api.post('/api/posts/' + pid + '/unlock', {}).then(() => {
+        showToast('已解锁', 'success');
+        loadPost();
+    }).catch(err => showToast(err.message || '解锁失败', 'error'));
+}
+
+// 积分推流（R11 暗阁）：作者把帖子在推荐流置前
+function boostMyPost(pid) {
+    if (!requireAuth()) return;
+    const days = prompt('推流几天？（1-7 天，10 积分/天）', '1');
+    if (!days) return;
+    api.post('/api/posts/' + pid + '/boost', { days: parseInt(days, 10) }).then(res => {
+        showToast(res.message || '推流成功', 'success');
+    }).catch(err => showToast(err.message || '推流失败', 'error'));
+}
+
 function loadRelated(stationId, currentPostId) {
     const list = document.getElementById('relatedList');
     let url = '/api/posts?limit=5&sort=popular';
@@ -137,6 +157,7 @@ function renderPostDetail(p) {
         actionBtns = `
             <button class="btn btn-sm btn-ghost" onclick="openEditPost(${p.id})" title="编辑"><i data-lucide="pencil" class="icon icon-sm"></i></button>
             <button class="btn btn-sm btn-ghost" onclick="showEditHistory(${p.id})" title="编辑历史"><i data-lucide="history" class="icon icon-sm"></i></button>
+            <button class="btn btn-sm btn-ghost" onclick="boostMyPost(${p.id})" title="积分推流：推荐流置前"><i data-lucide="rocket" class="icon icon-sm"></i></button>
             <button class="btn btn-sm btn-ghost" onclick="deletePost(${p.id})" title="删除" style="color:var(--text-muted);"><i data-lucide="trash-2" class="icon icon-sm"></i></button>
         `;
     }
@@ -163,6 +184,11 @@ function renderPostDetail(p) {
             <h1 style="font-family:'ZCOOL KuaiLe',cursive;font-size:1.5rem;margin-bottom:12px;line-height:1.4;">${escHtml(p.title)}</h1>
             ${(p.topics && p.topics.length) ? '<div class="post-topics">' + p.topics.map(t => '<a class="topic-chip" href="/search?topic=' + encodeURIComponent(t) + '"># ' + escHtml(t) + '</a>').join('') + '</div>' : ''}
             <div class="post-content full" style="margin-bottom:16px;word-break:break-word;">${renderContent(p.content, true)}</div>
+            ${p.locked ? `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:var(--pink-1);margin-bottom:16px;">
+                <i data-lucide="lock" class="icon" style="color:var(--pink-4);"></i>
+                <span style="flex:1;font-size:0.9rem;color:var(--text-secondary);">付费内容 · 支付 <b style="color:var(--pink-4);">${p.pay_points}</b> 积分解锁全文（收入归作者）</span>
+                <button class="btn btn-primary btn-sm" onclick="unlockPost(${p.id})"><i data-lucide="unlock" class="icon icon-sm"></i> 解锁</button>
+            </div>` : ''}
             ${renderPostGallery(p)}
             ${p.post_type === 'vote' && p.vote_options ? renderVoteSection(p) : ''}
             <div class="post-actions">

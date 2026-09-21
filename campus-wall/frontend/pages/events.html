@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活动 · 校园墙</title>
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/icons.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/modal.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/animations.js"></script>
+    <script src="/static/js/app.js"></script>
+</head>
+<body>
+<div id="app-root">
+    <main id="page-main">
+        <div class="section" style="padding-top:100px;">
+    <div class="container" style="max-width:860px;">
+        <div class="section-header reveal">
+            <h2 class="chapter-title"><i data-lucide="calendar-days" class="icon"></i> 校园活动</h2>
+            <p class="chapter-sub">发布 · 报名 · 到场打卡领金币</p>
+        </div>
+
+        <div class="reveal" style="margin-bottom:16px;text-align:right;">
+            <button class="btn btn-primary btn-sm" onclick="toggleEventForm()"><i data-lucide="plus" class="icon icon-sm"></i> 发布活动</button>
+        </div>
+
+        <div id="eventForm" class="speech-bubble reveal" style="display:none;margin-bottom:18px;">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <div style="flex:2;min-width:180px;"><label class="form-label">活动标题 *</label>
+                    <input class="input" id="evTitle" maxlength="80" placeholder="如：周末操场夜跑局"></div>
+                <div style="width:150px;"><label class="form-label">日期 *</label>
+                    <input class="input" type="date" id="evDate"></div>
+                <div style="flex:1;min-width:120px;"><label class="form-label">地点</label>
+                    <input class="input" id="evLoc" maxlength="120" placeholder="东操场"></div>
+                <div style="width:110px;"><label class="form-label">名额(0不限)</label>
+                    <input class="input" type="number" id="evCap" value="0" min="0"></div>
+                <div style="width:110px;"><label class="form-label">打卡金币</label>
+                    <input class="input" type="number" id="evReward" value="10" min="0"></div>
+            </div>
+            <textarea class="input" id="evDesc" rows="2" maxlength="500" placeholder="活动详情…" style="margin-top:8px;"></textarea>
+            <div style="text-align:right;margin-top:8px;">
+                <button class="btn btn-primary btn-sm" onclick="createEvent()"><i data-lucide="check" class="icon icon-sm"></i> 发布</button>
+            </div>
+        </div>
+
+        <div id="eventList"><div class="loading">加载中</div></div>
+    </div>
+</div>
+    </main>
+</div>
+<script>
+onUserReady(function () { loadEvents(); });
+
+function toggleEventForm() {
+    if (!requireAuth()) return;
+    const f = document.getElementById('eventForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+function loadEvents() {
+    api.get('/api/events').then(list => {
+        const box = document.getElementById('eventList');
+        if (!list.length) { box.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="calendar-days" class="icon icon-lg"></i></div><div class="text">暂无活动，发布一场吧</div></div>'; return; }
+        box.innerHTML = list.map(e => {
+            const quota = e.capacity ? `${e.registered_count}/${e.capacity}` : `${e.registered_count}`;
+            let btn = '';
+            if (!currentUser) btn = '<button class="btn btn-sm" onclick="requireAuth()">登录后报名</button>';
+            else if (e.my_checked_in) btn = '<span style="font-size:0.8rem;color:var(--mint,#1c7c54);"><i data-lucide="check-circle-2" class="icon icon-sm"></i> 已打卡</span>';
+            else if (e.my_registered) {
+                const today = new Date().toISOString().slice(0, 10);
+                btn = (e.event_date <= today)
+                    ? `<button class="btn btn-primary btn-sm" onclick="checkinEvent(${e.id})"><i data-lucide="map-pin-check" class="icon icon-sm"></i> 到场打卡</button>`
+                    : `<span style="font-size:0.8rem;color:var(--text-muted);">已报名 · ${e.event_date} 开始</span> <button class="btn btn-sm" style="font-size:0.72rem;" onclick="cancelEvent(${e.id})">取消</button>`;
+            } else if (e.capacity && e.registered_count >= e.capacity) {
+                btn = '<span style="font-size:0.8rem;color:var(--text-muted);">名额已满</span>';
+            } else {
+                btn = `<button class="btn btn-primary btn-sm" onclick="registerEvent(${e.id})"><i data-lucide="pen-line" class="icon icon-sm"></i> 报名</button>`;
+            }
+            return `
+            <div class="post-card reveal" style="padding:16px 20px;margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <div style="text-align:center;background:var(--pink-1);border-radius:12px;padding:6px 12px;">
+                        <div style="font-weight:800;color:var(--pink-4);">${escHtml((e.event_date || '').slice(5))}</div>
+                    </div>
+                    <div style="flex:1;min-width:180px;">
+                        <div style="font-weight:700;font-size:1.02rem;">${escHtml(e.title)}</div>
+                        <div style="font-size:0.74rem;color:var(--text-muted);margin-top:2px;">
+                            <i data-lucide="map-pin" class="icon icon-sm"></i> ${escHtml(e.location || '待定')}
+                            · <i data-lucide="users" class="icon icon-sm"></i> ${quota}
+                            ${e.reward_coins ? '· <i data-lucide="coins" class="icon icon-sm"></i> 打卡 +' + e.reward_coins : ''}
+                        </div>
+                    </div>
+                    ${btn}
+                </div>
+                ${e.description ? '<div style="font-size:0.86rem;color:var(--text-secondary);margin-top:8px;line-height:1.6;">' + escHtml(e.description) + '</div>' : ''}
+            </div>`;
+        }).join('');
+        if (window.lucide) lucide.createIcons();
+    });
+}
+
+function createEvent() {
+    if (!requireAuth()) return;
+    api.post('/api/events', {
+        title: document.getElementById('evTitle').value.trim(),
+        description: document.getElementById('evDesc').value.trim(),
+        location: document.getElementById('evLoc').value.trim(),
+        event_date: document.getElementById('evDate').value,
+        capacity: parseInt(document.getElementById('evCap').value, 10) || 0,
+        reward_coins: parseInt(document.getElementById('evReward').value, 10) || 0
+    }).then(() => {
+        showToast('活动已发布', 'success');
+        document.getElementById('eventForm').style.display = 'none';
+        loadEvents();
+    }).catch(err => showToast(err.message || '发布失败', 'error'));
+}
+
+function registerEvent(id) {
+    if (!requireAuth()) return;
+    api.post('/api/events/' + id + '/register', {}).then(() => { showToast('报名成功', 'success'); loadEvents(); })
+        .catch(err => showToast(err.message || '报名失败', 'error'));
+}
+function cancelEvent(id) {
+    api.post('/api/events/' + id + '/cancel', {}).then(() => { showToast('已取消报名', 'info'); loadEvents(); })
+        .catch(err => showToast(err.message || '取消失败', 'error'));
+}
+function checkinEvent(id) {
+    api.post('/api/events/' + id + '/checkin', {}).then(res => { showToast(res.message || '打卡成功', 'success'); loadEvents(); })
+        .catch(err => showToast(err.message || '打卡失败', 'error'));
+}
+</script>
+</body>
+</html>

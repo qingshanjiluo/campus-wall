@@ -498,6 +498,20 @@ def shape_post(post, viewer=None):
         post['images'] = []
     extra = parse_post_extra(post)
     ptype = post.get('post_type')
+    # 付费内容（R11 暗阁）：未解锁者只见前 30 字摘要（作者/管理员/已购者可见全文）
+    pay = int(post.get('pay_points') or 0)
+    if pay > 0:
+        unlocked = False
+        if viewer:
+            if viewer.get('id') == post.get('author_id') or viewer.get('role') == 'admin':
+                unlocked = True
+            elif query_db('SELECT 1 FROM content_unlocks WHERE user_id = ? AND post_id = ?',
+                          (viewer['id'], post['id']), one=True):
+                unlocked = True
+        post['locked'] = not unlocked
+        post['pay_points'] = pay
+        if not unlocked:
+            post['content'] = (post.get('content') or '')[:30] + '……'
     if ptype == 'vote' and extra.get('options'):
         options = extra['options']
         post['vote_options'] = '\n'.join(options)
