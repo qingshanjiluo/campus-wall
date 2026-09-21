@@ -42,6 +42,12 @@ def init_extended_db():
     except sqlite3.OperationalError:
         pass
 
+    # ── 皮肤系统（R9）：用户偏好列 ──
+    try:
+        c.execute("ALTER TABLE user_settings ADD COLUMN skin TEXT DEFAULT 'glass'")
+    except sqlite3.OperationalError:
+        pass
+
     # ── 身份组 ──
     c.execute('''CREATE TABLE IF NOT EXISTS identity_groups (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -889,7 +895,13 @@ _SITE_CONFIG_DEFAULTS = {
     'ad_enabled': '1',
     'ad_header': '校园墙 · 商业合作 / 品牌橱窗 招商中（预留广告位）',
     'ad_footer': '广告位招租 · 联系站务合作（预留）',
+    'visitor_mode': 'open',
 }
+
+
+def visitor_mode_open():
+    """访客模式（R9）：closed 时未登录用户不能浏览内容流。"""
+    return get_site_config().get('visitor_mode', 'open') != 'closed'
 
 
 def get_site_config():
@@ -1150,26 +1162,35 @@ def dm_unread_total(user_id):
 def get_user_settings(user_id):
     row = query_db('SELECT * FROM user_settings WHERE user_id = ?', (user_id,), one=True)
     if row:
-        return dict(row)
+        d = dict(row)
+        d.setdefault('skin', 'glass')
+        return d
     return {
         'notify_comment': 1, 'notify_like': 1, 'notify_follow': 1,
-        'notify_system': 1, 'theme': 'auto'
+        'notify_system': 1, 'theme': 'auto', 'skin': 'glass'
     }
+
+
+USER_SETTINGS_SKINS = ('glass', 'galgame', 'minimal', 'cyberpunk')
 
 
 def save_user_settings(user_id, **kwargs):
     allowed = ('notify_comment', 'notify_like', 'notify_follow', 'notify_system', 'theme')
     fields = {k: int(v) for k, v in kwargs.items() if k in allowed and k != 'theme'}
     if 'theme' in kwargs:
-        fields['theme'] = kwargs['theme']
+        fields['theme'] = str(kwargs['theme'])
+    # 皮肤（R9）：仅接受白名单值
+    if kwargs.get('skin') in USER_SETTINGS_SKINS:
+        fields['skin'] = kwargs['skin']
     if not fields:
         return False
     sets = ', '.join(f'{k} = ?' for k in fields)
-    vals = list(fields.values()) + [user_id]
+    values = list(fields.values())
+    # 占位符：INSERT(user_id + n 个字段) + ON CONFLICT SET(n 个字段)
     execute_db(
         f'''INSERT INTO user_settings (user_id, {', '.join(fields.keys())}) VALUES (?, {', '.join('?' for _ in fields)})
             ON CONFLICT(user_id) DO UPDATE SET {sets}, updated_at = CURRENT_TIMESTAMP''',
-        [user_id] + list(fields.values()) + vals)
+        [user_id] + values + values)
     return True
 
 

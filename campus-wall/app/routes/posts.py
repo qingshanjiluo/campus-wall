@@ -14,7 +14,14 @@ from app.utils.auth import token_required, optional_auth
 from app.utils.limiter import limiter
 from app.utils.media import finalize_upload
 from app.utils.sensitive import scan_text
-from app.models_ext import attach_post_topics, get_topics_for_posts, get_post_topics, normalize_topics
+from app.models_ext import attach_post_topics, get_topics_for_posts, get_post_topics, normalize_topics, visitor_mode_open
+
+
+def _visitor_gate():
+    """访客模式（R9）：closed 时未登录用户不能浏览内容，返回 401 响应或 None。"""
+    if g.get('current_user') is None and not visitor_mode_open():
+        return jsonify({'error': '当前为登录可见模式，请先登录'}), 401
+    return None
 
 posts_bp = Blueprint('posts', __name__)
 
@@ -39,6 +46,9 @@ def _anonymize_post(post, viewer=None):
 @posts_bp.route('', methods=['GET'])
 @optional_auth
 def list_posts():
+    gate = _visitor_gate()
+    if gate:
+        return gate
     limit = request.args.get('limit', 20, type=int)
     offset = request.args.get('offset', 0, type=int)
     sort = request.args.get('sort', 'newest')
@@ -74,6 +84,9 @@ def post_versions(pid):
 @posts_bp.route('/<int:pid>', methods=['GET'])
 @optional_auth
 def get_post(pid):
+    gate = _visitor_gate()
+    if gate:
+        return gate
     post = get_post_by_id(pid)
     if not post:
         return jsonify({'error': '帖子不存在'}), 404

@@ -175,3 +175,171 @@
   --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 16px 32px rgba(0, 0, 0, 0.3);
   --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.35);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   皮肤系统（R9）：glass=默认(上方 :root) / galgame / minimal / cyberpunk
+   每套皮肤重定义底层 token（别名层 --pink-* 自动跟随）；
+   皮肤亮色 → [data-skin=X]；皮肤×暗色 → [data-skin=X][data-theme=dark]（双属性特异性更高）。
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Galgame：紫罗兰×高饱和动漫感，圆角更大 ── */
+[data-skin="galgame"] {
+  --primary: #7c6cf0;
+  --primary-hover: #6a58e8;
+  --primary-light: #f0edff;
+  --primary-100: #ddd6ff;
+  --primary-500: #7c6cf0;
+  --primary-600: #6a58e8;
+  --primary-700: #5747c8;
+  --secondary: #f06ca8;
+  --secondary-light: #ffeef5;
+  --bg-primary: #f6f4ff;
+  --bg-secondary: #fbfaff;
+  --bg-tertiary: #ece8ff;
+  --bg-hover: #ece8ff;
+  --bg-active: #e0daff;
+  --text-primary: #2a2440;
+  --text-secondary: #5f5a7a;
+  --text-tertiary: #8d88a6;
+  --text-muted: #b5b0cc;
+  --text-link: #6a58e8;
+  --border-primary: #e4e0f7;
+  --border-secondary: #d2ccf0;
+  --border-focus: #7c6cf0;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-2xl: 26px;
+}
+[data-skin="galgame"][data-theme="dark"] {
+  --primary: #a89bff;
+  --primary-hover: #8f7df5;
+  --primary-light: #2b2547;
+  --primary-100: #373060;
+  --secondary: #f58ab8;
+  --secondary-light: #3a2030;
+  --bg-primary: #16141f;
+  --bg-secondary: #1f1c2b;
+  --bg-tertiary: #2a2539;
+  --bg-hover: #2a2539;
+  --bg-active: #35304a;
+  --text-primary: #eae6ff;
+  --text-secondary: #b0aacf;
+  --text-tertiary: #8d88a6;
+  --text-muted: #5f5a7a;
+  --text-link: #a89bff;
+  --border-primary: #2a2539;
+  --border-secondary: #3d3760;
+  --border-focus: #a89bff;
+}
+
+/* ── 极简：石墨单色，小圆角，弱阴影 ── */
+[data-skin="minimal"] {
+  --primary: #3a3a3a;
+  --primary-hover: #222222;
+  --primary-light: #f0f0f0;
+  --primary-100: #e0e0e0;
+  --primary-500: #3a3a3a;
+  --primary-600: #222222;
+  --primary-700: #111111;
+  --secondary: #888888;
+  --secondary-light: #f4f4f4;
+  --bg-primary: #fafafa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f0f0;
+  --bg-hover: #f0f0f0;
+  --bg-active: #e6e6e6;
+  --text-primary: #1a1a1a;
+  --text-secondary: #555555;
+  --text-tertiary: #888888;
+  --text-muted: #bbbbbb;
+  --text-link: #1a1a1a;
+  --border-primary: #e8e8e8;
+  --border-secondary: #d8d8d8;
+  --border-focus: #1a1a1a;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+  --shadow-xs: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+[data-skin="minimal"][data-theme="dark"] {
+  --primary: #e0e0e0;
+  --primary-hover: #ffffff;
+  --primary-light: #2a2a2a;
+  --primary-100: #383838;
+  --secondary: #999999;
+  --secondary-light: #262626;
+  --bg-primary: #141414;
+  --bg-secondary: #1c1c1c;
+  --bg-tertiary: #242424;
+  --bg-hover: #242424;
+  --bg-active: #2e2e2e;
+  --text-primary: #f0f0f0;
+  --text-secondary: #aaaaaa;
+  --text-tertiary: #888888;
+  --text-muted: #555555;
+  --text-link: #f0f0f0;
+  --border-primary: #242424;
+  --border-secondary: #383838;
+  --border-focus: #f0f0f0;
+}
+
+/* ── 赛博朋克：霓虹青×品红，直角硬边 ── */
+[data-skin="cyberpunk"] {
+  --primary: #00c8d7;
+  --primary-hover: #00a8b8;
+  --primary-light: #e0fbff;
+  --primary-100: #b8f3fa;
+  --primary-500: #00c8d7;
+  --primary-600: #00a8b8;
+  --primary-700: #0088a0;
+  --secondary: #ff2e88;
+  --secondary-light: #ffe6f0;
+  --warning: #ffd60a;
+  --bg-primary: #f5feff;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e6f7fa;
+  --bg-hover: #e6f7fa;
+  --bg-active: #d5f0f5;
+  --text-primary: #102026;
+  --text-secondary: #3c5560;
+  --text-tertiary: #5a7a86;
+  --text-muted: #8aa8b2;
+  --text-link: #0090a8;
+  --border-primary: #cdeef5;
+  --border-secondary: #a8dfe8;
+  --border-focus: #ff2e88;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 5px;
+  --radius-2xl: 6px;
+}
+[data-skin="cyberpunk"][data-theme="dark"] {
+  --primary: #00e5ff;
+  --primary-hover: #00c8d7;
+  --primary-light: #062a33;
+  --primary-100: #0a3d4a;
+  --secondary: #ff4d9e;
+  --secondary-light: #33081e;
+  --bg-primary: #0a0e14;
+  --bg-secondary: #0f1620;
+  --bg-tertiary: #151f2b;
+  --bg-hover: #151f2b;
+  --bg-active: #1c2a38;
+  --text-primary: #d8f6ff;
+  --text-secondary: #7aa8b8;
+  --text-tertiary: #5a7a86;
+  --text-muted: #3c5560;
+  --text-link: #00e5ff;
+  --border-primary: #151f2b;
+  --border-secondary: #24405a;
+  --border-focus: #ff2e88;
+  --shadow-lg: 0 0 24px rgba(0, 229, 255, 0.15), 0 16px 32px rgba(0, 0, 0, 0.4);
+}

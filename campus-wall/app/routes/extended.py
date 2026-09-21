@@ -32,6 +32,7 @@ from app.models_ext import (
     TASK_KINDS, create_task, close_task, list_tasks, get_task_by_id, claim_task,
     submit_task, get_claim_by_id, review_task_claim, get_my_claims, get_task_claims,
     get_submitted_claims, get_all_tasks_admin, spend_points,
+    visitor_mode_open,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
 from app.models import shape_post, is_liked_batch
@@ -263,9 +264,20 @@ def romance_list_tasks():
 
 gossip_bp = Blueprint('gossip', __name__)
 
+
+def _visitor_gate_401():
+    """访客模式（R9）：closed 时未登录不能浏览内容流。"""
+    if g.get('current_user') is None and not visitor_mode_open():
+        return jsonify({'error': '当前为登录可见模式，请先登录'}), 401
+    return None
+
+
 @gossip_bp.route('', methods=['GET'])
 @optional_auth
 def list_gossip():
+    gate = _visitor_gate_401()
+    if gate:
+        return gate
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
     station_id = request.args.get('station_id', type=int)
@@ -332,6 +344,9 @@ trade_bp = Blueprint('trade', __name__)
 
 @trade_bp.route('', methods=['GET'])
 def list_trades():
+    gate = _visitor_gate_401()
+    if gate:
+        return gate
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
     category = request.args.get('category')
@@ -409,6 +424,9 @@ recommend_bp = Blueprint('recommend', __name__)
 @recommend_bp.route('/posts', methods=['GET'])
 @optional_auth
 def recommended_posts():
+    gate = _visitor_gate_401()
+    if gate:
+        return gate
     limit = request.args.get('limit', 20, type=int)
     offset = request.args.get('offset', 0, type=int)
     station_id = request.args.get('station_id', type=int)
@@ -848,8 +866,10 @@ site_bp = Blueprint('site', __name__, url_prefix='/api/site')
 
 @site_bp.route('/config', methods=['GET'])
 def site_config():
-    """公开读取广告位等站点配置，前端据此决定是否渲染占位。"""
-    return jsonify(get_ad_config())
+    """公开读取站点配置（广告位 + 访客模式），前端据此调整渲染。"""
+    cfg = get_ad_config()
+    cfg['visitor_mode'] = get_site_config().get('visitor_mode', 'open')
+    return jsonify(cfg)
 
 
 # admin_bp 内新增：广告位配置
@@ -858,10 +878,10 @@ def site_config():
 @admin_required
 def admin_site_config():
     data = request.get_json(silent=True) or {}
-    for k in ('ad_enabled', 'ad_header', 'ad_footer'):
+    for k in ('ad_enabled', 'ad_header', 'ad_footer', 'visitor_mode'):
         if k in data:
             set_site_config(k, data[k])
-    return jsonify({'message': '已保存', **get_ad_config()})
+    return jsonify({'message': '已保存', **get_ad_config(), 'visitor_mode': get_site_config().get('visitor_mode', 'open')})
 
 
 # ══════════════════════════════════════════════
@@ -1074,3 +1094,24 @@ def admin_export_posts():
     return _csv_response(rows, ['id', 'title', 'post_type', 'status', 'author', 'station',
                                 'likes_count', 'comments_count', 'views', 'is_anonymous', 'created_at'],
                          'campuswall_posts.csv')
+
+
+# ══════════════════════════════════════════════
+# 用户偏好（R9）：皮肤/主题/通知（服务端持久化）
+# ══════════════════════════════════════════════
+
+user_bp = Blueprint('user', __name__, url_prefix='/api/user')
+
+
+@user_bp.route('/settings', methods=['GET'])
+@token_required
+def user_settings_get():
+    return jsonify(get_user_settings(g.current_user['id']))
+
+
+@user_bp.route('/settings', methods=['PUT'])
+@token_required
+def user_settings_put():
+    data = request.get_json(silent=True) or {}
+    save_user_settings(g.current_user['id'], **data)
+    return jsonify({'message': '已保存', **get_user_settings(g.current_user['id'])})

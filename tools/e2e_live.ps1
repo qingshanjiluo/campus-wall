@@ -404,6 +404,33 @@ Step "data export" {
   Assert($pp[0] -eq '200') "posts.csv http=$($pp[0])"
   $forbidden = Invoke-CurlRaw @('-s','-o',$script:NullDev,'-w','%{http_code}','--max-time','25',"$BaseUrl/api/admin/export/users.csv",'-H',"Authorization: Bearer $tk")
   Assert("$forbidden" -eq '403') "csv export not admin-gated" }
+Step "skin settings api" {
+  Assert($tk) "no token (earlier steps failed)"
+  $s0 = Api GET "/api/user/settings" $null $tk
+  Assert($s0.skin) "settings missing skin field"
+  Api PUT "/api/user/settings" @{skin="galgame"} $tk | Out-Null
+  $s1 = Api GET "/api/user/settings" $null $tk
+  Assert($s1.skin -eq "galgame") "skin not persisted"
+  $badSkinIgnored = $true
+  Api PUT "/api/user/settings" @{skin="neon-rainbow"} $tk | Out-Null
+  $s2 = Api GET "/api/user/settings" $null $tk
+  $badSkinIgnored = ($s2.skin -eq "galgame")
+  Assert($badSkinIgnored) "invalid skin was accepted"
+  Api PUT "/api/user/settings" @{skin="glass"} $tk | Out-Null }
+Step "visitor mode gate" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  Api PUT "/api/admin/site/config" @{visitor_mode="closed"} $atk | Out-Null
+  $anonBlocked = $false
+  try { Api GET "/api/posts?limit=5" | Out-Null } catch { $anonBlocked = ((BadCode $_) -eq 401) }
+  Assert($anonBlocked) "visitor mode closed did not block anon posts"
+  $authed = Api GET "/api/posts?limit=5" $null $tk
+  Assert($null -ne $authed.posts) "authed user wrongly blocked by visitor mode"
+  $anonGossipBlocked = $false
+  try { Api GET "/api/gossip?limit=5" | Out-Null } catch { $anonGossipBlocked = ((BadCode $_) -eq 401) }
+  Assert($anonGossipBlocked) "visitor mode closed did not block anon gossip"
+  Api PUT "/api/admin/site/config" @{visitor_mode="open"} $atk | Out-Null
+  $anonOk = Api GET "/api/posts?limit=5"
+  Assert($null -ne $anonOk.posts) "visitor mode open did not restore anon access" }
 Step "expose create + review + anon" {
   Assert($tk) "no token (earlier steps failed)"
   $ep = Api POST "/api/posts" @{title="e2e_ex$Suffix"; content="expose body"; post_type="expose"} $tk

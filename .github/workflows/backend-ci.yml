@@ -52,7 +52,7 @@ jobs:
           cat /tmp/flask.log
           exit 1
 
-      - name: Full E2E (73 steps)
+      - name: Full E2E (75 steps)
         shell: pwsh
         run: ./tools/e2e_live.ps1 -BaseUrl http://127.0.0.1:5000
 

@@ -399,6 +399,7 @@ function switchAdminTab(el, tab) {
     } else if (tab === 'ads') {
         api.get('/api/site/config').then(cfg => {
             const checked = cfg.ad_enabled ? 'checked' : '';
+            const vmOpen = (cfg.visitor_mode || 'open') === 'open';
             content.innerHTML = `
                 <div class="speech-bubble" style="max-width:560px;">
                     <h4 style="margin:0 0 12px;color:var(--pink-4);"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位配置</h4>
@@ -412,6 +413,15 @@ function switchAdminTab(el, tab) {
                         <input class="input" id="adHeader" maxlength="200" value="${escHtml(cfg.ad_header||'')}"></div>
                     <div class="form-group"><label class="form-label">底部广告文案</label>
                         <input class="input" id="adFooter" maxlength="200" value="${escHtml(cfg.ad_footer||'')}"></div>
+                    <h4 style="margin:18px 0 10px;color:var(--pink-4);"><i data-lucide="eye-off" class="icon icon-sm"></i> 访客模式（R9）</h4>
+                    <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;">
+                        关闭后，未登录用户无法浏览帖子流/树洞/交易等公开内容（API 层强制 401）。
+                    </p>
+                    <div class="form-group"><label class="form-label">访客浏览权限</label>
+                        <select class="input" id="visitorMode">
+                            <option value="open" ${vmOpen ? 'selected' : ''}>开放（游客可浏览）</option>
+                            <option value="closed" ${!vmOpen ? 'selected' : ''}>关闭（登录可见）</option>
+                        </select></div>
                     <button class="btn btn-primary" onclick="saveAdConfig()"><i data-lucide="save" class="icon icon-sm"></i> 保存</button>
                 </div>`;
             if (window.lucide) lucide.createIcons();
@@ -464,11 +474,15 @@ function reviewTaskClaim(cid, action) {
 
 function saveAdConfig() {
     const enabled = document.getElementById('adEnabled') ? document.getElementById('adEnabled').checked : true;
-    api.put('/api/admin/site/config', {
+    const body = {
         ad_enabled: enabled ? '1' : '0',
         ad_header: document.getElementById('adHeader') ? document.getElementById('adHeader').value.trim() : '',
         ad_footer: document.getElementById('adFooter') ? document.getElementById('adFooter').value.trim() : ''
-    }).then(() => showToast('已保存，刷新页面生效', 'success')).catch(err => showToast(err.message || '保存失败', 'error'));
+    };
+    const vm = document.getElementById('visitorMode');
+    if (vm) body.visitor_mode = vm.value;
+    api.put('/api/admin/site/config', body)
+        .then(() => showToast('已保存，刷新页面生效', 'success')).catch(err => showToast(err.message || '保存失败', 'error'));
 }
 
 function setUserField(uid, field, value) {

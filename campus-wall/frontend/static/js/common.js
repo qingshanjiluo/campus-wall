@@ -386,6 +386,9 @@
     initTheme();
     // 注入主题切换按钮
     injectThemeToggle();
+    // 皮肤（R9）：应用 + 注入选择器
+    initSkin();
+    injectSkinPicker();
   }
 
   // ── 广告位占位（保留位）──
@@ -419,6 +422,73 @@
     };
     // 静默降级：读配置失败也保留占位（默认文案）
     api.get('/api/site/config').then(apply).catch(() => apply({ ad_enabled: true, ad_header: '广告位 · 品牌合作 招商中（预留）', ad_footer: '广告位招租 · 联系站务（预留）' }));
+  }
+
+  // ── 皮肤系统（R9）：glass(默认) / galgame / minimal / cyberpunk ──
+  const SKINS = [
+    { id: 'glass', name: '玻璃', dot: '#ec6b94' },
+    { id: 'galgame', name: 'Galgame', dot: '#7c6cf0' },
+    { id: 'minimal', name: '极简', dot: '#3a3a3a' },
+    { id: 'cyberpunk', name: '赛博朋克', dot: '#00c8d7' }
+  ];
+
+  function applySkin(id) {
+    if (!SKINS.some(s => s.id === id)) id = 'glass';
+    document.documentElement.setAttribute('data-skin', id);
+    localStorage.setItem('campuswall_skin', id);
+    document.querySelectorAll('#skinPopover .skin-opt').forEach(el => {
+      el.classList.toggle('active', el.dataset.skin === id);
+    });
+  }
+
+  function initSkin() {
+    applySkin(localStorage.getItem('campuswall_skin') || 'glass');
+    // 登录用户：以服务端偏好为兜底（本地未选择时）
+    onUserReady(function () {
+      if (localStorage.getItem('campuswall_skin')) return;
+      api.get('/api/user/settings').then(s => {
+        if (s && s.skin) applySkin(s.skin);
+      }).catch(() => {});
+    });
+  }
+
+  function injectSkinPicker() {
+    const navRight = document.getElementById('navRight');
+    if (!navRight) return;
+    const btn = document.createElement('button');
+    btn.id = 'skinToggle';
+    btn.className = 'icon-btn';
+    btn.title = '切换皮肤';
+    btn.innerHTML = '<i data-lucide="palette" class="icon icon-md"></i>';
+    const pop = document.createElement('div');
+    pop.id = 'skinPopover';
+    pop.style.cssText = 'position:fixed;z-index:300;background:var(--bg-secondary,#fff);border:1px solid var(--border-primary);border-radius:14px;padding:8px;display:none;flex-direction:column;gap:4px;box-shadow:var(--shadow-lg);min-width:130px;';
+    pop.innerHTML = SKINS.map(s =>
+      `<button class="skin-opt" data-skin="${s.id}" style="display:flex;align-items:center;gap:8px;background:none;border:none;padding:7px 10px;border-radius:9px;cursor:pointer;font-size:0.85rem;color:var(--text-primary);">
+        <span style="width:12px;height:12px;border-radius:50%;background:${s.dot};display:inline-block;"></span> ${s.name}
+      </button>`).join('');
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const r = btn.getBoundingClientRect();
+      pop.style.top = (r.bottom + 8) + 'px';
+      pop.style.right = (window.innerWidth - r.right) + 'px';
+      pop.style.left = 'auto';
+      pop.style.display = pop.style.display === 'flex' ? 'none' : 'flex';
+    };
+    pop.addEventListener('click', (e) => {
+      const opt = e.target.closest('.skin-opt');
+      if (!opt) return;
+      applySkin(opt.dataset.skin);
+      pop.style.display = 'none';
+      // 登录用户同步到服务端（fire-and-forget）
+      if (currentUser) api.put('/api/user/settings', { skin: opt.dataset.skin }).catch(() => {});
+    });
+    document.addEventListener('click', (e) => {
+      if (!pop.contains(e.target) && e.target !== btn) pop.style.display = 'none';
+    });
+    navRight.appendChild(btn);
+    document.body.appendChild(pop);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 
   // ── 主题管理 ──
