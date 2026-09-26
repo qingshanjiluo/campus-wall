@@ -20,31 +20,27 @@
 <body>
 <div id="app-root">
     <main id="page-main">
-<!-- Hero -->
+<!-- Hero：纸上校园 · 编辑式首屏 -->
 <section class="hero-section" id="hero">
-    <div class="giant-deco" style="top:8%;left:-8%;opacity:0.08;">
-        <i data-lucide="sparkles" style="width:100%;height:100%;color:var(--primary);"></i>
+    <div class="hero-tape" aria-hidden="true"></div>
+    <div class="hero-body">
+        <p class="hero-kicker">校园墙 · 第 01 期</p>
+        <h1 class="hero-title">每句话都<br>值得被听见<span class="hero-dot">。</span></h1>
+        <p class="hero-lede">把没说出口的、藏起来的、毕业前想留下的——<span class="hero-underline">写在这面墙上。</span></p>
+        <div class="hero-actions">
+            <button class="btn btn-primary btn-lg" onclick="requireAuth() && openModal('createPostModal')">
+                <i data-lucide="pen-line" class="icon icon-md"></i> 落笔
+            </button>
+            <a class="hero-scan" href="#stations">
+                <i data-lucide="arrow-down" class="icon icon-md"></i>
+                <span>去逛逛<br><em>看看大家都在聊什么</em></span>
+            </a>
+        </div>
     </div>
-    <div class="giant-deco" style="bottom:5%;right:-5%;opacity:0.06;">
-        <i data-lucide="heart" style="width:80%;height:80%;color:var(--secondary);"></i>
-    </div>
-    <h1>连接校园<br>分享青春</h1>
-    <p>创建属于你的校园墙，让每一个声音都被听见</p>
-    <div class="hero-btns">
-        <button class="btn btn-primary btn-lg" onclick="requireAuth() && openModal('createPostModal')">
-            <i data-lucide="pencil" class="icon icon-md"></i> 发帖
-        </button>
-        <button class="btn btn-lg" onclick="document.getElementById('stations').scrollIntoView({behavior:'smooth'})">
-            <i data-lucide="arrow-down" class="icon icon-md"></i> 浏览子站
-        </button>
-    </div>
-    <div class="scroll-hint">
-        <span class="scroll-hint-text">向下滚动探索</span>
-        <div class="scroll-hint-arrow"><i data-lucide="chevrons-down" class="icon icon-lg"></i></div>
+    <div class="hero-margin-note" aria-hidden="true">
+        <span>这里没有观众<br>只有同桌、室友<br>和路过的好心人</span>
     </div>
 </section>
-
-<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament"><i data-lucide="flower-2" class="icon icon-lg"></i></div></div>
 
 <!-- 站内公告 -->
 <section class="section" id="siteAnnouncements" style="padding:32px 0 8px;display:none;">
@@ -58,7 +54,7 @@
     <div class="container" style="max-width:1100px;">
         <div class="section-header reveal">
             <h2 class="chapter-title">子站市场</h2>
-            <p class="chapter-sub">发现更多有趣的角落，找到属于你的同好圈子</p>
+            <p class="chapter-sub">每个子站都有人在说话——挑一个进去看看</p>
         </div>
         <div class="search-box reveal" style="margin-bottom:24px;">
             <i data-lucide="search" class="icon search-icon"></i>
@@ -91,14 +87,14 @@
     </div>
 </section>
 
-<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament" style="animation-delay:-1.5s;"><i data-lucide="leaf" class="icon icon-lg"></i></div></div>
+<div class="paper-tear" aria-hidden="true"></div>
 
 <!-- 今日热帖 -->
 <section class="section" id="hotPosts">
     <div class="container" style="max-width:800px;">
         <div class="section-header reveal">
             <h2 class="chapter-title"><i data-lucide="flame" class="icon" style="width:28px;height:28px;color:var(--secondary);"></i> 今日热帖</h2>
-            <p class="chapter-sub">大家都在讨论的热门话题</p>
+            <p class="chapter-sub">过去 24 小时里，被点开最多的那些帖子</p>
         </div>
         <div id="hotPostList" class="hot-post-list">
             <div class="loading">加载中</div>
@@ -106,14 +102,14 @@
     </div>
 </section>
 
-<div class="section-divider"><div class="divider-line"></div><div class="divider-ornament" style="animation-delay:-2s;"><i data-lucide="sparkles" class="icon icon-lg"></i></div></div>
+<div class="paper-tear" aria-hidden="true"></div>
 
 <!-- 最新动态 -->
 <section class="section" id="posts" style="padding-bottom:100px;">
     <div class="container" style="max-width:800px;">
         <div class="section-header reveal">
             <h2 class="chapter-title">最新动态</h2>
-            <p class="chapter-sub">看看大家都在聊些什么</p>
+            <p class="chapter-sub">刚刚有人在这里写下了什么</p>
         </div>
         <div class="tag-bar reveal" id="postSortBar">
             <span class="tag active" onclick="sortPosts(this, 'newest')"><i data-lucide="clock" class="icon icon-sm"></i> 最新</span>
