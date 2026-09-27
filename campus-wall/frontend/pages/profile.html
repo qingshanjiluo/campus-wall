@@ -227,7 +227,7 @@ function loadProfileTab(tab) {
                         <div class="station-icon"><i data-lucide="${getStationIcon(s.icon)}" class="icon icon-lg"></i></div>
                         <div class="name">${escHtml(s.name)} ${s.role==='owner'?'<span class="profile-badge" style="background:var(--yellow);"><i data-lucide="crown" class="icon icon-sm"></i> 站长</span>':''}</div>
                     </div>
-                    <div class="desc">${escHtml(s.description||'暂无简介')}</div>
+                    <div class="desc">${escHtml(s.description||'这里还空着简介')}</div>
                     <div class="meta"><span><i data-lucide="users" class="icon icon-sm"></i> ${s.user_count||0}</span><span><i data-lucide="file-text" class="icon icon-sm"></i> ${s.post_count||0}</span></div>
                 </div>
             `).join('') + '</div>';
@@ -246,7 +246,7 @@ function loadProfileTab(tab) {
         api.get('/api/posts/liked').then(res => {
             const items = res.posts || [];
             if (items.length === 0) {
-                content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="heart" class="icon icon-lg"></i></div><div class="text">还没有赞过的帖子</div></div>';
+                content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="heart" class="icon icon-lg"></i></div><div class="text">还没有赞过任何帖子</div></div>';
                 if (window.lucide) lucide.createIcons();
                 return;
             }
@@ -286,7 +286,7 @@ function loadProfileTab(tab) {
 
 function renderUserList(container, users) {
     if (!users || users.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="users" class="icon icon-lg"></i></div><div class="text">暂无</div></div>';
+        container.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="users" class="icon icon-lg"></i></div><div class="text">这里还空着</div></div>';
         return;
     }
     container.innerHTML = users.map(u => `

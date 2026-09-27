@@ -104,7 +104,7 @@ function loadRelated(stationId, currentPostId) {
     api.get(url).then(data => {
         const posts = (data.posts || []).filter(p => p.id !== currentPostId).slice(0, 5);
         if (posts.length === 0) {
-            list.innerHTML = '<div class="empty-state"><i data-lucide="sparkles" class="icon empty-icon"></i><div class="text">暂无更多推荐</div></div>';
+            list.innerHTML = '<div class="empty-state"><i data-lucide="sparkles" class="icon empty-icon"></i><div class="text">没有更多推荐了</div></div>';
             if(typeof lucide!=='undefined') lucide.createIcons();
             return;
         }
@@ -128,7 +128,7 @@ function loadRelated(stationId, currentPostId) {
         if(typeof lucide!=='undefined') lucide.createIcons();
         initReveal();
     }).catch(() => {
-        list.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">推荐加载失败</div></div>';
+        list.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">推荐没加载出来</div></div>';
         if(typeof lucide!=='undefined') lucide.createIcons();
     });
 }
@@ -224,7 +224,7 @@ function loadComments() {
 function renderComments(comments) {
     const list = document.getElementById('commentList');
     if (!comments || comments.length === 0) {
-        list.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="icon"><i data-lucide="message-circle" class="icon icon-lg"></i></div><div class="text">还没有评论，来说两句吧</div></div>';
+        list.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="icon"><i data-lucide="message-circle" class="icon icon-lg"></i></div><div class="text">还没有评论。说第一句的人，最容易被记住</div></div>';
         return;
     }
     // 楼中楼：parent_id 的评论缩进显示在父评论下方
@@ -321,7 +321,7 @@ function showEditHistory(pid) {
             <div class="modal" style="max-width:640px;position:relative;max-height:80vh;overflow-y:auto;">
                 <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
                 <div class="modal-title"><i data-lucide="history" class="icon icon-md"></i> 编辑历史</div>
-                ${versions.length === 0 ? '<div class="empty-state" style="padding:20px;"><i data-lucide="history" class="icon empty-icon"></i><div class="text">暂无编辑历史</div></div>' : versions.map((v, idx) => `
+                ${versions.length === 0 ? '<div class="empty-state" style="padding:20px;"><i data-lucide="history" class="icon empty-icon"></i><div class="text">没有编辑记录</div></div>' : versions.map((v, idx) => `
                     <div class="post-card" style="padding:16px;margin-bottom:12px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                             <span class="tag">版本 ${versions.length - idx}</span>

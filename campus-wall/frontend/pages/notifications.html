@@ -53,7 +53,7 @@ function loadNotifications() {
 function renderNotifications(notifs) {
     const list = document.getElementById('notifList');
     if (!notifs || notifs.length === 0) {
-        list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="bell-off" class="icon-lg"></i></div><div class="text">暂无通知</div></div>';
+        list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="bell-off" class="icon-lg"></i></div><div class="text">还没有人找你。有人评论、点赞或提及你时，都会落在这里</div></div>';
         if (window.lucide) lucide.createIcons();
         return;
     }

@@ -61,7 +61,7 @@ function loadBoards() {
     api.get('/api/stations?limit=100').then(list => {
         const grid = document.getElementById('forumBoards');
         const publicBoards = (Array.isArray(list) ? list : []).filter(s => s.is_public !== 0);
-        if (!publicBoards.length) { grid.innerHTML = '<div style="color:var(--text-muted);">暂无公开版块</div>'; return; }
+        if (!publicBoards.length) { grid.innerHTML = '<div style="color:var(--text-muted);">暂时还没有公开版块</div>'; return; }
         grid.innerHTML = publicBoards.map(s => `
             <a href="/station/${s.id}" class="post-card reveal" style="display:block;text-decoration:none;color:inherit;padding:16px 18px;">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
@@ -74,7 +74,7 @@ function loadBoards() {
                 <div style="font-size:0.82rem;color:var(--text-secondary);line-height:1.6;">${escHtml(s.description || '')}</div>
             </a>`).join('');
         if (window.lucide) lucide.createIcons();
-    }).catch(() => grid.innerHTML = '<div style="color:var(--text-muted);">版块加载失败</div>');
+    }).catch(() => grid.innerHTML = '<div style="color:var(--text-muted);">版块没加载出来，刷新试试</div>');
 }
 
 let forumSort = 'newest';
@@ -98,7 +98,7 @@ function loadFeed(append) {
     api.get(`/api/posts?limit=${FORUM_LIMIT}&offset=${forumOffset}&sort=${forumSort}`).then(d => {
         const posts = (d && d.posts) || [];
         const feed = document.getElementById('forumFeed');
-        if (!posts.length && !append) { feed.innerHTML = '<div style="color:var(--text-muted);">还没有讨论</div>'; return; }
+        if (!posts.length && !append) { feed.innerHTML = '<div style="color:var(--text-muted);">还没有人开帖，第一楼等你</div>'; return; }
         const html = posts.map(p => `
             <a href="/post/${p.id}" class="post-card reveal" style="display:block;text-decoration:none;color:inherit;padding:14px 18px;margin-bottom:12px;">
                 <div style="display:flex;align-items:center;gap:10px;">
@@ -118,7 +118,7 @@ function loadFeed(append) {
         if (append) feed.insertAdjacentHTML('beforeend', html); else feed.innerHTML = html;
         document.getElementById('forumMore').style.display = posts.length >= FORUM_LIMIT ? 'block' : 'none';
         if (window.lucide) lucide.createIcons();
-    }).catch(() => { if (!append) feed.innerHTML = '<div style="color:var(--text-muted);">讨论加载失败</div>'; });
+    }).catch(() => { if (!append) feed.innerHTML = '<div style="color:var(--text-muted);">讨论没加载出来，刷新试试</div>'; });
 }
 </script>
 </body>

@@ -61,7 +61,7 @@ function loadFavorites() {
     api.get('/api/favorites?type=' + currentFavType).then(data => {
         const items = data.items || [];
         if (!items.length) {
-            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="bookmark-plus" class="icon-lg"></i></div><div class="text">还没有收藏，去发现有趣的内容吧</div></div>';
+            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="bookmark-plus" class="icon-lg"></i></div><div class="text">收藏夹是空的。看到想留下的，点一下书签就行</div></div>';
             if (window.lucide) lucide.createIcons();
             return;
         }

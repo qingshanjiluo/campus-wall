@@ -107,7 +107,7 @@ function loadExpose(append) {
         const posts = (d && d.posts) || [];
         const list = document.getElementById('exposeList');
         if (!posts.length && !append) {
-            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="megaphone" class="icon icon-lg"></i></div><div class="text">还没有已审核爆料，来发第一条吧</div></div>';
+            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="megaphone" class="icon icon-lg"></i></div><div class="text">还没有过审的爆料。你的事，我们替你匿名</div></div>';
             return;
         }
         const html = posts.map(renderExposeCard).join('');

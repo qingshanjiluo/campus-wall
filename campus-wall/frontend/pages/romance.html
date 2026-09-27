@@ -65,7 +65,7 @@ function loadRomanceTab(tab) {
     if (tab === 'profiles') {
         api.get('/api/romance/profiles').then(profiles => {
             if (!profiles.length) {
-                content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="heart" class="icon icon-lg"></i></div><div class="text">还没有人发布恋爱档案，来做第一个吧！</div></div>';
+                content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="heart" class="icon icon-lg"></i></div><div class="text">还没有人写下自己的档案。先开口的人，往往先被看见</div></div>';
                 return;
             }
             content.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;">' +

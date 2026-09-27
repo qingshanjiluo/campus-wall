@@ -265,7 +265,7 @@ function switchAdminTab(el, tab) {
     } else if (tab === 'review') {
         api.get('/api/admin/review').then(d => {
             const posts = (d && d.posts) || [];
-            if (!posts.length) { content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="clipboard-check" class="icon icon-lg"></i></div><div class="text">没有待审核的帖子</div></div>'; if (window.lucide) lucide.createIcons(); return; }
+            if (!posts.length) { content.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="clipboard-check" class="icon icon-lg"></i></div><div class="text">待审队列是空的</div></div>'; if (window.lucide) lucide.createIcons(); return; }
             content.innerHTML = posts.map(p => `
                 <div class="station-card" style="padding:16px;cursor:default;margin-bottom:12px;">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -294,7 +294,7 @@ function switchAdminTab(el, tab) {
                 <span class="tag ${!cat ? 'active' : ''}" onclick="window._reportCat='';adminTab('reports')">全部</span>
                 ${cats.map(c => `<span class="tag ${cat === c ? 'active' : ''}" onclick="window._reportCat='${c}';adminTab('reports')">${c}</span>`).join('')}
             </div>`;
-            if (!reports.length) { content.innerHTML = catBar + '<div class="empty-state"><div class="icon"><i data-lucide="flag" class="icon icon-lg"></i></div><div class="text">暂无待处理举报</div></div>'; if (window.lucide) lucide.createIcons(); return; }
+            if (!reports.length) { content.innerHTML = catBar + '<div class="empty-state"><div class="icon"><i data-lucide="flag" class="icon icon-lg"></i></div><div class="text">没有待处理的举报</div></div>'; if (window.lucide) lucide.createIcons(); return; }
             const typeMap = { post: '帖子', comment: '评论', user: '用户', gossip: '树洞', trade: '交易' };
             content.innerHTML = catBar + reports.map(r => `
                 <div class="station-card" style="padding:16px;cursor:default;margin-bottom:12px;">

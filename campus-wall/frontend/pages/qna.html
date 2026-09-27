@@ -61,7 +61,7 @@ function toggleQForm() { if (!requireAuth()) return; const f = document.getEleme
 function loadQuestions() {
     api.get('/api/qna/questions').then(list => {
         const box = document.getElementById('qList');
-        if (!list.length) { box.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="circle-help" class="icon icon-lg"></i></div><div class="text">还没有提问</div></div>'; return; }
+        if (!list.length) { box.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="circle-help" class="icon icon-lg"></i></div><div class="text">还没有人提问。悬赏一个问题，答案会来的</div></div>'; return; }
         box.innerHTML = list.map(q => `
             <div class="post-card reveal" style="padding:16px 20px;margin-bottom:12px;cursor:pointer;" onclick="openQ(${q.id})">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -99,7 +99,7 @@ function openQ(id) {
                 <div style="font-size:0.74rem;color:var(--text-muted);margin-top:8px;">${escT(q.asker_name)} 提问 · ${formatTime(q.created_at)}${mine && q.status === 'open' ? ' · <a style="cursor:pointer;color:var(--danger);" onclick="closeQ(' + q.id + ')">关闭并退回悬赏</a>' : ''}</div>
             </div>
             <h4 style="margin:14px 0 10px;"><i data-lucide="message-circle" class="icon icon-sm"></i> 回答 (${(q.answers || []).length})</h4>
-            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">${answers || '<div style="color:var(--text-muted);font-size:0.85rem;">暂无回答</div>'}</div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">${answers || '<div style="color:var(--text-muted);font-size:0.85rem;">还没有人回答</div>'}</div>
             ${currentUser && !mine && q.status === 'open' ? `<div class="speech-bubble" style="padding:12px;">
                 <textarea class="input" id="answerInput" rows="3" maxlength="2000" placeholder="写下你的回答…"></textarea>
                 <div style="text-align:right;margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="submitAnswer(${q.id})"><i data-lucide="send" class="icon icon-sm"></i> 提交回答</button></div>

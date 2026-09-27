@@ -91,7 +91,7 @@ function loadThreads() {
         .then(ts => {
             const side = document.getElementById('dmSide');
             if (!ts.length) {
-                side.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:.82rem;">还没有私信会话<br>去别人主页点个「私信」吧</div>';
+                side.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:.82rem;">还没有私信。找到那个人，打个招呼<br>去别人主页点个「私信」吧</div>';
                 return;
             }
             side.innerHTML = ts.map(t => `

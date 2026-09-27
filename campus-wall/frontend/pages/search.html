@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
             results.innerHTML = html;
             if(typeof lucide!=='undefined') lucide.createIcons();
             initReveal();
-        }).catch(() => { results.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">搜索失败</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });
+        }).catch(() => { results.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">没搜出来，换个词再试试</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });
     }, 300);
 });
 

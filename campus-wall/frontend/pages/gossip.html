@@ -75,7 +75,7 @@ function loadGossip(append) {
     api.get(`/api/gossip?limit=30&offset=${gossipOffset}&sort=${gossipSort}`).then(data => {
         const list = document.getElementById('gossipList');
         if (!data.length && !append) {
-            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="tree-pine" class="icon icon-lg"></i></div><div class="text">还没有爆料，来发第一条吧</div></div>';
+            list.innerHTML = '<div class="empty-state"><div class="icon"><i data-lucide="tree-pine" class="icon icon-lg"></i></div><div class="text">树洞里还没有声音。说点什么，没人知道是你</div></div>';
             return;
         }
         const html = data.map(g => `
@@ -131,7 +131,7 @@ function viewGossip(id) {
                     <button class="btn btn-sm ${g.is_liked ? 'liked' : ''}" onclick="likeGossip(${g.id},this)"><i data-lucide="heart" class="icon icon-sm ${g.is_liked ? 'icon-danger' : ''}"></i> ${g.likes_count}</button>
                 </div>
                 <h4 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;"><i data-lucide="message-circle" class="icon icon-sm"></i> 评论 (${g.comments_count})</h4>
-                ${comments || '<div style="color:var(--text-muted);">暂无评论</div>'}
+                ${comments || '<div style="color:var(--text-muted);">还没有人回应</div>'}
                 <div style="margin-top:12px;">
                     <input class="input" id="gossipCommentInput" placeholder="发表评论..." style="margin-bottom:8px;">
                     <button class="btn btn-primary btn-sm" onclick="commentGossip(${g.id})">发送</button>

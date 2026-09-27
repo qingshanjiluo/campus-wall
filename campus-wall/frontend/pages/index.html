@@ -182,7 +182,7 @@ function loadHotPosts() {
     api.get('/api/posts?limit=5&sort=popular')
         .then(data => {
             if (!data.posts || data.posts.length === 0) {
-                list.innerHTML = '<div class="empty-state"><i data-lucide="flame" class="icon empty-icon"></i><div class="text">还没有热帖，快来抢沙发！</div></div>';
+                list.innerHTML = '<div class="empty-state"><i data-lucide="flame" class="icon empty-icon"></i><div class="text">这个榜单还空着——今天的第一帖，可能就是你的</div></div>';
                 if(typeof lucide!=='undefined') lucide.createIcons();
                 return;
             }
@@ -245,13 +245,13 @@ function loadStations() {
     if (currentStationCategory) url += '&category=' + encodeURIComponent(currentStationCategory);
     api.get(url)
         .then(data => renderStations(data))
-        .catch(() => { grid.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败，刷新试试</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });
+        .catch(() => { grid.innerHTML = '<div class="empty-state"><i data-lucide="cloud-off" class="icon empty-icon"></i><div class="text">加载失败，刷新一下试试</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); });
 }
 
 function renderStations(stations) {
     const grid = document.getElementById('stationGrid');
     if (!stations || stations.length === 0) {
-        grid.innerHTML = '<div class="empty-state"><i data-lucide="building-2" class="icon empty-icon"></i><div class="text">还没有子站，来创建第一个吧！</div></div>';
+        grid.innerHTML = '<div class="empty-state"><i data-lucide="building-2" class="icon empty-icon"></i><div class="text">还没有子站。开一个，就有人来了</div></div>';
         if(typeof lucide!=='undefined') lucide.createIcons();
         return;
     }
@@ -311,7 +311,7 @@ function loadPosts(append) {
 function renderPosts(posts, append) {
     const list = document.getElementById('postList');
     if (!posts || posts.length === 0) {
-        if (!append) { list.innerHTML = '<div class="empty-state"><i data-lucide="file-text" class="icon empty-icon"></i><div class="text">还没有帖子，来发第一帖吧！</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); }
+        if (!append) { list.innerHTML = '<div class="empty-state"><i data-lucide="file-text" class="icon empty-icon"></i><div class="text">墙上还是空的，第一句话等你写</div></div>'; if(typeof lucide!=='undefined') lucide.createIcons(); }
         return;
     }
     const html = posts.map(p => renderPostCard(p)).join('');

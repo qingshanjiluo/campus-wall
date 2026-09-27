@@ -69,7 +69,7 @@ function loadTransactions() {
     api.get('/api/shop/transactions').then(txs => {
         const list = document.getElementById('txList');
         if (!list) return;
-        if (!txs || !txs.length) { list.innerHTML = '<div style="color:var(--text-muted);">暂无金币记录</div>'; return; }
+        if (!txs || !txs.length) { list.innerHTML = '<div style="color:var(--text-muted);">还没有金币记录</div>'; return; }
         const typeLabel = { checkin: '签到', task: '任务', buy: '消费', spend: '消费', admin: '管理员', refund: '退还', trade: '交易', shop: '商城' };
         list.innerHTML = txs.map(t => {
             const amt = parseInt(t.amount || 0, 10);
