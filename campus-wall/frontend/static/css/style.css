@@ -112,25 +112,43 @@ a:hover { color: var(--pink-3); }
     pointer-events: none; z-index: 1; opacity: 0.5;
 }
 
-/* ── 加载动画 ── */
+/* ── 加载动画：一页摊开的纸，正在被写下第一行 ── */
 .loading-screen {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: var(--cream); z-index: 9999;
+    background:
+        repeating-linear-gradient(to bottom, transparent 0 31px, rgba(43, 37, 32, 0.04) 31px 32px),
+        var(--cream);
+    z-index: 9999;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     transition: opacity 0.8s ease, visibility 0.8s ease;
 }
+/* 顶部胶带：与卡片/首屏同一套「纸」的语言 */
+.loading-screen::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 6px;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--pink-2) 0 14px, var(--mint) 14px 28px,
+        var(--yellow) 28px 42px, var(--lavender) 42px 56px
+    );
+    opacity: 0.5;
+    mix-blend-mode: multiply;
+}
 .loading-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 .loading-logo {
     font-family: 'ZCOOL KuaiLe', cursive;
-    font-size: 3rem; color: var(--text-dark); margin-bottom: 2rem;
+    font-size: 3rem; color: var(--text-dark); margin-bottom: 1.6rem;
     opacity: 0; transform: translateY(20px);
-    transition: all 0.8s ease;
+    transition: opacity 0.8s ease, transform 0.8s ease;
 }
 .loading-logo.show { opacity: 1; transform: translateY(0); }
 .loading-text {
     font-family: 'Ma Shan Zheng', cursive;
     font-size: 1.4rem; color: var(--text-secondary); opacity: 0;
+    transition: opacity 0.4s ease;
+    border-bottom: 1px dashed var(--border-secondary, rgba(43, 37, 32, 0.18));
+    padding-bottom: 6px;
 }
 .loading-cursor {
     display: inline-block; width: 2px; height: 1.1em;
