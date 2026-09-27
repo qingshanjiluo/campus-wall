@@ -1160,9 +1160,12 @@ main {
 }
 
 /* ── 响应式 ── */
+/* 移动端：两栏内联 grid 必须折叠为单栏，且子项 min-width:0 才能真实收缩
+   （否则右列按内容宽度撑开，导致 26-28px 横向溢出——移动端实测缺陷） */
 @media (max-width: 900px) {
     .container { padding: 0 16px; }
-    #profileLayout { grid-template-columns: 1fr !important; }
+    #profileLayout, #chatLayout { grid-template-columns: 1fr !important; }
+    #profileLayout > *, #chatLayout > * { min-width: 0; }
     .post-actions { flex-wrap: wrap; }
 }
 @media (max-width: 768px) {
