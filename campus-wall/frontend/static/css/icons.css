@@ -1,6 +1,6 @@
 /**
  * CampusWall 图标样式
- * 基于 Lucide Icons 的样式定�? */
+ * 基于 Lucide Icons 的样式定义 */
 
 /* 图标基础样式 */
 .icon {
@@ -94,7 +94,7 @@
   flex-shrink: 0;
 }
 
-/* 导航栏图�?*/
+/* 导航栏图标 */
 .nav-icon {
   width: 18px;
   height: 18px;
@@ -110,7 +110,7 @@
   color: var(--primary, #ec6b94);
 }
 
-/* 空状态图�?*/
+/* 空状态图标 */
 .empty-icon {
   width: 64px;
   height: 64px;

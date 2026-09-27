@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/css/variables.css">
     <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕸️</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='7' y='5' width='50' height='54' rx='7' fill='%23faf8f5' stroke='%23b23a63' stroke-width='4'/><path d='M57 5 L41 5 L57 21 Z' fill='%23e3d5c8'/><path d='M17 25h30M17 35h30M17 45h20' stroke='%23b23a63' stroke-width='4' stroke-linecap='round'/></svg>">
 
     <script src="/static/js/api.js"></script>
     <script src="/static/js/utils.js"></script>
@@ -46,8 +46,8 @@
                     <h4 style="margin:0 0 10px;color:var(--pink-4);"><i data-lucide="user-plus" class="icon icon-sm"></i> 新增角色</h4>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
                         <div style="flex:1;min-width:140px;">
-                            <label style="font-size:0.75rem;color:var(--text-muted);">头像（emoji）</label>
-                            <input class="input" id="nodePortrait" placeholder="🦊" maxlength="10">
+                            <label style="font-size:0.75rem;color:var(--text-muted);">头像符号（可选，单个字符）</label>
+                            <input class="input" id="nodePortrait" placeholder="如：星 / 月 / 猫" maxlength="10">
                         </div>
                         <div style="flex:2;min-width:180px;">
                             <label style="font-size:0.75rem;color:var(--text-muted);">角色名 *</label>
@@ -261,7 +261,7 @@ function drawGraph() {
         const stroke = q && hit ? 'var(--pink-3)' : isSel ? 'var(--pink-4)' : connected ? 'var(--mint)' : 'rgba(0,0,0,0.08)';
         nHtml += `<g transform="translate(${s.x},${s.y})" data-id="${nd.id}" style="cursor:pointer;opacity:${opacity}">`
             + `<circle r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${(isSel || (q && hit)) ? 3 : 2}"></circle>`
-            + `<text y="3" font-size="${isSel ? 20 : 17}" text-anchor="middle" dominant-baseline="central">${escHtml(nd.portrait || '🎭')}</text>`
+            + `<text y="3" font-size="${isSel ? 20 : 17}" text-anchor="middle" dominant-baseline="central">${escHtml(nd.portrait || (nd.name || '?').slice(0, 1))}</text>`
             + `<text y="${r + 16}" font-size="14" text-anchor="middle" font-weight="600" fill="var(--text-primary)">${escHtml(nd.name)}</text>`
             + `</g>`;
     }
@@ -299,7 +299,7 @@ function renderNodeDetail(nd) {
     d.innerHTML = `
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
             <div style="display:flex;gap:12px;align-items:center;">
-                <span style="font-size:32px;">${escHtml(nd.portrait || '🎭')}</span>
+                <span style="font-size:32px;">${escHtml(nd.portrait || (nd.name || '?').slice(0, 1))}</span>
                 <div>
                     <div style="font-weight:700;font-size:1.05rem;">${escHtml(nd.name)}</div>
                     <div style="font-size:0.8rem;color:var(--text-muted);">${escHtml(nd.tagline || '—')}</div>

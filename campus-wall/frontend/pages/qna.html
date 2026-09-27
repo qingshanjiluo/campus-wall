@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/css/variables.css">
     <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='7' y='5' width='50' height='54' rx='7' fill='%23faf8f5' stroke='%23b23a63' stroke-width='4'/><path d='M57 5 L41 5 L57 21 Z' fill='%23e3d5c8'/><path d='M17 25h30M17 35h30M17 45h20' stroke='%23b23a63' stroke-width='4' stroke-linecap='round'/></svg>">
     <script src="/static/js/api.js"></script>
     <script src="/static/js/utils.js"></script>
     <script src="/static/js/icons.js"></script>
@@ -80,7 +80,7 @@ function openQ(id) {
             <div style="display:flex;gap:8px;align-items:flex-start;${a.is_accepted ? 'flex-direction:row-reverse;' : ''}">
                 <img src="${CampusUtils.safeUrl(a.answerer_avatar, '/static/images/default-avatar.svg')}" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;" onerror="this.src='/static/images/default-avatar.svg'">
                 <div style="max-width:85%;">
-                    <div style="font-size:0.68rem;color:var(--text-muted);">${escT(a.answerer_name)} · ${formatTime(a.created_at)} ${a.is_accepted ? '✅ 已采纳' : ''}</div>
+                    <div style="font-size:0.68rem;color:var(--text-muted);">${escT(a.answerer_name)} · ${formatTime(a.created_at)} ${a.is_accepted ? '<i data-lucide="check-check" class="icon icon-sm"></i> 已采纳' : ''}</div>
                     <div style="background:var(--bg-tertiary,#f0f0f0);border-radius:12px;padding:8px 12px;font-size:0.9rem;display:inline-block;">${escT(a.content)}</div>
                 </div>
             </div>`).join('');
@@ -101,7 +101,7 @@ function openQ(id) {
                 <textarea class="input" id="answerInput" rows="3" maxlength="2000" placeholder="写下你的回答…"></textarea>
                 <div style="text-align:right;margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="submitAnswer(${q.id})"><i data-lucide="send" class="icon icon-sm"></i> 提交回答</button></div>
             </div>` : ''}
-            ${mine && q.status === 'open' && (q.answers || []).length ? `<div style="text-align:right;font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">点击回答旁的 ✅ 可采纳放款：${(q.answers || []).map(a => `<a style="cursor:pointer;margin-left:8px;" onclick="acceptAnswer(${q.id},${a.id})">采纳 #${a.id}</a>`).join('')}</div>` : ''}`;
+            ${mine && q.status === 'open' && (q.answers || []).length ? `<div style="text-align:right;font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">点击回答旁的 可采纳放款：${(q.answers || []).map(a => `<a style="cursor:pointer;margin-left:8px;" onclick="acceptAnswer(${q.id},${a.id})">采纳 #${a.id}</a>`).join('')}</div>` : ''}`;
         if (window.lucide) lucide.createIcons();
     });
 }
