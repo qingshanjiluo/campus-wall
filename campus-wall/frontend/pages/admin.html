@@ -257,6 +257,11 @@ function switchAdminTab(el, tab) {
                             <div style="font-size:0.8rem;color:var(--text-secondary);">${escHtml(i.description)}</div>
                             <div style="font-size:0.85rem;font-weight:700;margin-top:4px;">${i.price_coins?'<i data-lucide=\"coins\" class=\"icon icon-sm\"></i> '+i.price_coins:''} ${i.price_points?'<i data-lucide=\"star\" class=\"icon icon-sm\"></i> '+i.price_points:''}</div>
                             <div style="font-size:0.7rem;color:var(--text-muted);">库存: ${i.stock<0?'无限':i.stock} · ${i.is_active?'上架中':'已下架'}</div>
+                            <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap;">
+                                <button class="btn btn-sm" onclick="editShopItem(${i.id},${i.price_coins||0},${i.price_points||0},${i.stock})">编辑</button>
+                                <button class="btn btn-sm" onclick="toggleShopItem(${i.id},${i.is_active?1:0})">${i.is_active?'下架':'上架'}</button>
+                                <button class="btn btn-sm" style="color:var(--danger);" onclick="deleteShopItem(${i.id})">删除</button>
+                            </div>
                         </div>
                     `).join('')}
                 </div>
@@ -687,6 +692,35 @@ function pinPost(pid) {
 function deletePostAdmin(pid) {
     if (!confirm('确定删除？')) return;
     api.delete('/api/admin/posts/' + pid).then(() => showToast('已删除', 'success')).catch(e => showToast(e.message, 'error'));
+}
+
+// 商品管理（P1）：编辑 / 上下架 / 删除
+function editShopItem(id, priceCoins, pricePoints, stock) {
+    const c = prompt('金币价格（当前 ' + priceCoins + '）：', priceCoins);
+    if (c === null) return;
+    const pt = prompt('积分价格（当前 ' + pricePoints + '）：', pricePoints);
+    if (pt === null) return;
+    const st = prompt('库存（-1 = 无限，当前 ' + stock + '）：', stock);
+    if (st === null) return;
+    api.put('/api/admin/shop/items/' + id, {
+        price_coins: parseInt(c, 10) || 0,
+        price_points: parseInt(pt, 10) || 0,
+        stock: parseInt(st, 10)
+    }).then(() => { showToast('已保存', 'success'); adminTab('shop'); })
+      .catch(e => showToast(e.message || '保存失败', 'error'));
+}
+
+function toggleShopItem(id, isActive) {
+    api.put('/api/admin/shop/items/' + id, { is_active: isActive ? 0 : 1 })
+        .then(() => { showToast(isActive ? '已下架' : '已上架', 'success'); adminTab('shop'); })
+        .catch(e => showToast(e.message || '操作失败', 'error'));
+}
+
+function deleteShopItem(id) {
+    if (!confirm('确认删除该商品？此操作不可恢复')) return;
+    api.delete('/api/admin/shop/items/' + id)
+        .then(() => { showToast('已删除', 'success'); adminTab('shop'); })
+        .catch(e => showToast(e.message || '删除失败', 'error'));
 }
 
 function openCreateShopItem() {

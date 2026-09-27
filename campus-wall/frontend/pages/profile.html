@@ -120,10 +120,26 @@ function renderProfileCard(u) {
             <button class="btn btn-sm" onclick="openEditProfile()"><i data-lucide="pencil" class="icon icon-sm"></i> 编辑资料</button>
             <button class="btn btn-sm" onclick="exportMyData()"><i data-lucide="download" class="icon icon-sm"></i> 导出我的数据</button>
             <button class="btn btn-sm" id="aiReplyBtn" onclick="toggleAiReply()"><i data-lucide="bot" class="icon icon-sm"></i> <span id="aiReplyLabel">开启 AI 接管</span></button>
+            <button class="btn btn-sm" style="color:var(--danger);" onclick="deleteAccount()"><i data-lucide="user-x" class="icon icon-sm"></i> 注销账号</button>
         </div>` : ''}
         ${followBtn}
     `;
     if (window.lucide) lucide.createIcons();
+}
+
+// 账号注销（P1）：需密码 + 输入 DELETE 二次确认；注销后该账号旧 token 立即失效
+async function deleteAccount() {
+    if (!requireAuth()) return;
+    const pwd = prompt('注销后账号将被匿名化、且无法恢复。\n请输入登录密码以确认：');
+    if (pwd === null) return;
+    const word = prompt('再输入 DELETE 以最终确认：');
+    if (word === null) return;
+    try {
+        await api.post('/api/auth/delete-account', { password: pwd, confirm: (word || '').trim() });
+        showToast('账号已注销，感谢曾经的陪伴', 'success');
+        localStorage.removeItem('token');
+        setTimeout(function () { window.location.href = '/'; }, 1200);
+    } catch (e) { showToast(e.message || '注销失败', 'error'); }
 }
 
 // AI 接管（R12）：开启后私信由 AI 即时代回（开启消耗 50 积分）

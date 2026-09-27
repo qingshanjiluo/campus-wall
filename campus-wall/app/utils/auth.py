@@ -33,8 +33,8 @@ def token_required(f):
             return jsonify({'error': '令牌无效或已过期'}), 401
         from app.models import get_user_by_id
         user = get_user_by_id(data['user_id'])
-        if not user:
-            return jsonify({'error': '用户不存在'}), 401
+        if not user or user.get('is_deleted'):
+            return jsonify({'error': '用户不存在或账号已注销'}), 401
         g.current_user = user
         return f(*args, **kwargs)
     return decorated
@@ -50,6 +50,7 @@ def optional_auth(f):
             data = decode_token(token)
             if data:
                 from app.models import get_user_by_id
-                g.current_user = get_user_by_id(data['user_id'])
+                u = get_user_by_id(data['user_id'])
+                g.current_user = None if (not u or u.get('is_deleted')) else u
         return f(*args, **kwargs)
     return decorated

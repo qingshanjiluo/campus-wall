@@ -59,6 +59,8 @@ def login():
     user = get_user_by_username(username) or get_user_by_email(username)
     if not user or not verify_password(password, user['password_hash']):
         return jsonify({'error': '用户名或密码错误'}), 401
+    if user.get('is_deleted'):
+        return jsonify({'error': '该账号已注销'}), 401
 
     token = generate_token(user['id'])
     return jsonify({
@@ -235,6 +237,21 @@ def reset_password():
 
     change_password(user_id, new_password)
     return jsonify({'message': '密码已重置，请使用新密码登录'})
+
+
+@auth_bp.route('/delete-account', methods=['POST'])
+@limiter.limit('5/hour')
+@token_required
+def delete_account():
+    """账号注销（P1）：需密码二次确认；软删 + 匿名化，旧 token 立即失效。"""
+    from app.models_ext import soft_delete_account
+    data = request.get_json(silent=True) or {}
+    if (data.get('confirm') or '').strip() != 'DELETE':
+        return jsonify({'error': '请输入 DELETE 以确认注销'}), 400
+    res, err = soft_delete_account(g.current_user['id'], data.get('password') or '')
+    if err:
+        return jsonify({'error': err}), 400 if '密码' in err else 401
+    return jsonify({'message': '账号已注销，感谢曾经的陪伴', **res})
 
 
 @auth_bp.route('/export', methods=['GET'])

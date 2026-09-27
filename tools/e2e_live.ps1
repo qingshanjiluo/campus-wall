@@ -212,6 +212,58 @@ Step "content governance (gossip/trade/qna)" {
   try { Api GET "/api/qna/questions/$($q.id)" $null $tk; throw "expected 404" }
   catch { $qGone = ((BadCode $_) -eq 404) }
   Assert($qGone) "admin qna delete failed" }
+
+Step "account deletion + shop admin + report receipt" {
+  Assert($tk -and $atk -and $pid1) "tokens/post missing (earlier steps failed)"
+
+  # ---- account deletion: wrong pwd -> bad confirm -> ok -> token revoked -> login blocked ----
+  $du = 'e2e_del' + $Suffix
+  $dr = Api POST "/api/auth/register" @{username=$du; password="pass1234"; email=($du + '@t.dev')}
+  Assert($dr.token) "delete-test user register failed"
+  $dtk = $dr.token
+  $badPwd = $false
+  try { Api POST "/api/auth/delete-account" @{password="nope"; confirm="DELETE"} $dtk; throw "expected 400" }
+  catch { $badPwd = ((BadCode $_) -in @(400, 401)) }
+  Assert($badPwd) "wrong password not rejected"
+  $badWord = $false
+  try { Api POST "/api/auth/delete-account" @{password="pass1234"; confirm="NOPE"} $dtk; throw "expected 400" }
+  catch { $badWord = ((BadCode $_) -eq 400) }
+  Assert($badWord) "missing confirm word not rejected"
+  Api POST "/api/auth/delete-account" @{password="pass1234"; confirm="DELETE"} $dtk | Out-Null
+  $revoked = $false
+  try { Api GET "/api/auth/me" $null $dtk; throw "expected 401" }
+  catch { $revoked = ((BadCode $_) -eq 401) }
+  Assert($revoked) "old token still valid after deletion"
+  $loginBlocked = $false
+  try { Api POST "/api/auth/login" @{username=$du; password="pass1234"}; throw "expected 401" }
+  catch { $loginBlocked = ((BadCode $_) -eq 401) }
+  Assert($loginBlocked) "deleted account can still log in"
+
+  # ---- report receipt: reporter gets a notification once admin handles it ----
+  $catAd2 = [regex]::Unescape('\u5e7f\u544a')
+  $nb = @((Api GET "/api/social/notifications" $null $tk).notifications).Count
+  $rp2 = Api POST "/api/reports" @{target_type="post"; target_id=$pid1; reason=$catAd2; detail="e2e receipt"} $tk
+  Assert($rp2.id) "receipt report create failed"
+  Api PUT "/api/reports/$($rp2.id)" @{status="approved"; note="e2e handled"} $atk | Out-Null
+  $na = @((Api GET "/api/social/notifications" $null $tk).notifications).Count
+  Assert($na -gt $nb) ("reporter got no receipt notification: " + $nb + "->" + $na)
+
+  # ---- shop item admin: create / edit+delist / non-admin 403 / delete ----
+  $iname = 'e2e item ' + $Suffix
+  Api POST "/api/admin/shop/items" @{name=$iname; description="d"; icon="gift"; price_coins=10; price_points=0; item_type="badge"; stock=5} $atk | Out-Null
+  $items = Api GET "/api/shop/items"
+  $mine = @($items | Where-Object { $_.name -eq $iname })[0]
+  Assert($mine) "created shop item not listed"
+  Api PUT "/api/admin/shop/items/$($mine.id)" @{price_coins=99; is_active=0} $atk | Out-Null
+  $items2 = Api GET "/api/shop/items"
+  Assert(@($items2 | Where-Object { $_.id -eq $mine.id }).Count -eq 0) "delisted item still public"
+  $naShop = $false
+  try { Api PUT "/api/admin/shop/items/$($mine.id)" @{price_coins=1} $tk; throw "expected 403" }
+  catch { $naShop = ((BadCode $_) -eq 403) }
+  Assert($naShop) "non-admin edited a shop item"
+  Api DELETE "/api/admin/shop/items/$($mine.id)" $null $atk | Out-Null
+  $items3 = Api GET "/api/shop/items"
+  Assert(@($items3 | Where-Object { $_.id -eq $mine.id }).Count -eq 0) "deleted item still listed" }
 Step "notifications"{ $r = Api GET "/api/social/notifications" $null $tk; Assert($null -ne $r) "fail" }
 Step "forgot+reset roundtrip" {
   $fp = Api POST "/api/auth/forgot-password" @{email="$u@t.dev"}

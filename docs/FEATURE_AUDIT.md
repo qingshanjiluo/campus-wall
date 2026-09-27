@@ -482,3 +482,21 @@ gossip 表列：id, content, images, station_id, likes_count, comments_count,
   聊天室房主删房、活动编辑/删除。
 - P2：关注动态流、搜索分页与筛选、恋爱解除关系、身份组审批流、插件机制升级、治理闭环（举报阈值自动隐藏）。
 - 界面布局改造：逐页信息层级/密度/栅格重排（重点 admin 后台与世界关系图）。
+### 8.4 P1 · 生命周期补齐（第一批已完成）
+
+| 缺口 | 交付内容 | 关键接口 / 实现 | 验证证据 |
+|---|---|---|---|
+| L8 无账号注销 | 注销接口 + 匿名化 + **旧 token 立即失效** | `POST /api/auth/delete-account`（需密码 + 输入 `DELETE` 二次确认，限流 5/hour）；`users` 增 `is_deleted`/`deleted_at`；`soft_delete_account()` 匿名化用户名/邮箱、清空 bio/头像/心情/头衔，并清除该用户的私信、通知、聊天室成员记录 | 探针：错误密码 400 / 确认词错 400 / 正确 200 / 旧 token 401 / 登录 401 / 软删且匿名化 / 用户名释放可重新注册；E2E 同步覆盖 |
+| U1 举报无回执 | 处置后通知举报人 | `reports handle()` 内 `create_notification(reporter, '已受理/未通过 + 处理意见')` | 探针：处置后举报人通知数 71→72；E2E 断言通知数增加 |
+| L7 商品只能新建 | 管理端编辑 / 上下架 / 删除 | `PUT /api/admin/shop/items/<id>`（白名单：价格/库存/名称/描述/图标/类型/`is_active`/排序）、`DELETE /api/admin/shop/items/<id>` | 探针：编辑生效（`price_coins=99, is_active=0`）/ 下架后用户侧不可见 / 删除后库中消失 / 非 admin 403；E2E 同步覆盖 |
+
+**实现要点**：注销后 token 失效**无需服务端会话**——在 `token_required` / `optional_auth` 中把
+`is_deleted` 账号一律视为未登录，并在登录处直接拒绝，保持 JWT 无状态。
+
+### 8.5 待推进（P1 剩余 + P2 + 布局）
+
+- P1 剩余：私信撤回与删除会话、聊天室房主删房、活动编辑/删除。
+- P2：关注动态流、搜索分页与筛选、恋爱解除关系、身份组审批流、插件机制升级、治理闭环（举报阈值自动隐藏）。
+- 界面布局改造：逐页信息层级/密度/栅格重排（重点 admin 后台与世界关系图）。
+
+**E2E 步数**：85 → 86（新增 "account deletion + shop admin + report receipt"）。

@@ -409,6 +409,13 @@ def init_extended_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, post_id)
     )''')
+    # 用户注销（P1）：软删 + 匿名化；token 由鉴权层按 is_deleted 拒绝
+    for col, ctype, dflt in (('is_deleted', 'INTEGER', '0'), ('deleted_at', 'TEXT', "''")):
+        try:
+            c.execute('ALTER TABLE users ADD COLUMN %s %s DEFAULT %s' % (col, ctype, dflt))
+        except sqlite3.OperationalError:
+            pass
+
     # 树洞/评论补作者列（原本无 author_id，「用户自删」无法实现；匿名展示不变，仅权限判定用）
     for tbl in ('gossip', 'gossip_comments'):
         try:
@@ -2311,3 +2318,54 @@ def admin_delete_bounty_question(qid):
     execute_db('DELETE FROM bounty_answers WHERE question_id = ?', (qid,))
     execute_db('DELETE FROM bounty_questions WHERE id = ?', (qid,))
     return {'deleted': True}, None
+
+# ══════════════════════════════════════════════
+# 账号注销与商品管理（审计 P1）
+# ══════════════════════════════════════════════
+
+def soft_delete_account(user_id, password):
+    """注销账号：校验密码 → 软删 + 匿名化（释放用户名/邮箱，保留社区内容）。
+    鉴权层据 is_deleted 拒绝该账号的一切 token。"""
+    import bcrypt as _bcrypt
+    u = query_db('SELECT id, password_hash, is_deleted FROM users WHERE id = ?', (user_id,), one=True)
+    if not u:
+        return None, '账号不存在'
+    if u.get('is_deleted'):
+        return None, '账号已注销'
+    if not _bcrypt.checkpw((password or '').encode(), (u['password_hash'] or '').encode()):
+        return None, '密码不正确'
+    anon_name = '已注销用户' + str(user_id)
+    anon_mail = 'deleted' + str(user_id) + '@local.invalid'
+    execute_db(
+        'UPDATE users SET is_deleted = 1, deleted_at = CURRENT_TIMESTAMP, '
+        "username = ?, email = ?, bio = '', avatar = '', mood = '', title = '' WHERE id = ?",
+        (anon_name, anon_mail, user_id))
+    # 清理会暴露身份的痕迹
+    execute_db('DELETE FROM dm_messages WHERE sender_id = ? OR receiver_id = ?', (user_id, user_id))
+    execute_db('DELETE FROM notifications WHERE user_id = ? OR from_user_id = ?', (user_id, user_id))
+    execute_db('DELETE FROM chat_members WHERE user_id = ?', (user_id,))
+    return {'deleted': True, 'username': anon_name}, None
+
+
+def admin_update_shop_item(item_id, **fields):
+    """管理端编辑商品（白名单字段）。"""
+    allowed = {'name', 'description', 'icon', 'price_coins', 'price_points',
+               'item_type', 'item_data', 'stock', 'is_active', 'sort_order'}
+    data = {k: v for k, v in fields.items() if k in allowed}
+    if not data:
+        return False
+    if 'item_data' in data and not isinstance(data['item_data'], str):
+        data['item_data'] = json.dumps(data['item_data'], ensure_ascii=False)
+    sets = ', '.join(k + ' = ?' for k in data)
+    execute_db('UPDATE shop_items SET ' + sets + ' WHERE id = ?', list(data.values()) + [item_id])
+    return True
+
+
+def admin_delete_shop_item(item_id):
+    execute_db('DELETE FROM shop_items WHERE id = ?', (item_id,))
+    return True
+
+
+def get_report_reporter(rid):
+    row = query_db('SELECT reporter_id FROM reports WHERE id = ?', (rid,), one=True)
+    return row['reporter_id'] if row else None

@@ -41,6 +41,7 @@ from app.models_ext import (
     create_bounty_question, list_bounty_questions, get_bounty_question,
     create_bounty_answer, accept_bounty_answer, close_bounty_question,
     delete_gossip, admin_list_gossip, delete_trade_post, admin_list_trades,
+    admin_update_shop_item, admin_delete_shop_item, get_report_reporter,
     admin_list_bounty_questions, admin_close_bounty_question, admin_delete_bounty_question,
     get_level_rules, upsert_level_rule, ai_moderate, ai_bot_interact,
 )
@@ -610,6 +611,26 @@ def create_shop_item():
     )
     return jsonify({'message': '创建成功'}), 201
 
+@admin_bp.route('/shop/items/<int:item_id>', methods=['PUT'])
+@token_required
+@admin_required
+def admin_edit_shop_item(item_id):
+    data = request.get_json(silent=True) or {}
+    if not admin_update_shop_item(item_id, **data):
+        return jsonify({'error': '没有可更新的字段'}), 400
+    admin_log(g.current_user['id'], 'update_shop_item', 'shop_item', item_id)
+    return jsonify({'message': '已更新'})
+
+
+@admin_bp.route('/shop/items/<int:item_id>', methods=['DELETE'])
+@token_required
+@admin_required
+def admin_remove_shop_item(item_id):
+    admin_delete_shop_item(item_id)
+    admin_log(g.current_user['id'], 'delete_shop_item', 'shop_item', item_id)
+    return jsonify({'message': '已删除'})
+
+
 @admin_bp.route('/identity-groups', methods=['GET'])
 @token_required
 @admin_required
@@ -799,8 +820,16 @@ def handle(rid):
     note = (data.get('note') or '').strip()
     if status not in ('approved', 'rejected'):
         return jsonify({'error': '无效的处理结果'}), 400
+    reporter_id = get_report_reporter(rid)
     handle_report(rid, g.current_user['id'], status, note)
     admin_log(g.current_user['id'], 'handle_report', 'report', rid, status)
+    # 处置回执（P1）：让举报人知道结果，闭环
+    if reporter_id:
+        verdict = '已受理' if status == 'approved' else '未通过'
+        create_notification(
+            reporter_id, g.current_user['id'], 'system',
+            '你的举报' + verdict + ('：' + note if note else ''),
+            '/notifications')
     return jsonify({'message': '已处理'})
 
 
