@@ -61,28 +61,19 @@ body {
 a { color: var(--pink-4); text-decoration: none; transition: color 0.2s; }
 a:hover { color: var(--pink-3); }
 
-/* ── 手绘涂鸦背景层 ── */
+/* ── 页边手写涂鸦层（纸上校园：静态墨笔，无动画/无眩光）── */
 .doodle-layer {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none; z-index: 0; overflow: hidden;
 }
-.doodle-star {
-    position: absolute; opacity: 0;
-    animation: twinkle 3s ease-in-out infinite;
+.margin-doodle {
+    position: absolute;
+    color: var(--text-dark);
+    pointer-events: none;
 }
-@keyframes twinkle {
-    0%,100% { opacity: 0; transform: scale(0.5) rotate(0deg); }
-    50% { opacity: 0.7; transform: scale(1.2) rotate(15deg); }
-}
-.doodle-cloud {
-    position: absolute; opacity: 0.12;
-    background: var(--pink-2); border-radius: 50%;
-    filter: blur(8px);
-}
-.doodle-line {
-    position: absolute; opacity: 0.06;
-    border-top: 2px dashed var(--pink-4);
-    transform: rotate(var(--r, 0deg));
+.margin-doodle svg {
+    width: 100%; height: 100%; display: block;
+    stroke: currentColor; fill: none;
 }
 
 /* ── 背景：静态纸纤维（去「极光光斑」动画套路与性能负担）── */
@@ -530,16 +521,29 @@ select.input {
     .hero-actions { gap: 14px; }
 }
 
-/* ── 巨型装饰（旧模板）── */
-.giant-deco {
-    position: absolute; font-size: 20vw;
-    color: var(--yellow); opacity: 0.12;
-    pointer-events: none; z-index: 0;
-    animation: float-star 6s ease-in-out infinite;
+/* ── 内容页简化页头（404 / 关于 / 条款 / 隐私）：居中纸感，独立于首页编辑式 Hero ── */
+.paper-hero {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 130px 24px 70px;
+    position: relative; z-index: 2;
+    max-width: 860px; margin: 0 auto;
 }
-@keyframes float-star {
-    0%,100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-20px) rotate(8deg); }
+.paper-hero .margin-note-inline {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 1rem; color: var(--pink-4);
+    transform: rotate(-2deg);
+    margin-bottom: 10px;
+}
+.paper-hero .paper-tape-mark {
+    position: absolute; top: 108px; left: 50%;
+    width: 64px; height: 16px; margin-left: -32px;
+    background: linear-gradient(to bottom, rgba(242, 239, 234, 0.5), rgba(242, 239, 234, 0.85));
+    border-left: 1px dashed rgba(43, 37, 32, 0.15);
+    border-right: 1px dashed rgba(43, 37, 32, 0.15);
+    transform: rotate(-2deg);
+    box-shadow: 0 1px 3px rgba(43, 37, 32, 0.08);
+    pointer-events: none;
 }
 
 /* ── 子站卡片 ── */
@@ -833,9 +837,9 @@ select.input {
     position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px;
     border: 2px dashed var(--pink-3);
     border-radius: 50%;
-    animation: spin-slow 20s linear infinite; opacity: 0.5;
+    transform: rotate(-4deg);
+    opacity: 0.45;
 }
-@keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .profile-name {
     font-family: 'ZCOOL KuaiLe', cursive;

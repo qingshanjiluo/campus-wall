@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     _userReadyCbs.length = 0;
     updateNavRight();
     updateNotifBadge();
-    initMouseParallax();
 });
 
 // ── 滚动时导航栏变实 ──
@@ -416,20 +415,6 @@ setTimeout(() => {
         }).catch(() => {});
     }
 }, 3000);
-
-// ── 鼠标视差（首页 Hero）──
-function initMouseParallax() {
-    const hero = document.getElementById('hero');
-    if (!hero) return;
-    document.addEventListener('mousemove', (e) => {
-        const x = (e.clientX / window.innerWidth - 0.5) * 20;
-        const y = (e.clientY / window.innerHeight - 0.5) * 20;
-        hero.querySelectorAll('.giant-deco').forEach((el, i) => {
-            const factor = (i + 1) * 0.3;
-            el.style.transform = `translate(${x * factor}px, ${y * factor}px)`;
-        });
-    });
-}
 
 // ── 辅助 ──
 function closeUserMenu() {

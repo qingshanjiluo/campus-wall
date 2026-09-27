@@ -10,6 +10,7 @@
     <div class="bg-glow bg-glow-2"></div>
     <div class="bg-glow bg-glow-3"></div>
     <div class="paper-texture"></div>
+    <div class="doodle-layer" id="doodleLayer" aria-hidden="true"></div>
 
     <div class="loading-screen" id="loadingScreen">
         <div class="loading-logo" id="loadingLogo">

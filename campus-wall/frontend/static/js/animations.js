@@ -2,43 +2,36 @@
  * 动画层 — 涂鸦背景 + 加载动画 + 滚动淡入
  */
 
-// ── 生成手绘涂鸦背景 ──
+// ── 页边手写涂鸦（纸上校园：像有人在本子边角随手画了几笔）──
 function generateDoodles() {
     const layer = document.getElementById('doodleLayer');
     if (!layer) return;
-    const colors = ['#ffb3c6', '#FFD6A5', '#FDFFB6', '#E2D5F5', '#fb6f92', '#B5EAD7'];
-
-    for (let i = 0; i < 25; i++) {
-        const star = document.createElement('div');
-        star.className = 'doodle-star';
-        star.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:1em;height:1em;display:block;"><path d="M12 2l2.9 6.26 6.87.6-5.2 4.54 1.55 6.72L12 16.9l-6.12 3.22 1.55-6.72-5.2-4.54 6.87-.6L12 2z"/></svg>';
-        star.style.left = Math.random() * 100 + '%';
-        star.style.top = Math.random() * 100 + '%';
-        star.style.fontSize = (Math.random() * 16 + 8) + 'px';
-        star.style.color = colors[Math.floor(Math.random() * colors.length)];
-        star.style.animationDelay = Math.random() * 3 + 's';
-        layer.appendChild(star);
-    }
-
-    for (let i = 0; i < 6; i++) {
-        const cloud = document.createElement('div');
-        cloud.className = 'doodle-cloud';
-        cloud.style.left = Math.random() * 100 + '%';
-        cloud.style.top = Math.random() * 100 + '%';
-        cloud.style.width = (Math.random() * 80 + 40) + 'px';
-        cloud.style.height = (Math.random() * 40 + 20) + 'px';
-        layer.appendChild(cloud);
-    }
-
-    for (let i = 0; i < 10; i++) {
-        const line = document.createElement('div');
-        line.className = 'doodle-line';
-        line.style.left = Math.random() * 100 + '%';
-        line.style.top = Math.random() * 100 + '%';
-        line.style.width = (Math.random() * 120 + 40) + 'px';
-        line.style.setProperty('--r', (Math.random() * 360) + 'deg');
-        layer.appendChild(line);
-    }
+    // 手绘笔触：星号 / 螺旋 / 圈 / 波浪 / 三角，统一墨色低透明度
+    const strokes = [
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 4v16M5 8l14 8M19 8L5 16"/></svg>',
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M13 11a4 4 0 1 0-3 6.9c3 0 5.5-2 5.5-5S13 8 10 8 5 10 5 13"/></svg>',
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="7"/></svg>',
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 14c3-5 6 5 9 0s6 5 9 0"/></svg>',
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5l7 13H5z"/></svg>',
+    ];
+    // 只在左右页边排布（避开内容区），纵向错落、轻微旋转，静态不闪烁
+    const slots = [
+        { side: 'left', top: 14 }, { side: 'right', top: 20 },
+        { side: 'left', top: 38 }, { side: 'right', top: 46 },
+        { side: 'left', top: 62 }, { side: 'right', top: 70 },
+        { side: 'left', top: 84 }, { side: 'right', top: 88 },
+    ];
+    slots.forEach((slot, i) => {
+        const d = document.createElement('div');
+        d.className = 'margin-doodle';
+        d.innerHTML = strokes[i % strokes.length];
+        d.style[slot.side] = (Math.random() * 3 + 1.2) + 'vw';
+        d.style.top = slot.top + '%';
+        d.style.width = d.style.height = (Math.random() * 10 + 14) + 'px';
+        d.style.transform = 'rotate(' + (Math.random() * 40 - 20) + 'deg)';
+        d.style.opacity = (Math.random() * 0.07 + 0.05).toFixed(3);
+        layer.appendChild(d);
+    });
 }
 
 // ── 加载动画（打字机效果）──
