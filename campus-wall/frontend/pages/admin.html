@@ -7,8 +7,11 @@
     <link rel="stylesheet" href="/static/css/variables.css">
     <link rel="stylesheet" href="/static/css/icons.css">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@300;400;500;700&family=Nunito:wght@400;600;700;800&family=Press+Start+2P&display=swap" media="print" onload="this.media='all'">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='7' y='5' width='50' height='54' rx='7' fill='%23faf8f5' stroke='%23b23a63' stroke-width='4'/><path d='M57 5 L41 5 L57 21 Z' fill='%23e3d5c8'/><path d='M17 25h30M17 35h30M17 45h20' stroke='%23b23a63' stroke-width='4' stroke-linecap='round'/></svg>">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- chart.js 改为按需加载（首屏不阻塞，切到统计图表时再拉取） -->
     <script src="/static/js/api.js"></script>
     <script src="/static/js/utils.js"></script>
     <script src="/static/js/icons.js"></script>
@@ -60,10 +63,26 @@ onUserReady(function() {
     adminTab('dashboard');
 });
 
+// chart.js 按需加载（红线#7 性能：首屏不引入 70KB 第三方脚本，切到图表时再拉）
+let _chartJsPromise = null;
+function loadChartJs() {
+    if (window.Chart) return Promise.resolve(window.Chart);
+    if (!_chartJsPromise) {
+        _chartJsPromise = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+            s.onload = () => resolve(window.Chart);
+            s.onerror = () => reject(new Error('chart.js 加载失败'));
+            document.head.appendChild(s);
+        });
+    }
+    return _chartJsPromise;
+}
+
 function loadStatsChart(el, days) {
     document.querySelectorAll('#adminContent .tag').forEach(t => t.classList.remove('active'));
     if (el) el.classList.add('active');
-    if (typeof Chart === 'undefined') return;
+    loadChartJs().then(() => {
     api.get('/api/admin/stats/series?days=' + days).then(s => {
         const ctx = document.getElementById('adminStatsChart');
         if (!ctx) return;
@@ -90,6 +109,7 @@ function loadStatsChart(el, days) {
                 }
             }
         });
+    }).catch(() => {});
     }).catch(() => {});
 }
 
