@@ -209,7 +209,7 @@ a:hover { color: var(--pink-3); }
     .nav-links { max-height: 70vh; overflow-y: auto; }
     .navbar { padding: 10px 16px; gap: 12px; }
     .station-grid { grid-template-columns: 1fr; }
-    .hero-section h1 { font-size: 2.5rem; }
+    .hero-title { font-size: 2.5rem; }
 }
 
 /* 窄桌面（769-1024px）：导航 10 项横向必然溢出，此区间同样走汉堡折叠 */
@@ -282,12 +282,6 @@ a:hover { color: var(--pink-3); }
     padding: 6px 10px;
 }
 .btn-ghost:hover { background: var(--bg-hover); box-shadow: none; transform: none; }
-
-.btn-tag {
-    padding: 4px 12px; border-radius: 10px;
-    font-size: 0.75rem;
-    font-family: 'Press Start 2P', cursive;
-}
 
 /* ── 输入框（类纸：浅边框 + 面）── */
 .input {
@@ -881,31 +875,6 @@ select.input {
     font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;
 }
 
-/* ── 侧边导航：纸感 ── */
-.side-nav {
-    background: var(--bg-secondary, #faf8f5);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius);
-    padding: 20px 14px;
-    box-shadow: var(--shadow-soft);
-}
-.side-nav-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; margin-bottom: 6px;
-    border-radius: 14px; cursor: pointer;
-    transition: all 0.2s ease;
-    color: var(--text-secondary); font-size: 0.85rem;
-}
-.side-nav-item:hover, .side-nav-item.active {
-    background: var(--pink-1);
-    color: var(--text-dark);
-}
-.side-nav-icon {
-    width: 32px; height: 32px; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; background: var(--warm-white);
-}
-
 /* ── 评论区 ── */
 .comment-item {
     display: flex; gap: 12px;
@@ -1006,45 +975,12 @@ main {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── 滚动提示 ── */
-.scroll-hint {
-    position: absolute; bottom: 30px; left: 50%;
-    transform: translateX(-50%);
-    display: flex; flex-direction: column;
-    align-items: center; gap: 6px;
-    opacity: 0.5; animation: fade-out-hint 1s ease 5s forwards;
-    pointer-events: none;
-}
-.scroll-hint-text {
-    font-family: 'Ma Shan Zheng', cursive;
-    font-size: 0.85rem; color: var(--text-muted);
-}
-.scroll-hint-arrow {
-    width: 28px; height: 28px;
-    border: 2px solid var(--pink-3); border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.8rem; color: var(--pink-3);
-    animation: bounce-arrow 2s infinite;
-}
-@keyframes bounce-arrow {
-    0%,20%,50%,80%,100% { transform: translateY(0); }
-    40% { transform: translateY(-6px); }
-    60% { transform: translateY(-3px); }
-}
-@keyframes fade-out-hint { to { opacity: 0; } }
-
 /* ── 页脚 ── */
 .footer {
     text-align: center; padding: 40px 20px;
     color: var(--text-muted); font-size: 0.8rem;
     position: relative; z-index: 2;
 }
-.footer-heart {
-    color: var(--pink-4);
-    animation: heartbeat 1.5s ease-in-out infinite;
-    display: inline-block;
-}
-@keyframes heartbeat { 0%,100% { transform: scale(1); } 50% { transform: scale(1.2); } }
 .footer-links { margin-top: 8px; display: flex; gap: 16px; justify-content: center; }
 .footer-links a { color: var(--text-muted); font-size: 0.75rem; }
 .footer-links a:hover { color: var(--pink-4); }
@@ -1223,7 +1159,7 @@ main {
 /* ── 响应式 ── */
 @media (max-width: 900px) {
     .container { padding: 0 16px; }
-    .profile-grid, #profileLayout { grid-template-columns: 1fr !important; }
+    #profileLayout { grid-template-columns: 1fr !important; }
     .post-actions { flex-wrap: wrap; }
 }
 @media (max-width: 768px) {
@@ -1232,11 +1168,11 @@ main {
     .nav-links a { padding: 4px 10px; font-size: 0.75rem; }
     .station-grid { grid-template-columns: 1fr; }
     .section { padding: 60px 16px; }
-    .hero-section { padding: 80px 16px; }
-    .hero-section h1 { font-size: 2rem; }
+    .hero-section { padding: 96px 20px 64px; }
+    .hero-title { font-size: 2.3rem; }
+    .paper-hero { padding: 116px 20px 56px; }
     .btn { padding: 6px 16px; font-size: 0.8rem; }
     .modal { padding: 24px; margin: 16px; }
-    .post-card::before { width: 3px; }
     .post-card { padding: 18px; }
     .tag-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
     .tag-bar .tag { flex-shrink: 0; }
@@ -1245,8 +1181,8 @@ main {
 }
 @media (max-width: 480px) {
     .nav-links { display: none; }
-    .hero-btns { flex-direction: column; align-items: center; }
-    .hero-section h1 { font-size: 1.6rem; }
+    .hero-title { font-size: 1.9rem; }
+    .hero-lede { font-size: 0.98rem; }
     .chapter-title { font-size: 1.4rem; }
     .profile-assets { gap: 10px; flex-wrap: wrap; }
     .post-header { flex-wrap: wrap; }
