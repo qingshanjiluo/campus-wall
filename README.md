@@ -40,8 +40,8 @@ campus-wall/app/          Flask 后端主线（routes/24 蓝图、models*.py、s
 campus-wall/frontend/     静态前端 28 页（线上唯一前端版本）
 campus-wall/deploy/       Dockerfile · compose · nginx · systemd · 备份/发布脚本 · .env.example
 backend-worker/           Cloudflare Python Worker + D1（演示轨 & API 契约蓝本）
-tools/e2e_live.ps1        83 步全功能 E2E（-BaseUrl 可指 Flask/Worker 任一后端）
-docs/                     DEPLOYMENT-SERVER · SERVER_ARCHITECTURE · LAUNCH_CHECKLIST · frontend-audit
+tools/e2e_live.ps1        84 步全功能 E2E（-BaseUrl 可指 Flask/Worker 任一后端）
+docs/                     DEPLOYMENT-SERVER · SERVER_ARCHITECTURE · LAUNCH_CHECKLIST · DESIGN_SYSTEM · FEATURE_AUDIT · FEATURE_INVENTORY · frontend-audit
 ```
 
 ## 开发 & 验证
@@ -88,6 +88,9 @@ cd campus-wall/deploy && docker compose up -d --build
 - 🧭 正式部署：[docs/DEPLOYMENT-SERVER.md](docs/DEPLOYMENT-SERVER.md)
 - 🏗 架构定案：[docs/SERVER_ARCHITECTURE.md](docs/SERVER_ARCHITECTURE.md)
 - ✅ 上线清单：[docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md)
+- 🎨 设计系统：[docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
+- 🔍 功能完善度审计（含各模块框架图 + 缺口 + P0-P2 路线）：[docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md)
+- 🧾 功能清单：[docs/FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md)
 - 🗂 方案与决策：[PLAN.md](PLAN.md) · 结构考古：[PROJECT_MAP.md](PROJECT_MAP.md)
 - 🧪 Cloudflare 演示轨说明：[campus-wall/DEPLOYMENT.md](campus-wall/DEPLOYMENT.md)（已降级为参考）
 
