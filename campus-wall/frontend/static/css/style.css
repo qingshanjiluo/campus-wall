@@ -27,16 +27,33 @@
     --radius: var(--radius-2xl, 22px);
     --radius-sm: var(--radius-xl, 18px);
     --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* 强调填充：保证填充之上的文字对比 ≥4.5:1（WCAG AA）——墨玫瑰比糖果粉更像纸上印墨 */
+    --accent-fill: #b23a63;
+    --accent-fill-hover: #9a2f54;
+    --accent-on-fill: #ffffff;
 }
 
 /* 深色模式：玻璃拟态与粉彩适配暗色背景 */
 [data-theme="dark"] {
+    /* 暗色下改用浅色填充 + 深色文字：对比更高，且避免深底上的闷色块 */
+    --accent-fill: #f0a5bf;
+    --accent-fill-hover: #f6bdd1;
+    --accent-on-fill: #2b2520;
     --glass-bg: rgba(30, 28, 25, 0.6);
     --glass-border: rgba(255, 255, 255, 0.12);
     --shadow-soft: var(--shadow-md, 0 8px 20px rgba(0, 0, 0, 0.25));
     --shadow-hover: var(--shadow-lg, 0 16px 32px rgba(0, 0, 0, 0.3));
     --doodle-opacity: 0.05;
 }
+
+/* ── 皮肤强调填充：逐皮肤保证 AA 对比 ── */
+[data-skin="galgame"] { --accent-fill: #5747c8; --accent-fill-hover: #4636ad; --accent-on-fill: #ffffff; }
+[data-skin="galgame"][data-theme="dark"] { --accent-fill: #b7abff; --accent-fill-hover: #c9c0ff; --accent-on-fill: #241f3d; }
+[data-skin="minimal"] { --accent-fill: #2f2f2f; --accent-fill-hover: #1a1a1a; --accent-on-fill: #ffffff; }
+[data-skin="minimal"][data-theme="dark"] { --accent-fill: #ededed; --accent-fill-hover: #ffffff; --accent-on-fill: #1a1a1a; }
+[data-skin="cyberpunk"] { --accent-fill: #00707f; --accent-fill-hover: #005a66; --accent-on-fill: #ffffff; }
+[data-skin="cyberpunk"][data-theme="dark"] { --accent-fill: #7fe8f5; --accent-fill-hover: #a5f0fa; --accent-on-fill: #06232a; }
+
 /* 暗色纸纹：浅色横线（黑板笔记本质感） */
 [data-theme="dark"] .post-card,
 [data-theme="dark"] .station-card,
@@ -243,13 +260,13 @@ a:hover { color: var(--pink-3); }
     box-shadow: var(--shadow-sm);
 }
 .btn-primary {
-    background: var(--pink-4);
+    background: var(--accent-fill);
     border-color: transparent;
-    color: #fff;
+    color: var(--accent-on-fill);
     box-shadow: var(--shadow-md);
 }
 .btn-primary:hover {
-    background: var(--pink-3);
+    background: var(--accent-fill-hover);
     box-shadow: var(--shadow-lg);
 }
 .btn-sm { padding: 6px 16px; font-size: 0.8rem; }
@@ -793,8 +810,8 @@ select.input {
 }
 .tag:hover { background: var(--pink-1); color: var(--text-dark); transform: translateY(-2px); }
 .tag.active {
-    background: var(--pink-4);
-    color: #fff; border-color: transparent;
+    background: var(--accent-fill);
+    color: var(--accent-on-fill); border-color: transparent;
     box-shadow: var(--shadow-md);
 }
 
@@ -1124,8 +1141,8 @@ main {
     border: 1px solid var(--border-primary);
 }
 .hot-rank-top {
-    background: var(--pink-4);
-    color: white; border: none; box-shadow: var(--shadow-md);
+    background: var(--accent-fill);
+    color: var(--accent-on-fill); border: none; box-shadow: var(--shadow-md);
 }
 .hot-post-info { flex: 1; min-width: 0; }
 .hot-post-title {
