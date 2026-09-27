@@ -2,7 +2,8 @@
 from flask import Blueprint, request, jsonify, g
 from app.models import get_user_by_id, create_notification
 from app.models_ext import (
-    send_dm, get_dm_threads, get_dm_thread, mark_dm_read, dm_unread_total
+    send_dm, get_dm_threads, get_dm_thread, mark_dm_read, dm_unread_total,
+    recall_dm_message, delete_dm_conversation
 )
 from app.utils.auth import token_required
 from app.utils.limiter import limiter
@@ -54,6 +55,25 @@ def send():
         pass
 
     return jsonify({'message': '已发送', 'id': mid}), 201
+
+
+@dm_bp.route('/messages/<int:mid>', methods=['DELETE'])
+@limiter.limit('30/minute')
+@token_required
+def recall(mid):
+    """撤回私信：仅发送者本人（软删 + 内容置空）。"""
+    res, err = recall_dm_message(mid, g.current_user['id'])
+    if err:
+        return jsonify({'error': err}), 403 if '只能撤回' in err else 404
+    return jsonify({'message': '已撤回'})
+
+
+@dm_bp.route('/<int:peer_id>', methods=['DELETE'])
+@token_required
+def delete_conversation(peer_id):
+    """删除与某用户的私信会话（清掉我发出的记录）。"""
+    delete_dm_conversation(g.current_user['id'], peer_id)
+    return jsonify({'message': '会话已删除'})
 
 
 @dm_bp.route('/threads', methods=['GET'])

@@ -500,3 +500,14 @@ gossip 表列：id, content, images, station_id, likes_count, comments_count,
 - 界面布局改造：逐页信息层级/密度/栅格重排（重点 admin 后台与世界关系图）。
 
 **E2E 步数**：85 → 86（新增 "account deletion + shop admin + report receipt"）。
+### 8.6 P1 · 生命周期补齐（第二批：私信 / 聊天室 / 活动）
+
+| 缺口 | 交付内容 | 关键接口 / 实现 | 验证证据 |
+|---|---|---|---|
+| L3 私信无撤回/删除 | 发送者撤回（软删 + 内容置空「已撤回」）+ 删除会话 | `DELETE /api/dm/messages/<mid>`（仅发送者）、`DELETE /api/dm/<peer_id>`（清掉我发出的记录）；`dm_messages` 增 `is_deleted` | 探针：非发送者 403 / 发送者 200 / 置空落库；E2E 覆盖 |
+| L4 聊天室无法删房 | 房主/管理员删房 | `DELETE /api/chat/rooms/<rid>`（status=closed + 清成员，消息保留供治理） | 探针：非房主 403 / 房主 200 / 关闭后不在列表；E2E 覆盖 |
+| L6 活动无法编辑/删除 | 发起人/管理员编辑 + 删除 | `PUT/DELETE /api/events/<eid>`（白名单：标题/描述/地点/日期/名额/奖励；日期格式校验） | 探针：非发起人 403 / 发起人 200 / 编辑生效 / 非法日期 400 / 删除后 404；E2E 覆盖 |
+
+前端：events 卡片（发起人）编辑/删除；chat 房间卡（房主）删除；messages 删除会话函数。
+
+**E2E 步数**：86 → 87（新增 "dm recall + chat room delete + event edit"）。

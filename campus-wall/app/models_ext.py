@@ -409,6 +409,12 @@ def init_extended_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, post_id)
     )''')
+    # DM 消息可撤回（P1-b）：is_deleted 软删标记，内容置空
+    try:
+        c.execute('ALTER TABLE dm_messages ADD COLUMN is_deleted INTEGER DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+
     # 用户注销（P1）：软删 + 匿名化；token 由鉴权层按 is_deleted 拒绝
     for col, ctype, dflt in (('is_deleted', 'INTEGER', '0'), ('deleted_at', 'TEXT', "''")):
         try:
@@ -2369,3 +2375,83 @@ def admin_delete_shop_item(item_id):
 def get_report_reporter(rid):
     row = query_db('SELECT reporter_id FROM reports WHERE id = ?', (rid,), one=True)
     return row['reporter_id'] if row else None
+
+# ══════════════════════════════════════════════
+# P1-b：私信撤回/删除会话 · 聊天室删房 · 活动编辑/删除
+# ══════════════════════════════════════════════
+
+def recall_dm_message(mid, user_id):
+    """撤回私信：仅发送者本人。软删 + 内容置空（对端看到「已撤回」）。"""
+    row = query_db('SELECT id, sender_id, is_deleted FROM dm_messages WHERE id = ?', (mid,), one=True)
+    if not row:
+        return None, '消息不存在'
+    if row.get('is_deleted'):
+        return None, '消息已撤回'
+    if row['sender_id'] != user_id:
+        return None, '只能撤回自己发送的消息'
+    execute_db("UPDATE dm_messages SET is_deleted = 1, content = '【消息已撤回】' WHERE id = ?", (mid,))
+    return {'recalled': True}, None
+
+
+def delete_dm_conversation(me_id, peer_id):
+    """删除与该用户的私信会话（清空双方往来记录；保留在对方会话中）。"""
+    n = query_db('SELECT COUNT(*) AS n FROM dm_messages '
+                 'WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
+                 (me_id, peer_id, peer_id, me_id), one=True)['n']
+    # 仅删除我发出的，避免误删对方发起但未读的消息
+    execute_db('DELETE FROM dm_messages WHERE sender_id = ? AND receiver_id = ?', (me_id, peer_id))
+    return {'removed_own': True, 'peer_id': peer_id}
+
+
+def delete_chat_room(room_id, user_id=None, is_admin=False):
+    """删除聊天室：房主或管理员。软删（status=closed）+ 清成员，保留消息供治理追溯。"""
+    r = query_db('SELECT id, created_by, status FROM chat_rooms WHERE id = ?', (room_id,), one=True)
+    if not r:
+        return None, '房间不存在'
+    if not is_admin and r['created_by'] != user_id:
+        return None, '仅房主或管理员可删除房间'
+    if r['status'] != 'active':
+        return None, '房间已关闭'
+    execute_db("UPDATE chat_rooms SET status = 'closed' WHERE id = ?", (room_id,))
+    execute_db('DELETE FROM chat_members WHERE room_id = ?', (room_id,))
+    return {'deleted': True, 'by': 'admin' if is_admin else 'owner'}, None
+
+
+def update_event(eid, user_id=None, is_admin=False, **fields):
+    """编辑活动：发起人或管理员；白名单字段。"""
+    e = query_db('SELECT id, created_by, status FROM events WHERE id = ?', (eid,), one=True)
+    if not e:
+        return None, '活动不存在'
+    if not is_admin and e['created_by'] != user_id:
+        return None, '仅活动发起人或管理员可编辑'
+    allowed = {'title', 'description', 'location', 'event_date', 'capacity', 'reward_coins'}
+    data = {k: v for k, v in fields.items() if k in allowed}
+    if 'title' in data:
+        data['title'] = (data['title'] or '').strip()[:80]
+        if not data['title']:
+            return None, '标题不能为空'
+    if 'event_date' in data:
+        import re as _re
+        if not _re.match(r'^\d{4}-\d{2}-\d{2}$', data.get('event_date') or ''):
+            return None, '日期格式应为 YYYY-MM-DD'
+    if 'capacity' in data:
+        data['capacity'] = max(int(data['capacity'] or 0), 0)
+    if 'reward_coins' in data:
+        data['reward_coins'] = max(int(data['reward_coins'] or 0), 0)
+    if not data:
+        return None, '没有可更新的字段'
+    sets = ', '.join(k + ' = ?' for k in data)
+    execute_db('UPDATE events SET ' + sets + ' WHERE id = ?', list(data.values()) + [eid])
+    return {'updated': True}, None
+
+
+def delete_event(eid, user_id=None, is_admin=False):
+    """删除活动：发起人或管理员。"""
+    e = query_db('SELECT id, created_by FROM events WHERE id = ?', (eid,), one=True)
+    if not e:
+        return None, '活动不存在'
+    if not is_admin and e['created_by'] != user_id:
+        return None, '仅活动发起人或管理员可删除'
+    execute_db('DELETE FROM event_registrations WHERE event_id = ?', (eid,))
+    execute_db('DELETE FROM events WHERE id = ?', (eid,))
+    return {'deleted': True}, None

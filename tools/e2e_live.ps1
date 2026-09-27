@@ -264,6 +264,47 @@ Step "account deletion + shop admin + report receipt" {
   Api DELETE "/api/admin/shop/items/$($mine.id)" $null $atk | Out-Null
   $items3 = Api GET "/api/shop/items"
   Assert(@($items3 | Where-Object { $_.id -eq $mine.id }).Count -eq 0) "deleted item still listed" }
+
+Step "dm recall + chat room delete + event edit" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  $ob = 'e2e_b2' + $Suffix
+  $obr = Api POST "/api/auth/register" @{username=$ob; password="pass1234"; email=($ob + '@t.dev')}
+  Assert($obr.token) "second user register failed"
+  $adminId = (Api GET "/api/auth/me" $null $atk).id
+
+  # ---- dm recall: non-sender 403, sender 200 ----
+  $dm = Api POST "/api/dm" @{to=$adminId; content="e2e recall probe"} $tk
+  Assert($dm.id) "dm send failed"
+  $recOther = $false
+  try { Api DELETE "/api/dm/messages/$($dm.id)" $null $obr.token; throw "expected 403" }
+  catch { $recOther = ((BadCode $_) -eq 403) }
+  Assert($recOther) "non-sender dm recall not rejected"
+  Api DELETE "/api/dm/messages/$($dm.id)" $null $tk | Out-Null
+
+  # ---- chat room delete: non-owner 403, owner 200, gone from list ----
+  $room = Api POST "/api/chat/rooms" @{name="e2e delroom $Suffix"} $tk
+  Assert($room.id) "room create failed"
+  $delOther = $false
+  try { Api DELETE "/api/chat/rooms/$($room.id)" $null $obr.token; throw "expected 403" }
+  catch { $delOther = ((BadCode $_) -eq 403) }
+  Assert($delOther) "non-owner room delete not rejected"
+  Api DELETE "/api/chat/rooms/$($room.id)" $null $tk | Out-Null
+  $rooms = Api GET "/api/chat/rooms"
+  Assert(@($rooms | Where-Object { $_.id -eq $room.id }).Count -eq 0) "closed room still listed"
+
+  # ---- event edit + delete: non-creator 403, creator edit/delete ----
+  $ev = Api POST "/api/events" @{title="e2e event $Suffix"; event_date="2026-12-31"} $tk
+  Assert($ev.id) "event create failed"
+  $evOther = $false
+  try { Api PUT "/api/events/$($ev.id)" @{title="hack"} $obr.token; throw "expected 403" }
+  catch { $evOther = ((BadCode $_) -eq 403) }
+  Assert($evOther) "non-creator event edit not rejected"
+  Api PUT "/api/events/$($ev.id)" @{title="e2e event edited"; capacity=10} $tk | Out-Null
+  Api DELETE "/api/events/$($ev.id)" $null $tk | Out-Null
+  $goneEv = $false
+  try { Api GET "/api/events/$($ev.id)" $null $tk; throw "expected 404" }
+  catch { $goneEv = ((BadCode $_) -eq 404) }
+  Assert($goneEv) "event delete failed" }
 Step "notifications"{ $r = Api GET "/api/social/notifications" $null $tk; Assert($null -ne $r) "fail" }
 Step "forgot+reset roundtrip" {
   $fp = Api POST "/api/auth/forgot-password" @{email="$u@t.dev"}

@@ -42,6 +42,7 @@ from app.models_ext import (
     create_bounty_answer, accept_bounty_answer, close_bounty_question,
     delete_gossip, admin_list_gossip, delete_trade_post, admin_list_trades,
     admin_update_shop_item, admin_delete_shop_item, get_report_reporter,
+    delete_chat_room, update_event, delete_event,
     admin_list_bounty_questions, admin_close_bounty_question, admin_delete_bounty_question,
     get_level_rules, upsert_level_rule, ai_moderate, ai_bot_interact,
 )
@@ -1395,6 +1396,18 @@ def chat_messages_send(rid):
     return jsonify({'message': '已发送', 'msg': msg}), 201
 
 
+@chat_bp.route('/rooms/<int:rid>', methods=['DELETE'])
+@token_required
+def chat_room_delete(rid):
+    """删除聊天室：房主或管理员（软删 + 清成员，消息保留）。"""
+    is_admin = g.current_user.get('role') == 'admin'
+    res, err = delete_chat_room(rid, g.current_user['id'], is_admin)
+    if err:
+        return jsonify({'error': err}), 403 if '仅房主' in err else 404
+    admin_log(g.current_user['id'], 'delete_room', 'chat', rid) if is_admin else None
+    return jsonify({'message': '房间已关闭'})
+
+
 @chat_bp.route('/messages/<int:mid>', methods=['DELETE'])
 @token_required
 def chat_message_delete(mid):
@@ -1445,6 +1458,30 @@ def events_detail(eid):
         e['my_registered'] = bool(reg)
         e['my_checked_in'] = bool(reg and reg['checked_in'])
     return jsonify(e)
+
+
+@events_bp.route('/<int:eid>', methods=['PUT'])
+@token_required
+def event_edit(eid):
+    """编辑活动：发起人或管理员。"""
+    data = request.get_json(silent=True) or {}
+    is_admin = g.current_user.get('role') == 'admin'
+    res, err = update_event(eid, g.current_user['id'], is_admin, **data)
+    if err:
+        return jsonify({'error': err}), 400 if ('日期' in err or '标题' in err or '字段' in err) else 403
+    return jsonify({'message': '已更新'})
+
+
+@events_bp.route('/<int:eid>', methods=['DELETE'])
+@token_required
+def event_delete(eid):
+    """删除活动：发起人或管理员。"""
+    is_admin = g.current_user.get('role') == 'admin'
+    res, err = delete_event(eid, g.current_user['id'], is_admin)
+    if err:
+        return jsonify({'error': err}), 403 if '仅活动' in err else 404
+    admin_log(g.current_user['id'], 'delete_event', 'event', eid) if is_admin else None
+    return jsonify({'message': '已删除'})
 
 
 @events_bp.route('/<int:eid>/register', methods=['POST'])

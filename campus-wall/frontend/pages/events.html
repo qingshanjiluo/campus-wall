@@ -102,11 +102,32 @@ function loadEvents() {
                     </div>
                     ${btn}
                 </div>
+                ${currentUser && e.created_by === currentUser.id ? `<div style="margin-top:10px;display:flex;gap:6px;justify-content:flex-end;">
+                    <button class="btn btn-sm" onclick="editEvent(${e.id})">编辑</button>
+                    <button class="btn btn-sm" style="color:var(--danger);" onclick="deleteEvent(${e.id})">删除</button>
+                </div>` : ''}
                 ${e.description ? '<div style="font-size:0.86rem;color:var(--text-secondary);margin-top:8px;line-height:1.6;">' + escHtml(e.description) + '</div>' : ''}
             </div>`;
         }).join('');
         if (window.lucide) lucide.createIcons();
     });
+}
+
+// 编辑/删除活动（P1-b：发起人可改可删）
+function editEvent(id) {
+    const title = prompt('新的活动标题：');
+    if (title === null) return;
+    const cap = prompt('名额（0 = 不限）：');
+    if (cap === null) return;
+    api.put('/api/events/' + id, { title: (title || '').trim(), capacity: parseInt(cap, 10) || 0 })
+        .then(function () { showToast('已更新', 'success'); loadEvents(); })
+        .catch(function (e) { showToast(e.message || '更新失败', 'error'); });
+}
+function deleteEvent(id) {
+    if (!confirm('确认删除该活动？此操作不可恢复')) return;
+    api.delete('/api/events/' + id)
+        .then(function () { showToast('已删除', 'success'); loadEvents(); })
+        .catch(function (e) { showToast(e.message || '删除失败', 'error'); });
 }
 
 function createEvent() {

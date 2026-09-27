@@ -74,6 +74,7 @@ function loadRooms() {
         box.innerHTML = list.map(r => `
             <div class="post-card" style="padding:12px 14px;margin-bottom:8px;cursor:pointer;${curRoom === r.id ? 'border-color:var(--pink-4);' : ''}" onclick="openRoom(${r.id})">
                 <div style="display:flex;align-items:center;gap:8px;">
+                    ${currentUser && r.created_by === currentUser.id ? `<button class="btn btn-sm" style="margin-left:auto;font-size:.65rem;padding:1px 8px;color:var(--danger);" onclick="event.stopPropagation();deleteRoom(${r.id})">删除</button>` : ''}
                     <i data-lucide="${escHtml(r.icon || 'message-square')}" class="icon icon-sm"></i>
                     <span style="font-weight:600;font-size:0.9rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(r.name)}</span>
                     ${r.is_public ? '' : '<i data-lucide="lock" class="icon icon-sm" style="color:var(--text-muted);"></i>'}
@@ -91,6 +92,14 @@ function toggleRoomForm() {
     if (!requireAuth()) return;
     const f = document.getElementById('roomForm');
     f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+// 删除房间（P1-b：房主或管理员，软删+清成员）
+function deleteRoom(id) {
+    if (!confirm('确认关闭该房间？成员将被移出')) return;
+    api.delete('/api/chat/rooms/' + id)
+        .then(function () { showToast('房间已关闭', 'success'); if (curRoom === id) { curRoom = null; lastMsgId = 0; } loadRooms(); })
+        .catch(function (e) { showToast(e.message || '关闭失败', 'error'); });
 }
 
 function createRoom() {

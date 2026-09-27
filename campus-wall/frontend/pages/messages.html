@@ -175,3 +175,12 @@ function composeDm() {
 </script>
 </body>
 </html>
+
+// 删除当前私信会话（P1-b：清掉我发出的记录）
+function deleteConversation() {
+    if (!dmPeer) return;
+    if (!confirm('删除与 ' + (dmPeer.username || 'TA') + ' 的会话？将清除你发出的记录')) return;
+    api.delete('/api/dm/' + dmPeer.id)
+        .then(function () { showToast('会话已删除', 'success'); dmPeer = null; loadThreads(); })
+        .catch(function (e) { showToast(e.message || '删除失败', 'error'); });
+}
