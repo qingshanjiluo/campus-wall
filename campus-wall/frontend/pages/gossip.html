@@ -89,6 +89,7 @@ function loadGossip(append) {
                 <div style="display:flex;gap:16px;font-size:0.8rem;color:var(--text-muted);">
                     <span class="${g.is_liked ? 'liked' : ''}" style="cursor:pointer;" onclick="event.stopPropagation();likeGossip(${g.id},this)"><i data-lucide="heart" class="icon icon-sm ${g.is_liked ? 'icon-danger' : ''}"></i> ${g.likes_count || 0}</span>
                     <span><i data-lucide="message-circle" class="icon icon-sm"></i> ${g.comments_count || 0}</span>
+                    ${g.is_mine ? `<span style="cursor:pointer;color:var(--danger);margin-left:auto;" onclick="event.stopPropagation();deleteGossip(${g.id})"><i data-lucide="trash-2" class="icon icon-sm"></i> 删除</span>` : ''}
                 </div>
             </div>
         `).join('');
@@ -97,6 +98,19 @@ function loadGossip(append) {
         initReveal();
         if (window.lucide) lucide.createIcons();
     });
+}
+
+// 删除树洞（作者本人或管理员；is_mine 由后端下发，匿名性不受影响）
+function deleteGossip(id, fromModal) {
+    if (!confirm('删除这条树洞？删除后将不再展示')) return;
+    api.delete('/api/gossip/' + id).then(() => {
+        showToast('已删除', 'success');
+        if (fromModal) {
+            const ov = document.querySelector('.modal-overlay.show');
+            if (ov) ov.remove();
+        }
+        loadGossip();
+    }).catch(e => showToast(e.message || '删除失败', 'error'));
 }
 
 function postGossip() {
@@ -129,6 +143,7 @@ function viewGossip(id) {
                 <div style="font-size:0.95rem;line-height:1.7;margin-bottom:16px;">${escHtml(g.content)}</div>
                 <div style="display:flex;gap:12px;margin-bottom:16px;">
                     <button class="btn btn-sm ${g.is_liked ? 'liked' : ''}" onclick="likeGossip(${g.id},this)"><i data-lucide="heart" class="icon icon-sm ${g.is_liked ? 'icon-danger' : ''}"></i> ${g.likes_count}</button>
+                    ${g.is_mine ? `<button class="btn btn-sm" style="color:var(--danger);" onclick="deleteGossip(${g.id},true)"><i data-lucide="trash-2" class="icon icon-sm"></i> 删除</button>` : ''}
                 </div>
                 <h4 style="font-family:'ZCOOL KuaiLe',cursive;margin-bottom:12px;"><i data-lucide="message-circle" class="icon icon-sm"></i> 评论 (${g.comments_count})</h4>
                 ${comments || '<div style="color:var(--text-muted);">还没有人回应</div>'}

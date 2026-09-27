@@ -40,7 +40,7 @@ campus-wall/app/          Flask 后端主线（routes/24 蓝图、models*.py、s
 campus-wall/frontend/     静态前端 28 页（线上唯一前端版本）
 campus-wall/deploy/       Dockerfile · compose · nginx · systemd · 备份/发布脚本 · .env.example
 backend-worker/           Cloudflare Python Worker + D1（演示轨 & API 契约蓝本）
-tools/e2e_live.ps1        84 步全功能 E2E（-BaseUrl 可指 Flask/Worker 任一后端）
+tools/e2e_live.ps1        85 步全功能 E2E（-BaseUrl 可指 Flask/Worker 任一后端）
 docs/                     DEPLOYMENT-SERVER · SERVER_ARCHITECTURE · LAUNCH_CHECKLIST · DESIGN_SYSTEM · FEATURE_AUDIT · FEATURE_INVENTORY · frontend-audit
 ```
 

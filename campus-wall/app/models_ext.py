@@ -196,17 +196,6 @@ def init_extended_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # ── 看板娘消息 ──
-    c.execute('''CREATE TABLE IF NOT EXISTS kanban_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        message TEXT NOT NULL,
-        message_type TEXT DEFAULT 'greeting',
-        trigger_type TEXT DEFAULT 'time',
-        trigger_data TEXT DEFAULT '{}',
-        is_active INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-
     # ── 管理日志 ──
     c.execute('''CREATE TABLE IF NOT EXISTS admin_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -420,6 +409,13 @@ def init_extended_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, post_id)
     )''')
+    # 树洞/评论补作者列（原本无 author_id，「用户自删」无法实现；匿名展示不变，仅权限判定用）
+    for tbl in ('gossip', 'gossip_comments'):
+        try:
+            c.execute('ALTER TABLE %s ADD COLUMN author_id INTEGER' % tbl)
+        except sqlite3.OperationalError:
+            pass
+
     for col, coltype, default in [
         ('pay_points', 'INTEGER', '0'),
         ('boosted_until', "TEXT", "''"),
@@ -751,10 +747,11 @@ def get_romance_tasks(status='open', limit=50):
 # 爆料/树洞
 # ══════════════════════════════════════════════
 
-def create_gossip(content, station_id=None, images='[]', is_anonymous=1):
+def create_gossip(content, station_id=None, images='[]', is_anonymous=1, author_id=None):
+    """author_id 仅用于权限判定（作者可自删），API 层不返回，匿名性不受影响。"""
     return execute_db(
-        'INSERT INTO gossip (content, station_id, images, is_anonymous) VALUES (?,?,?,?)',
-        (content, station_id, images, is_anonymous)
+        'INSERT INTO gossip (content, station_id, images, is_anonymous, author_id) VALUES (?,?,?,?,?)',
+        (content, station_id, images, is_anonymous, author_id)
     )
 
 def get_gossip(station_id=None, limit=50, offset=0, sort='newest'):
@@ -793,10 +790,10 @@ def toggle_gossip_like(gid, user_id=None):
     execute_db('UPDATE gossip SET likes_count = likes_count + 1 WHERE id = ?', (gid,))
     return {'liked': True}
 
-def create_gossip_comment(gid, content, author_name='匿名'):
+def create_gossip_comment(gid, content, author_name='匿名', author_id=None):
     cid = execute_db(
-        'INSERT INTO gossip_comments (gossip_id, content, author_name) VALUES (?,?,?)',
-        (gid, content, author_name)
+        'INSERT INTO gossip_comments (gossip_id, content, author_name, author_id) VALUES (?,?,?,?)',
+        (gid, content, author_name, author_id)
     )
     execute_db('UPDATE gossip SET comments_count = comments_count + 1 WHERE id = ?', (gid,))
     return cid
@@ -2223,3 +2220,94 @@ def close_bounty_question(qid, user_id):
     if q['bounty']:
         grant_points(user_id, q['bounty'], ref_type='qna', ref_id=qid)
     return {'refunded': q['bounty']}, None
+
+# ══════════════════════════════════════════════
+# 内容治理（审计 P0）：树洞 / 交易 / 问答 的删除与后台列表
+# 权限口径统一为「作者本人或管理员」；管理员可额外列出已删/已下架内容
+# ══════════════════════════════════════════════
+
+def delete_gossip(gid, user_id=None, is_admin=False):
+    """软删树洞。作者本人或管理员；历史数据无 author_id 时仅管理员可删。"""
+    row = query_db('SELECT id, author_id, is_deleted FROM gossip WHERE id = ?', (gid,), one=True)
+    if not row:
+        return None, '内容不存在'
+    if row['is_deleted']:
+        return None, '内容已删除'
+    if not is_admin:
+        if not row['author_id'] or row['author_id'] != user_id:
+            return None, '只能删除自己发布的内容'
+    execute_db('UPDATE gossip SET is_deleted = 1 WHERE id = ?', (gid,))
+    return {'deleted': True, 'by': 'admin' if is_admin else 'author'}, None
+
+
+def admin_list_gossip(limit=50, offset=0, include_deleted=True):
+    """管理端树洞列表（默认含已删，便于复核处置）。"""
+    sql = 'SELECT * FROM gossip'
+    args = []
+    if not include_deleted:
+        sql += ' WHERE is_deleted = 0'
+    sql += ' ORDER BY id DESC LIMIT ? OFFSET ?'
+    args += [limit, offset]
+    rows = query_db(sql, args)
+    for r in rows:
+        r['is_deleted'] = int(r.get('is_deleted') or 0)
+    return rows
+
+
+def delete_trade_post(tid, user_id=None, is_admin=False):
+    """下架/删除交易帖：trade status=removed + 关联帖软删。卖家或管理员。"""
+    row = query_db('SELECT id, post_id, user_id, status FROM trade_posts WHERE id = ?', (tid,), one=True)
+    if not row:
+        return None, '商品不存在'
+    if not is_admin and row['user_id'] != user_id:
+        return None, '只能下架自己发布的商品'
+    if row['status'] == 'removed':
+        return None, '商品已下架'
+    execute_db("UPDATE trade_posts SET status = 'removed' WHERE id = ?", (tid,))
+    if row['post_id']:
+        execute_db('UPDATE posts SET is_deleted = 1 WHERE id = ?', (row['post_id'],))
+    return {'removed': True, 'by': 'admin' if is_admin else 'owner'}, None
+
+
+def admin_list_trades(limit=50, offset=0, include_removed=True):
+    """管理端交易列表（默认含已下架）。"""
+    sql = ("SELECT tp.*, p.title, p.is_deleted AS post_deleted, u.username "
+           'FROM trade_posts tp '
+           'LEFT JOIN posts p ON tp.post_id = p.id '
+           'LEFT JOIN users u ON tp.user_id = u.id')
+    if not include_removed:
+        sql += " WHERE tp.status != 'removed'"
+    sql += ' ORDER BY tp.id DESC LIMIT ? OFFSET ?'
+    return query_db(sql, [limit, offset])
+
+
+def admin_list_bounty_questions(limit=50, offset=0):
+    """管理端问答列表（含状态与回答数）。"""
+    return query_db(
+        'SELECT q.*, u.username AS asker_name, '
+        '(SELECT COUNT(*) FROM bounty_answers a WHERE a.question_id = q.id) AS answer_count '
+        'FROM bounty_questions q LEFT JOIN users u ON u.id = q.user_id '
+        'ORDER BY q.id DESC LIMIT ? OFFSET ?', [limit, offset])
+
+
+def admin_close_bounty_question(qid, reason=''):
+    """管理端强制关闭：退回提问者悬赏并标记 closed。"""
+    q = query_db('SELECT * FROM bounty_questions WHERE id = ?', (qid,), one=True)
+    if not q:
+        return None, '问题不存在'
+    if q['status'] == 'closed':
+        return None, '该问题已关闭'
+    execute_db("UPDATE bounty_questions SET status = 'closed' WHERE id = ?", (qid,))
+    if q['bounty']:
+        grant_points(q['user_id'], q['bounty'], ref_type='qna', ref_id=qid)
+    return {'closed': True, 'refunded': q['bounty'], 'reason': reason}, None
+
+
+def admin_delete_bounty_question(qid):
+    """管理端删除问答（连带回答）。"""
+    q = query_db('SELECT id FROM bounty_questions WHERE id = ?', (qid,), one=True)
+    if not q:
+        return None, '问题不存在'
+    execute_db('DELETE FROM bounty_answers WHERE question_id = ?', (qid,))
+    execute_db('DELETE FROM bounty_questions WHERE id = ?', (qid,))
+    return {'deleted': True}, None

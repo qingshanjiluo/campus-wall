@@ -41,6 +41,7 @@
             <span class="tag" data-tab="groups" onclick="adminTab('groups')"><i data-lucide="shield" class="icon icon-sm"></i> 身份组</span>
             <span class="tag" data-tab="shop" onclick="adminTab('shop')"><i data-lucide="gift" class="icon icon-sm"></i> 商城管理</span>
             <span class="tag" data-tab="reports" onclick="adminTab('reports')"><i data-lucide="flag" class="icon icon-sm"></i> 举报中心</span>
+            <span class="tag" data-tab="govern" onclick="adminTab('govern')"><i data-lucide="shield-alert" class="icon icon-sm"></i> 内容治理</span>
             <span class="tag" data-tab="announcements" onclick="adminTab('announcements')"><i data-lucide="megaphone" class="icon icon-sm"></i> 公告管理</span>
             <span class="tag" data-tab="ads" onclick="adminTab('ads')"><i data-lucide="megaphone" class="icon icon-sm"></i> 广告位</span>
             <span class="tag" data-tab="topics" onclick="adminTab('topics')"><i data-lucide="hash" class="icon icon-sm"></i> 话题</span>
@@ -285,6 +286,37 @@ function switchAdminTab(el, tab) {
             `).join('');
             if (window.lucide) lucide.createIcons();
         });
+    } else if (tab === 'govern') {
+        Promise.all([
+            api.get('/api/admin/gossip?limit=50'),
+            api.get('/api/admin/trades?limit=50'),
+            api.get('/api/admin/qna?limit=50')
+        ]).then(([gossip, trades, qna]) => {
+            const row = (title, body) => `<h4 style="margin:18px 0 8px;color:var(--pink-4);">${title}</h4>${body}`;
+            const gRows = gossip.map(g => `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-primary);font-size:.85rem;">
+                    <span style="flex:1;">${escHtml((g.content || '').slice(0, 60))}${g.is_deleted ? ' <em style="color:var(--danger);font-style:normal;">[已删]</em>' : ''}</span>
+                    <span style="font-size:.7rem;color:var(--text-muted);">#${g.id}</span>
+                    ${g.is_deleted ? '' : `<button class="btn btn-sm" style="color:var(--danger);" onclick="govDelete('gossip',${g.id})">删除</button>`}
+                </div>`).join('') || '<div style="color:var(--text-muted);font-size:.85rem;">暂无内容</div>';
+            const tRows = trades.map(t => `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-primary);font-size:.85rem;">
+                    <span style="flex:1;">${escHtml(t.title || '')} <span style="color:var(--text-muted);">¥${t.price || 0}</span></span>
+                    <span style="font-size:.7rem;color:var(--text-muted);">${t.status}</span>
+                    ${t.status === 'removed' ? '' : `<button class="btn btn-sm" style="color:var(--danger);" onclick="govDelete('trade',${t.id})">下架</button>`}
+                </div>`).join('') || '<div style="color:var(--text-muted);font-size:.85rem;">暂无商品</div>';
+            const qRows = qna.map(q => `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-primary);font-size:.85rem;">
+                    <span style="flex:1;">${escHtml((q.title || '').slice(0, 50))}</span>
+                    <span style="font-size:.7rem;color:var(--text-muted);">${q.status} · ${q.answer_count || 0} 答</span>
+                    ${q.status === 'open' ? `<button class="btn btn-sm" onclick="govCloseQna(${q.id})">强制关闭</button>` : ''}
+                    <button class="btn btn-sm" style="color:var(--danger);" onclick="govDelete('qna',${q.id})">删除</button>
+                </div>`).join('') || '<div style="color:var(--text-muted);font-size:.85rem;">暂无提问</div>';
+            content.innerHTML = row('<i data-lucide="tree-pine" class="icon icon-sm"></i> 树洞（含已删）', gRows)
+                + row('<i data-lucide="shopping-bag" class="icon icon-sm"></i> 交易（含已下架）', tRows)
+                + row('<i data-lucide="circle-help" class="icon icon-sm"></i> 悬赏问答', qRows);
+            if (window.lucide) lucide.createIcons();
+        });
     } else if (tab === 'reports') {
         const cat = window._reportCat || '';
         const catQuery = cat ? '&category=' + encodeURIComponent(cat) : '';
@@ -494,6 +526,22 @@ function saveAiMod() {
 function aiInteract() {
     api.post('/api/admin/ai/interact', {}).then(res => showToast(res.message || '已完成一轮互动', 'success'))
         .catch(err => showToast(err.message || '失败', 'error'));
+}
+
+// 内容治理：统一删除入口（树洞/交易/问答），删除后刷新当前 Tab
+function govDelete(kind, id) {
+    const label = kind === 'gossip' ? '树洞' : (kind === 'trade' ? '商品' : '提问');
+    if (!confirm('确认删除该' + label + '？')) return;
+    const url = kind === 'trade' ? '/api/admin/trades/' + id : '/api/admin/' + kind + '/' + id;
+    api.delete(url).then(() => { showToast('已删除', 'success'); adminTab('govern'); })
+        .catch(e => showToast(e.message || '删除失败', 'error'));
+}
+
+function govCloseQna(qid) {
+    if (!confirm('强制关闭该提问并退回悬赏积分？')) return;
+    api.post('/api/admin/qna/' + qid + '/close', { reason: 'admin' })
+        .then(() => { showToast('已关闭', 'success'); adminTab('govern'); })
+        .catch(e => showToast(e.message || '关闭失败', 'error'));
 }
 
 function applyAi(pid, action) {

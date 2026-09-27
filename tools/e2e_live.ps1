@@ -134,6 +134,7 @@ Step "trade status validation" {
   $r2 = Api POST "/api/auth/register" @{username=$u2; password="pass1234"; email=($u2 + '@t.dev')}
   try { Api PUT "/api/trade/$tid/status" @{status="sold"} $r2.token; throw "expected 403" }
   catch { Assert((BadCode $_) -eq 403) "cross-user trade update not forbidden" } }
+
 Step "multi-image gallery" {
   $imgs = @("/static/uploads/posts/a.png", "/static/uploads/posts/b.png", "/static/uploads/posts/c.png")
   $p = Api POST "/api/posts" @{station_id=1; title="e2e imgs"; content="gallery"; images=$imgs} $tk
@@ -154,6 +155,63 @@ Step "recommend posts" { $r = Api GET "/api/recommend/posts"; Assert($null -ne $
 Step "admin login"  { $r = Api POST "/api/auth/login" @{username="admin"; password="admin123"}; Assert($r.token) "no admin token"; $script:atk=$r.token }
 Step "admin stats today fields" { $r = Api GET "/api/admin/stats" $null $atk; Assert($r.users -ge 1) "no users count"; Assert($r.PSObject.Properties.Name -contains "today_posts") "missing today_posts" }
 Step "admin users"  { $r = Api GET "/api/admin/users?limit=5" $null $atk; Assert($r) "fail" }
+Step "content governance (gossip/trade/qna)" {
+  Assert($tk -and $atk) "tokens missing (earlier steps failed)"
+  # self-contained third user for cross-user 403 assertions
+  $og = 'e2e_gov' + $Suffix
+  $org = Api POST "/api/auth/register" @{username=$og; password="pass1234"; email=($og + '@t.dev')}
+  Assert($org.token) "governance second user register failed"
+
+  # ---- gossip: author delete / other 403 / anonymity / admin list / non-admin 403 ----
+  $g = Api POST "/api/gossip" @{content="e2e gov gossip $Suffix"} $tk
+  Assert($g.id) "gossip create failed"
+  $gOther = $false
+  try { Api DELETE "/api/gossip/$($g.id)" $null $org.token; throw "expected 403" }
+  catch { $gOther = ((BadCode $_) -eq 403) }
+  Assert($gOther) "non-author gossip delete not rejected"
+  $gl = Api GET "/api/gossip?limit=100" $null $tk
+  $gm = @($gl | Where-Object { $_.id -eq $g.id })[0]
+  Assert($gm.is_mine) "gossip is_mine missing for author"
+  Assert($null -eq $gm.author_id) "gossip author_id leaked"
+  Api DELETE "/api/gossip/$($g.id)" $null $tk | Out-Null
+  $gl2 = Api GET "/api/gossip?limit=100"
+  Assert(@($gl2 | Where-Object { $_.id -eq $g.id }).Count -eq 0) "deleted gossip still listed"
+  $agl = Api GET "/api/admin/gossip?limit=100" $null $atk
+  Assert(@($agl | Where-Object { $_.id -eq $g.id }).Count -ge 1) "admin gossip list missing row"
+  $gNonAdmin = $false
+  try { Api GET "/api/admin/gossip" $null $tk; throw "expected 403" }
+  catch { $gNonAdmin = ((BadCode $_) -eq 403) }
+  Assert($gNonAdmin) "non-admin reached admin gossip list"
+
+  # ---- trade: owner delist / other 403 / gone from public / present in admin ----
+  $tr = Api POST "/api/trade" @{title="e2e gov trade $Suffix"; content="cond"; price=5} $tk
+  Assert($tr.trade_id) "governance trade create failed"
+  $tOther = $false
+  try { Api DELETE "/api/trade/$($tr.trade_id)" $null $org.token; throw "expected 403" }
+  catch { $tOther = ((BadCode $_) -eq 403) }
+  Assert($tOther) "non-owner trade delist not rejected"
+  Api DELETE "/api/trade/$($tr.trade_id)" $null $tk | Out-Null
+  $tl = Api GET "/api/trade?limit=200"
+  Assert(@($tl | Where-Object { $_.id -eq $tr.trade_id }).Count -eq 0) "delisted trade still public"
+  $atl = Api GET "/api/admin/trades?limit=100" $null $atk
+  Assert(@($atl | Where-Object { $_.id -eq $tr.trade_id }).Count -ge 1) "admin trade list missing row"
+
+  # ---- qna: admin list / force close / delete ----
+  # bounty>0 prepays points, so top up the publisher first (same pattern as the later qna step)
+  $govId = (Api GET "/api/auth/me" $null $tk).id
+  Api PUT "/api/admin/users/$govId" @{points=500} $atk | Out-Null
+  $q = Api POST "/api/qna/questions" @{title="e2e gov qna $Suffix"; bounty=5} $tk
+  Assert($q.id) "governance qna create failed"
+  $aql = Api GET "/api/admin/qna?limit=100" $null $atk
+  Assert(@($aql | Where-Object { $_.id -eq $q.id }).Count -ge 1) "admin qna list missing row"
+  Api POST "/api/admin/qna/$($q.id)/close" @{reason="e2e"} $atk | Out-Null
+  $qd = Api GET "/api/qna/questions/$($q.id)" $null $tk
+  Assert($qd.status -eq "closed") "admin qna force close failed"
+  Api DELETE "/api/admin/qna/$($q.id)" $null $atk | Out-Null
+  $qGone = $false
+  try { Api GET "/api/qna/questions/$($q.id)" $null $tk; throw "expected 404" }
+  catch { $qGone = ((BadCode $_) -eq 404) }
+  Assert($qGone) "admin qna delete failed" }
 Step "notifications"{ $r = Api GET "/api/social/notifications" $null $tk; Assert($null -ne $r) "fail" }
 Step "forgot+reset roundtrip" {
   $fp = Api POST "/api/auth/forgot-password" @{email="$u@t.dev"}

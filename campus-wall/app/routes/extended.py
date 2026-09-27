@@ -40,6 +40,8 @@ from app.models_ext import (
     checkin_event, close_event,
     create_bounty_question, list_bounty_questions, get_bounty_question,
     create_bounty_answer, accept_bounty_answer, close_bounty_question,
+    delete_gossip, admin_list_gossip, delete_trade_post, admin_list_trades,
+    admin_list_bounty_questions, admin_close_bounty_question, admin_delete_bounty_question,
     get_level_rules, upsert_level_rule, ai_moderate, ai_bot_interact,
 )
 from app.models import get_user_by_id, query_db, execute_db, get_posts, update_post_status, get_post_by_id, create_notification
@@ -291,9 +293,13 @@ def list_gossip():
     station_id = request.args.get('station_id', type=int)
     sort = request.args.get('sort', 'newest')
     items = get_gossip(station_id, limit, offset, sort)
-    if g.current_user:
-        for item in items:
-            item['is_liked'] = is_liked(g.current_user['id'], 'gossip', item['id'])
+    uid = g.current_user['id'] if g.current_user else None
+    for item in items:
+        # 匿名性：绝不下发 author_id，只给「是否本人」布尔（用于显示删除入口）
+        item['is_mine'] = bool(uid and item.get('author_id') == uid)
+        item.pop('author_id', None)
+        if uid:
+            item['is_liked'] = is_liked(uid, 'gossip', item['id'])
     return jsonify(items)
 
 @gossip_bp.route('', methods=['POST'])
@@ -309,7 +315,8 @@ def post_gossip():
     gid = create_gossip(
         content, data.get('station_id'),
         json.dumps(data.get('images', []), ensure_ascii=False),
-        data.get('is_anonymous', 1)
+        data.get('is_anonymous', 1),
+        g.current_user['id']
     )
     return jsonify({'message': '发布成功', 'id': gid}), 201
 
@@ -319,9 +326,16 @@ def get_one_gossip(gid):
     g_item = get_gossip_by_id(gid)
     if not g_item:
         return jsonify({'error': '不存在'}), 404
-    g_item['comments'] = get_gossip_comments(gid)
-    if g.current_user:
-        g_item['is_liked'] = is_liked(g.current_user['id'], 'gossip', gid)
+    uid = g.current_user['id'] if g.current_user else None
+    g_item['is_mine'] = bool(uid and g_item.get('author_id') == uid)
+    g_item.pop('author_id', None)
+    comments = get_gossip_comments(gid)
+    for c in comments:
+        c['is_mine'] = bool(uid and c.get('author_id') == uid)
+        c.pop('author_id', None)
+    g_item['comments'] = comments
+    if uid:
+        g_item['is_liked'] = is_liked(uid, 'gossip', gid)
     return jsonify(g_item)
 
 @gossip_bp.route('/<int:gid>/like', methods=['POST'])
@@ -329,6 +343,18 @@ def get_one_gossip(gid):
 def like_gossip(gid):
     result = toggle_gossip_like(gid, g.current_user['id'])
     return jsonify(result)
+
+@gossip_bp.route('/<int:gid>', methods=['DELETE'])
+@token_required
+def delete_one_gossip(gid):
+    """删除树洞：作者本人或管理员（匿名性不受影响，仅权限判定）。"""
+    is_admin = g.current_user.get('role') == 'admin'
+    res, err = delete_gossip(gid, g.current_user['id'], is_admin)
+    if err:
+        return jsonify({'error': err}), 403 if '只能删除' in err else 404
+    admin_log(g.current_user['id'], 'delete_gossip', 'gossip', gid) if is_admin else None
+    return jsonify({'message': '已删除'})
+
 
 @gossip_bp.route('/<int:gid>/comment', methods=['POST'])
 @token_required
@@ -340,7 +366,7 @@ def comment_gossip(gid):
     author = data.get('author_name', '匿名')
     if not data.get('is_anonymous', True) and g.current_user:
         author = g.current_user['username']
-    cid = create_gossip_comment(gid, content, author)
+    cid = create_gossip_comment(gid, content, author, g.current_user['id'])
     return jsonify({'message': '评论成功', 'id': cid}), 201
 
 
@@ -389,6 +415,18 @@ def create_trade():
         data.get('category', ''), data.get('contact', '')
     )
     return jsonify({'message': '发布成功', 'post_id': post_id, 'trade_id': trade_id}), 201
+
+@trade_bp.route('/<int:tid>', methods=['DELETE'])
+@token_required
+def delete_trade(tid):
+    """下架/删除交易帖：卖家本人或管理员。"""
+    is_admin = g.current_user.get('role') == 'admin'
+    res, err = delete_trade_post(tid, g.current_user['id'], is_admin)
+    if err:
+        return jsonify({'error': err}), 403 if '只能下架' in err else 404
+    admin_log(g.current_user['id'], 'delete_trade', 'trade', tid) if is_admin else None
+    return jsonify({'message': '已下架'})
+
 
 @trade_bp.route('/<int:tid>/status', methods=['PUT'])
 @token_required
@@ -1456,6 +1494,83 @@ def admin_plugins_toggle(plugin_name):
     data = request.get_json(silent=True) or {}
     set_plugin_enabled(plugin_name, bool(data.get('enabled', True)))
     return jsonify({'message': '已更新', 'plugins': list_plugins()})
+
+
+# ── 内容治理后台（审计 P0）：树洞 / 交易 / 问答 ──
+
+@admin_bp.route('/gossip', methods=['GET'])
+@token_required
+@admin_required
+def admin_gossip_list():
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    include_deleted = request.args.get('include_deleted', '1') != '0'
+    # 管理端可见 author_id（治理需要），公开接口一律不下发
+    return jsonify(admin_list_gossip(min(limit, 100), offset, include_deleted))
+
+
+@admin_bp.route('/gossip/<int:gid>', methods=['DELETE'])
+@token_required
+@admin_required
+def admin_gossip_delete(gid):
+    res, err = delete_gossip(gid, None, True)
+    if err:
+        return jsonify({'error': err}), 404
+    admin_log(g.current_user['id'], 'delete_gossip', 'gossip', gid)
+    return jsonify({'message': '已删除'})
+
+
+@admin_bp.route('/trades', methods=['GET'])
+@token_required
+@admin_required
+def admin_trades_list():
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    include_removed = request.args.get('include_removed', '1') != '0'
+    return jsonify(admin_list_trades(min(limit, 100), offset, include_removed))
+
+
+@admin_bp.route('/trades/<int:tid>', methods=['DELETE'])
+@token_required
+@admin_required
+def admin_trade_delete(tid):
+    res, err = delete_trade_post(tid, None, True)
+    if err:
+        return jsonify({'error': err}), 404
+    admin_log(g.current_user['id'], 'delete_trade', 'trade', tid)
+    return jsonify({'message': '已下架'})
+
+
+@admin_bp.route('/qna', methods=['GET'])
+@token_required
+@admin_required
+def admin_qna_list():
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    return jsonify(admin_list_bounty_questions(min(limit, 100), offset))
+
+
+@admin_bp.route('/qna/<int:qid>/close', methods=['POST'])
+@token_required
+@admin_required
+def admin_qna_close(qid):
+    data = request.get_json(silent=True) or {}
+    res, err = admin_close_bounty_question(qid, data.get('reason', ''))
+    if err:
+        return jsonify({'error': err}), 400
+    admin_log(g.current_user['id'], 'close_question', 'qna', qid)
+    return jsonify({'message': '已强制关闭并退回悬赏', **res})
+
+
+@admin_bp.route('/qna/<int:qid>', methods=['DELETE'])
+@token_required
+@admin_required
+def admin_qna_delete(qid):
+    res, err = admin_delete_bounty_question(qid)
+    if err:
+        return jsonify({'error': err}), 404
+    admin_log(g.current_user['id'], 'delete_question', 'qna', qid)
+    return jsonify({'message': '已删除'})
 
 # ══════════════════════════════════════════════
 # 悬赏问答（R11 暗阁）：提问预扣积分，采纳放款

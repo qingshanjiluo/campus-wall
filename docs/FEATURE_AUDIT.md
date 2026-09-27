@@ -429,3 +429,56 @@ PUT      /api/reports/<int:rid>   # handle
 
 **这是一个完成度相当高、代码卫生良好的系统**（0 TODO、0 空实现、仅 4 个必要的公开写接口、举报/审核/审计链路完整）。
 **主要短板不在「有没有」，而在「治理与生命周期」**：树洞/交易/问答等公开内容缺管理端处置入口，若干模块缺删除/撤回，账号注销完全缺失，商城商品只能加不能改。建议按 §5 的 P0 → P1 → P2 推进。
+
+---
+
+## 八、实施进展（按本报告路线推进）
+
+> 本节记录「依审计路线实施」的进展，与上面各节的缺口编号一一对应。
+> 每项均经「后端 + 前端 + E2E + 探针」复核后提交。
+
+### 8.1 P0 · 内容治理（已完成）
+
+| 缺口 | 交付内容 | 关键接口 / 实现 | 验证证据 |
+|---|---|---|---|
+| L1 树洞无删除 | 用户自删 + 管理端列表/删除 | `DELETE /api/gossip/<gid>`（作者或 admin）、`GET /api/admin/gossip`、`DELETE /api/admin/gossip/<gid>` | 20 项权限探针：他人 403 / 作者 200 / 非 admin 403 / 已删不在公开列表 |
+| L2 交易无下架 | 卖家下架/删除 + 管理端列表 | `DELETE /api/trade/<tid>`（卖家或 admin，`status='removed'` + 关联帖软删）、`GET /api/admin/trades`、`DELETE /api/admin/trades/<tid>` | 探针：他人 403 / 卖家 200 / 公开列表消失 / 管理端可见 |
+| P0-3 问答无治理 | 管理端强制关闭（退回悬赏）+ 删除 | `GET /api/admin/qna`、`POST /api/admin/qna/<qid>/close`、`DELETE /api/admin/qna/<qid>` | 探针：非提问者关闭 400 / admin 关闭 200 / status=closed / 删除后 404 |
+| D1 死表 | 移除 `kanban_messages` | 删除 `CREATE TABLE` DDL（`get_kanban_message()` 走 Python 常量，从不读表） | 库表数 43 → 42；全后端零引用 |
+| D2 重复导入 | 移除重复的 `chat_bp` | `app/__init__.py` 导入列表去重 | 静态检查通过 |
+
+**新增治理能力（超出原缺口清单的必要补强）**
+- 内容治理后台 Tab（admin）：树洞/交易/问答 三合一列表 + 删除/强制关闭入口。
+- 前端入口：树洞卡片与详情（`is_mine` 时显示删除）、交易卡片（`is_mine` 时显示「下架」）。
+
+### 8.2 审计修正：一处真实的设计缺口（实施阶段才发现）
+
+原报告把「树洞用户自删」判定为「缺一个删除接口」。实施时发现**更根本的问题**：
+
+```
+gossip 表列：id, content, images, station_id, likes_count, comments_count,
+             is_anonymous, is_hot, is_deleted, created_at
+```
+
+**没有 `author_id`**，且 `create_gossip(content, station_id, images, is_anonymous)` 从不记录发布者
+—— 也就是说，在原有 schema 下「作者自删」**在数据层就无法实现**，不只是缺接口。
+`gossip_comments` 同样只有 `author_name` 文本，无作者外键。
+
+**处理方式**（既补齐能力，又不动摇匿名性）：
+1. `ALTER TABLE gossip / gossip_comments ADD COLUMN author_id INTEGER`（零迁移，历史行为 NULL）；
+2. 发帖/评论写入 `author_id`，**公开接口一律剥离该字段**，改为下发布尔 `is_mine`
+   （UI 据此显示删除入口，但谁发的依然无人可知）；
+3. 历史无作者数据（`author_id IS NULL`）仅管理员可删。
+
+**验证**：专项匿名性探针确认——未登录/他人视角均无 `author_id`、`is_mine=false`；
+本人视角 `is_mine=true` 且仍无 `author_id`（列表、详情、评论三条路径全覆盖）。
+
+> 这一条修正说明：**审计的静态提取也会漏掉「数据模型是否支持某能力」这一层**，
+> 具体实施时的对抗性验证不可省。
+
+### 8.3 待推进（本报告路线剩余项）
+
+- P1：账号注销、举报处置回执、商城商品管理端编辑/上下架/删除、私信撤回与删除会话、
+  聊天室房主删房、活动编辑/删除。
+- P2：关注动态流、搜索分页与筛选、恋爱解除关系、身份组审批流、插件机制升级、治理闭环（举报阈值自动隐藏）。
+- 界面布局改造：逐页信息层级/密度/栅格重排（重点 admin 后台与世界关系图）。

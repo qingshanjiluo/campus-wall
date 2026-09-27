@@ -125,6 +125,7 @@ function loadTrades() {
                     ${t.status !== 'available' ? `<button class="btn btn-sm btn-ghost" style="font-size:.65rem;padding:2px 8px;" onclick="updateTradeStatus(${t.id},'available',event)">重新上架</button>` : ''}
                     ${t.status !== 'reserved' ? `<button class="btn btn-sm btn-ghost" style="font-size:.65rem;padding:2px 8px;" onclick="updateTradeStatus(${t.id},'reserved',event)">标记预定</button>` : ''}
                     ${t.status !== 'sold' ? `<button class="btn btn-sm btn-ghost" style="font-size:.65rem;padding:2px 8px;" onclick="updateTradeStatus(${t.id},'sold',event)">标记已售</button>` : ''}
+                    <button class="btn btn-sm btn-ghost" style="font-size:.65rem;padding:2px 8px;color:var(--danger);" onclick="event.stopPropagation();deleteTrade(${t.id})">下架</button>
                 </span>` : '';
             return `
                 <div class="station-card reveal" style="break-inside:avoid;margin-bottom:16px;padding:16px;cursor:default;" data-trade-id="${t.id}" onclick="viewTradeById(this)">
@@ -173,6 +174,15 @@ function createTrade(e) {
         loadTrades();
     }).catch(e => showToast(e.message || '发布失败', 'error'));
     return false;
+}
+
+// 下架/删除交易帖：卖家本人或管理员（后端二次校验权限）
+function deleteTrade(id) {
+    if (!confirm('下架这条商品？下架后不再展示')) return;
+    api.delete('/api/trade/' + id).then(() => {
+        showToast('已下架', 'success');
+        loadTrades();
+    }).catch(e => showToast(e.message || '下架失败', 'error'));
 }
 
 function updateTradeStatus(tid, status, ev) {
