@@ -145,7 +145,7 @@ function switchAdminTab(el, tab) {
                 <div style="display:flex;gap:8px;margin:20px 0 12px;">
                     ${[7,14,30].map(d => '<span class="tag '+(d===7?'active':'')+'" onclick="loadStatsChart(this,'+d+')">近'+d+'天</span>').join('')}
                 </div>
-                <div class="reveal" style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius);padding:20px;">
+                <div class="reveal" style="background:repeating-linear-gradient(to bottom, transparent 0 30px, rgba(43,37,32,0.03) 30px 31px), var(--bg-secondary);border:1px solid var(--border-primary);border-radius:var(--radius);padding:20px;">
                     <canvas id="adminStatsChart" height="120"></canvas>
                 </div>
             `;

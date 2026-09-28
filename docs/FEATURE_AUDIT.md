@@ -511,3 +511,16 @@ gossip 表列：id, content, images, station_id, likes_count, comments_count,
 前端：events 卡片（发起人）编辑/删除；chat 房间卡（房主）删除；messages 删除会话函数。
 
 **E2E 步数**：86 → 87（新增 "dm recall + chat room delete + event edit"）。
+### 8.7 界面布局改造（第一批：角色关系图）
+
+- world 图谱画布：纯色卡片 → **纸感舞台**（笔记本横线底、圆角、有界 `min-height:560px`）
+- 顶部新增**统计条**：角色数 / 关系数（`updateGraphStats()`，随 drawGraph 刷新）+ 操作提示
+- 保持桌面/移动端无横向溢出、0 页面报错
+- admin 仪表盘图表容器：内联 `glass-bg/glass-border` → 纸感（去残留毛玻璃 token，
+  修复 CSS 已删定义导致「无底色/无边框」的潜在显示 bug）
+- 全站清残留 glass token：messages/profile/station/waterfall 四处页面内联
+  `var(--glass-*)` → `var(--bg-secondary)/var(--border-primary)`（全站仅剩 style.css 里
+  未使用的 token 定义本身，属兼容保留）
+
+> 布局改造按页推进（优先世界关系图、admin 后台等此前仅做过体系级统一的页面），
+> 后续每页独立成增量、独立 E2E/QA 验证。

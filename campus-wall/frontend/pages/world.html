@@ -96,7 +96,12 @@
                 </div>
 
                 <!-- 图谱画布 -->
-                <div class="reveal" id="graphWrap" style="margin-top:16px;position:relative;border:1px solid var(--border-primary);border-radius:16px;background:var(--bg-card);overflow:hidden;">
+                <div class="reveal" id="graphWrap" style="margin-top:16px;position:relative;border:1px solid var(--border-primary);border-radius:16px;background:repeating-linear-gradient(to bottom, transparent 0 30px, rgba(43,37,32,0.03) 30px 31px), var(--bg-card);overflow:hidden;min-height:560px;">
+                <div style="display:flex;gap:14px;padding:10px 16px;border-bottom:1px solid var(--border-primary);font-size:0.8rem;color:var(--text-muted);align-items:center;flex-wrap:wrap;">
+                    <span><i data-lucide="users" class="icon icon-sm"></i> 角色 <b id="graphNodeCount" style="color:var(--pink-4);">0</b></span>
+                    <span><i data-lucide="link-2" class="icon icon-sm"></i> 关系 <b id="graphRelCount" style="color:var(--pink-4);">0</b></span>
+                    <span style="margin-left:auto;">拖拽节点可重新布局</span>
+                </div>
                     <svg id="worldGraph" viewBox="0 0 960 620" preserveAspectRatio="xMidYMid meet" width="100%" height="520"
                          style="display:block;touch-action:none;user-select:none;cursor:grab;">
                         <defs>
@@ -218,7 +223,15 @@ function nodeColor(nd) {
     return nd.color || (selNode && selNode.id === nd.id ? '#FFB5BA' : '#B5EAD7');
 }
 
+function updateGraphStats() {
+    var nc = document.getElementById('graphNodeCount');
+    var rc = document.getElementById('graphRelCount');
+    if (nc) nc.textContent = (window.world && world.nodes) ? world.nodes.length : 0;
+    if (rc) rc.textContent = (window.world && world.relations) ? world.relations.length : 0;
+}
+
 function drawGraph() {
+    updateGraphStats();
     const eg = document.getElementById('graphEdges');
     const ng = document.getElementById('graphNodes');
     const selected = selNode ? selNode.id : null;
